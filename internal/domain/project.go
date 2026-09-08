@@ -32,11 +32,22 @@ type Phase struct {
 }
 
 type Activity struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	ActorID     string `json:"actorId"`
-	PhaseID     string `json:"phaseId"`
-	Order       int    `json:"order"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	ActorID string `json:"actorId"`
+	PhaseID string `json:"phaseId"`
+	Order   int    `json:"order"`
+	// Column indique, pour les activités de cet acteur dans cette phase,
+	// une sous-colonne explicitement choisie (glisser-déposer sur le
+	// diagramme) plutôt que la répartition automatique habituelle. 0 (la
+	// valeur par défaut, y compris pour les projets enregistrés avant
+	// l'introduction de ce champ) signifie "pas de choix explicite" :
+	// cette activité participe à l'empilement automatique par Order,
+	// exactement comme avant. Une valeur strictement positive fige sa
+	// position même si l'acteur n'a pas d'autre activité dans cette
+	// phase — utile pour aligner une activité isolée sur une des
+	// sous-colonnes qu'une autre acteur a fait apparaître dans la phase.
+	Column      int    `json:"column"`
 	Description string `json:"description"`
 	SourceText  string `json:"sourceText,omitempty"`
 

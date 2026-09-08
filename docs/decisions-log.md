@@ -825,3 +825,69 @@ autre phase déjà occupée par une activité du même acteur — `phaseId`
 mis à jour et la phase cible s'élargit automatiquement en deuxième
 sous-colonne (ADR-018). Changements confirmés persistés côté serveur
 après clic sur Sauvegarder (relecture directe via l'API).
+
+---
+
+## ADR-020 — Position de colonne explicite pour une activité isolée
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : suite à ADR-019, l'utilisateur signale un cas non couvert
+— une activité seule d'un acteur dans une phase que d'autres acteurs ont
+élargie en plusieurs sous-colonnes (ADR-018) restait toujours coincée
+dans la première sous-colonne, sans moyen de l'aligner sur une autre. En
+cause : la sous-colonne d'une activité était jusqu'ici *dérivée* de son
+rang parmi les activités du même acteur dans cette phase (via `order`,
+triée puis comptée) — pour un acteur qui n'a qu'une seule activité dans
+cette phase, ce rang vaut toujours 0, quelle que soit la position de
+dépose visée : aucune valeur de `order`, seule, ne peut représenter
+« sous-colonne 2 alors que je suis la seule activité de mon acteur ici ».
+
+**Décision** :
+- `Activity` gagne un champ `Column int` (`column` en JSON). `0` (valeur
+  par défaut, y compris pour tous les projets enregistrés avant ce
+  changement — le zéro-valeur JSON/Go tombe naturellement dessus) signifie
+  « pas de choix explicite » : l'activité participe à l'empilement
+  automatique par `order`, exactement comme avant. Une valeur `> 0` fige
+  sa sous-colonne, même sans activité voisine du même acteur dans cette
+  phase pour justifier ce rang.
+- `computeLayout` (nouvelle fonction `resolveColumns`) résout, par
+  cellule (acteur, phase) : les activités à colonne explicite gardent
+  leur valeur telle quelle ; les autres (colonne à 0) se répartissent
+  automatiquement sur les sous-colonnes encore libres de leur acteur
+  dans cette phase, dans leur ordre relatif (`order`) — en sautant celles
+  déjà prises par une activité explicite du même acteur. La largeur de
+  chaque phase se déduit de la plus grande sous-colonne réellement
+  utilisée (explicite ou automatique), toutes activités confondues.
+- Glisser-déposer (`ProcessDiagram.handleNodeDragStop`) distingue deux
+  cas selon la position de dépose relative à la pile actuelle de
+  l'acteur cible dans la phase cible : dépose au sein ou juste après
+  cette pile → réordonnancement par `order` comme avant (ADR-019), et
+  `column` remis à 0 (au cas où l'activité avait une position explicite
+  d'un déplacement précédent — sinon elle resterait figée là après un
+  glisser qui visait, lui, un réordonnancement normal) ; dépose au-delà
+  → nouvelle branche, fixe `column` à la sous-colonne visée sans toucher
+  à `order` ni aux voisins.
+
+**Justification** : une valeur dérivée (rang parmi les activités du même
+acteur) ne peut structurellement pas représenter une position
+indépendante du nombre de voisins — il fallait un champ dédié plutôt
+qu'une astuce sur `order`. Sentinelle à 0 (plutôt que -1 ou un pointeur
+nullable) délibérément choisie pour coïncider avec le zéro-valeur
+JSON/Go : les projets existants, qui n'ont jamais eu ce champ, se
+comportent après migration exactement comme avant (aucune migration de
+données nécessaire). Contrepartie acceptée : une position explicite à 0
+est indiscernable d'une position automatique — sans conséquence
+observable, puisque l'algorithme d'auto-assignation place de toute façon
+la première activité disponible en position 0.
+
+**Conséquences** : vérifié bout en bout avec Playwright — un acteur
+(Cuisinier) avec une seule activité dans une phase élargie à 3
+sous-colonnes par un autre acteur (Serveur, 3 activités) : avant le
+correctif, l'activité du Cuisinier restait bloquée en sous-colonne 0 ;
+glissée sur la 3ᵉ sous-colonne (alignée sous la 3ᵉ activité du Serveur),
+elle s'y positionne et le reste après rechargement (`column: 2` confirmé
+via relecture API après Sauvegarder). Non-régression vérifiée sur les
+deux scénarios d'ADR-019 (réassignation d'acteur/phase, réordonnancement
+au sein d'une même pile) : comportement inchangé.

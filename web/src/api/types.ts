@@ -25,6 +25,11 @@ export interface Activity {
   actorId: string
   phaseId: string
   order: number
+  // Sous-colonne explicitement choisie (glisser-déposer sur le
+  // diagramme) au sein de la cellule (actorId, phaseId) ; 0 = pas de
+  // choix explicite, empilement automatique par `order` comme avant.
+  // Voir layout.ts (computeLayout) pour l'algorithme de placement.
+  column: number
   description: string
   sourceText?: string
   userStories: UserStory[]

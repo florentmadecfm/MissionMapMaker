@@ -90,22 +90,44 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     const siblings = project.activities
       .filter((a) => a.id !== activity.id && a.actorId === target.actorId && a.phaseId === target.phaseId)
       .sort((a, b) => a.order - b.order)
-    const insertIndex = Math.min(Math.max(target.subColumnIndex, 0), siblings.length)
-    const sequence = [
-      ...siblings.slice(0, insertIndex).map((a) => a.id),
-      activity.id,
-      ...siblings.slice(insertIndex).map((a) => a.id),
-    ]
-    const orderById = new Map(sequence.map((id, i) => [id, i]))
+    const rawIndex = Math.max(target.subColumnIndex, 0)
 
+    if (rawIndex <= siblings.length) {
+      // Dépose au sein (ou juste après) de la pile actuelle des activités
+      // de cet acteur dans cette phase : réordonne par `order`, comme
+      // avant l'ajout des colonnes explicites. `column` est remis à 0 pour
+      // repasser en empilement automatique, au cas où cette carte avait
+      // une position explicite d'un déplacement précédent.
+      const sequence = [
+        ...siblings.slice(0, rawIndex).map((a) => a.id),
+        activity.id,
+        ...siblings.slice(rawIndex).map((a) => a.id),
+      ]
+      const orderById = new Map(sequence.map((id, i) => [id, i]))
+
+      onChange({
+        ...project,
+        activities: project.activities.map((a) => {
+          if (a.id === activity.id) {
+            return { ...a, actorId: target.actorId, phaseId: target.phaseId, column: 0, order: orderById.get(a.id) ?? a.order }
+          }
+          return orderById.has(a.id) ? { ...a, order: orderById.get(a.id) ?? a.order } : a
+        }),
+      })
+      return
+    }
+
+    // Dépose au-delà de ce que l'empilement automatique de cet acteur
+    // occuperait dans cette phase : l'intention est de s'aligner sur une
+    // sous-colonne précise qu'un AUTRE acteur a fait apparaître dans cette
+    // phase (voir ADR-020). On fixe une position explicite plutôt que
+    // d'insérer dans la pile de cet acteur, qui n'irait de toute façon pas
+    // jusque-là.
     onChange({
       ...project,
-      activities: project.activities.map((a) => {
-        if (a.id === activity.id) {
-          return { ...a, actorId: target.actorId, phaseId: target.phaseId, order: orderById.get(a.id) ?? a.order }
-        }
-        return orderById.has(a.id) ? { ...a, order: orderById.get(a.id) ?? a.order } : a
-      }),
+      activities: project.activities.map((a) =>
+        a.id === activity.id ? { ...a, actorId: target.actorId, phaseId: target.phaseId, column: rawIndex } : a,
+      ),
     })
   }
 

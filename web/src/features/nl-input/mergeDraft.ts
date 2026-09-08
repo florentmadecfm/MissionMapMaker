@@ -47,6 +47,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
       actorId,
       phaseId,
       order: activities.length + 1,
+      column: 0,
       description: da.description ?? '',
       sourceText: da.name,
       userStories: [],

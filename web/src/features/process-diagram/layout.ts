@@ -62,6 +62,49 @@ export interface LayoutEdge {
   gradient: { x1: number; y1: number; x2: number; y2: number }
 }
 
+// Résout, pour chaque activité, sa sous-colonne finale au sein de sa
+// cellule (acteur, phase). Les activités dont `column` a été fixé
+// explicitement (> 0, via glisser-déposer — voir ProcessDiagram.tsx)
+// gardent cette valeur telle quelle, même seules dans leur cellule :
+// c'est ce qui permet à une activité isolée de s'aligner sur une
+// sous-colonne qu'un autre acteur a fait apparaître dans la phase. Les
+// autres (`column` à 0, la valeur par défaut y compris pour les projets
+// enregistrés avant l'introduction de ce champ) sont réparties
+// automatiquement, dans leur ordre relatif (`order`), sur les
+// sous-colonnes encore libres de leur acteur dans cette phase — en
+// sautant celles déjà prises par une activité du même acteur positionnée
+// explicitement.
+function resolveColumns(activities: Project['activities']): Map<string, number> {
+  const byCell = new Map<string, Project['activities']>()
+  for (const activity of activities) {
+    const key = `${activity.actorId}:${activity.phaseId}`
+    const list = byCell.get(key) ?? []
+    list.push(activity)
+    byCell.set(key, list)
+  }
+
+  const result = new Map<string, number>()
+  for (const cellActivities of byCell.values()) {
+    const sorted = [...cellActivities].sort((a, b) => a.order - b.order)
+    const usedColumns = new Set<number>()
+    for (const a of sorted) {
+      if (a.column > 0) {
+        result.set(a.id, a.column)
+        usedColumns.add(a.column)
+      }
+    }
+    let nextFree = 0
+    for (const a of sorted) {
+      if (a.column > 0) continue
+      while (usedColumns.has(nextFree)) nextFree++
+      result.set(a.id, nextFree)
+      usedColumns.add(nextFree)
+      nextFree++
+    }
+  }
+  return result
+}
+
 // Calcule une disposition en swimlanes : les phases forment les colonnes
 // (triées par `order`), les acteurs forment les lignes, et chaque activité
 // est placée dans la cellule (acteur, phase) correspondante.
@@ -69,10 +112,11 @@ export interface LayoutEdge {
 // Quand un acteur a plusieurs activités concurrentes dans la même phase,
 // celles-ci sont réparties sur des sous-colonnes côte à côte plutôt
 // qu'empilées verticalement dans une case étroite : la phase s'élargit
-// d'autant (jusqu'au plus grand empilement de n'importe quel acteur dans
-// cette phase), et toutes les lignes d'acteur restent à hauteur fixe — ce
-// qui garde le diagramme lisible même quand une phase concentre beaucoup
-// d'activités réparties entre plusieurs acteurs.
+// d'autant (jusqu'à la plus grande sous-colonne utilisée par n'importe
+// quel acteur dans cette phase — voir resolveColumns), et toutes les
+// lignes d'acteur restent à hauteur fixe — ce qui garde le diagramme
+// lisible même quand une phase concentre beaucoup d'activités réparties
+// entre plusieurs acteurs.
 export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
   const phases = [...project.phases].sort((a, b) => a.order - b.order)
   const actors = project.actors
@@ -81,19 +125,15 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
   const actorIndex = new Map(actors.map((a, i) => [a.id, i]))
   const actorById = new Map(actors.map((a) => [a.id, a]))
 
-  // 1ère passe : compte les activités par (acteur, phase) pour déterminer,
-  // pour chaque phase, le nombre de sous-colonnes nécessaires (le plus
-  // grand nombre d'activités qu'un même acteur a dans cette phase).
-  const stackCounts = new Map<string, number>() // "actorId:phaseId" -> nombre d'activités
-  for (const activity of project.activities) {
-    const key = `${activity.actorId}:${activity.phaseId}`
-    stackCounts.set(key, (stackCounts.get(key) ?? 0) + 1)
-  }
+  const activityColumn = resolveColumns(project.activities)
 
+  // Largeur de chaque phase : un multiple de SUBCOLUMN_WIDTH couvrant la
+  // plus grande sous-colonne effectivement utilisée dans cette phase,
+  // toutes activités confondues (explicites ou auto-assignées).
   const subColumnsByPhase = new Map<string, number>()
-  for (const [key, count] of stackCounts) {
-    const phaseId = key.split(':')[1]
-    subColumnsByPhase.set(phaseId, Math.max(subColumnsByPhase.get(phaseId) ?? 1, count))
+  for (const activity of project.activities) {
+    const col = activityColumn.get(activity.id) ?? 0
+    subColumnsByPhase.set(activity.phaseId, Math.max(subColumnsByPhase.get(activity.phaseId) ?? 1, col + 1))
   }
 
   const phaseWidths = phases.map((p) => (subColumnsByPhase.get(p.id) ?? 1) * SUBCOLUMN_WIDTH)
@@ -128,26 +168,17 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     })
   })
 
-  const stacking = new Map<string, number>() // clé "actorId:phaseId" -> nombre déjà placé (= index de sous-colonne)
   const activitiesByOrder = [...project.activities].sort((a, b) => a.order - b.order)
   // Centre approximatif de chaque carte d'activité (voir gradient dans
   // LayoutEdge), rempli au fur et à mesure du placement ci-dessous.
   const activityCenters = new Map<string, { x: number; y: number }>()
-  // Sous-colonne où chaque activité a été placée au sein de sa phase :
-  // sert, pour une interaction, à distinguer deux cartes alignées
-  // verticalement (même phase, même sous-colonne) de deux cartes que la
-  // répartition en sous-colonnes a déplacées côte à côte — voir plus bas.
-  const activitySubColumn = new Map<string, number>()
 
   for (const activity of activitiesByOrder) {
     const pi = phaseIndex.get(activity.phaseId)
     const ai = actorIndex.get(activity.actorId)
     if (pi === undefined || ai === undefined) continue // acteur/phase supprimé entre-temps
 
-    const key = `${activity.actorId}:${activity.phaseId}`
-    const stackPos = stacking.get(key) ?? 0
-    stacking.set(key, stackPos + 1)
-    activitySubColumn.set(activity.id, stackPos)
+    const stackPos = activityColumn.get(activity.id) ?? 0
 
     const actor = actors[ai]
     const position = {
@@ -200,7 +231,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       // différentes.
       const sameColumn =
         fromActivity?.phaseId === toActivity?.phaseId &&
-        activitySubColumn.get(i.fromActivityId) === activitySubColumn.get(i.toActivityId)
+        activityColumn.get(i.fromActivityId) === activityColumn.get(i.toActivityId)
       const fromRow = actorIndex.get(fromActivity?.actorId ?? '') ?? 0
       const toRow = actorIndex.get(toActivity?.actorId ?? '') ?? 0
 
