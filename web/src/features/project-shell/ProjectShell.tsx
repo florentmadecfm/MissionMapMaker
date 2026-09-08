@@ -3,9 +3,10 @@ import { api } from '../../api/client'
 import type { Project, ProjectSummary } from '../../api/types'
 import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
+import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
 import { ProjectEditor } from './ProjectEditor'
 
-type Tab = 'generer' | 'edition' | 'diagramme'
+type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications'
 
 export function ProjectShell() {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([])
@@ -101,6 +102,13 @@ export function ProjectShell() {
               <button type="button" className={tab === 'diagramme' ? 'active' : ''} onClick={() => setTab('diagramme')}>
                 Diagramme de processus
               </button>
+              <button
+                type="button"
+                className={tab === 'specifications' ? 'active' : ''}
+                onClick={() => setTab('specifications')}
+              >
+                Spécifications
+              </button>
             </nav>
             {tab === 'generer' && (
               <NlInput project={project} onChange={setProject} onGenerated={() => setTab('edition')} />
@@ -109,6 +117,9 @@ export function ProjectShell() {
               <ProjectEditor project={project} onChange={setProject} onSaved={() => refreshList()} />
             )}
             {tab === 'diagramme' && <ProcessDiagram project={project} />}
+            {tab === 'specifications' && (
+              <SpecificationsPanel project={project} onChange={setProject} onSaved={() => refreshList()} />
+            )}
           </>
         ) : (
           <p className="placeholder">Créez ou ouvrez un projet pour commencer.</p>
