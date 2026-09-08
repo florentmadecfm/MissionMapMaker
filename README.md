@@ -43,3 +43,12 @@ Anthropic) sur la configuration enregistrée depuis l'interface.
 Le champ **URL de base** (optionnel, dans le même écran) permet de
 pointer vers un proxy, un déploiement régional/entreprise ou un service
 compatible auto-hébergé, plutôt que l'API publique du fournisseur.
+
+### Charger un PDF comme point de départ
+
+Dans l'onglet **Générer (langage naturel)**, le bouton **Charger un PDF**
+extrait le texte d'un PDF et le place dans la zone de description, à
+relire/compléter avant de générer. L'extraction se fait entièrement dans
+le navigateur (aucun envoi du fichier au serveur) et ne fonctionne que
+pour des PDF texte (créés numériquement) : un PDF scanné (image) n'a pas
+de texte à extraire — l'OCR n'est pas pris en charge pour l'instant.

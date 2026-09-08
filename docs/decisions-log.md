@@ -1258,3 +1258,64 @@ correctif, la seconde aurait été perdue), et le diagramme affiche
 correctement la flèche partant du "Payer" du client vers celui du
 serveur, avec le dégradé de couleur attendu (ADR-017) — confirmant que
 l'interaction s'est reliée à la bonne paire.
+
+---
+
+## ADR-028 — Chargement d'un PDF comme point de départ (sans OCR)
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : question utilisateur — est-il possible de charger un PDF
+en entrée de la génération de processus ? Clarifié avant implémentation :
+la structure V&V/Polarion attendue est générique (déjà en place, hors
+sujet ici) et, pour ce chantier PDF, la décision retenue est de traiter
+uniquement les PDF texte pour l'instant — pas d'OCR (trop lourd et peu
+fiable pour un premier passage).
+
+**Décision** :
+- Ajout de `pdfjs-dist` côté frontend uniquement. Nouveau module
+  `pdfText.ts` (`extractPdfText(file): Promise<string>`) qui extrait le
+  texte de chaque page d'un PDF et les concatène.
+- Extraction **côté client**, jamais envoyée au serveur : pas de nouvel
+  endpoint, pas de nouvelle dépendance Go, le fichier ne quitte pas le
+  navigateur.
+- Dans `NlInput`, un bouton "Charger un PDF" (déclenchant un `<input
+  type="file" hidden>`) extrait le texte et **préremplit le textarea**
+  existant — l'utilisateur relit/édite avant de cliquer "Générer",
+  exactement le même flux que la saisie manuelle ou "Charger l'exemple
+  restaurant" (cohérent avec ADR-002 : toujours relire avant de
+  committer). Le texte extrait est tronqué à `MAX_TEXT_LENGTH` (20000,
+  aligné sur la limite serveur déjà en place) si besoin, avec un message
+  explicite.
+- Si aucun texte n'est extrait (PDF scanné/image), message clair
+  indiquant que l'OCR n'est pas pris en charge — pas de génération
+  lancée sur un texte vide.
+- `pdfjs-dist` et son worker sont importés **dynamiquement**
+  (`import()`) dans `extractPdfText`, pas en haut de fichier : un
+  premier essai avec import statique faisait passer le bundle principal
+  de ~412 Ko à ~845 Ko gzippé pour tout le monde, alors que seuls les
+  utilisateurs cliquant "Charger un PDF" ont besoin de cette
+  bibliothèque. Avec l'import dynamique, le bundle principal reste
+  inchangé et `pdfjs-dist` (+ son worker, ~1,3 Mo) ne se charge qu'à la
+  demande.
+- Corrigé au passage : `NlInput.tsx` avait le même bug de détection
+  "clé API non configurée" que celui déjà corrigé dans
+  `SpecificationsPanel.tsx` (ADR-021) — teste toujours la sous-chaîne
+  obsolète `ANTHROPIC_API_KEY`.
+
+**Justification** : extraction côté client plutôt que serveur, pour
+rester dans l'esprit "aucune donnée projet ne quitte la machine sans
+raison" déjà en place pour les clés API, et pour éviter d'ajouter une
+dépendance Go de traitement PDF (le projet n'a que la stdlib +
+`net/http` côté serveur jusqu'ici). Préremplissage du textarea plutôt
+qu'un envoi direct à la génération, pour ne pas casser l'étape de
+relecture qui est un principe déjà établi du projet.
+
+**Conséquences** : vérifié bout en bout avec un vrai PDF généré pour le
+test (bibliothèque municipale, 2 acteurs, 3 phases) — le texte extrait
+apparaît correctement dans le textarea, prêt à être édité puis généré.
+Vérifié aussi le cas PDF sans texte (page dessinée, aucun contenu
+textuel) : message d'erreur explicite affiché, aucune génération
+tentée. Bundle applicatif principal confirmé inchangé après le passage à
+l'import dynamique (regression testée via une mesure avant/après).
