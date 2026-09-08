@@ -2,10 +2,28 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"missionmapmaker/internal/llm"
+)
+
+// generateTimeout borne la durée totale d'un appel de génération (y compris
+// les tentatives de retry du client LLM sous-jacent), indépendamment du
+// fournisseur actif. Sans cette limite, une boucle de retry (ex. Mistral :
+// jusqu'à 4 tentatives) combinée à un timeout HTTP client de 60s par
+// tentative pourrait bloquer la requête plusieurs minutes.
+const generateTimeout = 90 * time.Second
+
+// Limites de taille des entrées envoyées au LLM : défense en profondeur pour
+// éviter d'envoyer par erreur (ou par abus) une requête disproportionnée à
+// un fournisseur externe, ce qui coûte du temps, des tokens et augmente le
+// risque de nouvelles limites de débit (cf. incident 429 Mistral).
+const (
+	maxTextLength   = 20000
+	maxActivityRefs = 300
 )
 
 // GenerateService encapsule le générateur LLM utilisé pour la génération
@@ -89,10 +107,15 @@ func (s *GenerateService) Generate(ctx context.Context, text string) (*llm.Draft
 	if strings.TrimSpace(text) == "" {
 		return nil, errEmptyText
 	}
+	if len(text) > maxTextLength {
+		return nil, errTextTooLong
+	}
 	generator := s.currentGenerator()
 	if generator == nil {
 		return nil, llm.ErrNotConfigured
 	}
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
 	return generator.GenerateProcess(ctx, text)
 }
 
@@ -100,15 +123,22 @@ func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities
 	if len(activities) == 0 {
 		return nil, errNoActivities
 	}
+	if len(activities) > maxActivityRefs {
+		return nil, errTooManyActivities
+	}
 	generator := s.currentGenerator()
 	if generator == nil {
 		return nil, llm.ErrNotConfigured
 	}
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
 	return generator.GenerateSpecifications(ctx, activities)
 }
 
 var errEmptyText = &validationError{"le texte à analyser est vide"}
 var errNoActivities = &validationError{"aucune activité à traiter"}
+var errTextTooLong = &validationError{fmt.Sprintf("le texte dépasse la longueur maximale autorisée (%d caractères)", maxTextLength)}
+var errTooManyActivities = &validationError{fmt.Sprintf("trop d'activités à traiter en une seule fois (maximum %d)", maxActivityRefs)}
 
 type validationError struct{ msg string }
 

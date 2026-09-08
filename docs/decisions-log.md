@@ -569,3 +569,66 @@ génération a bien été routée vers cette URL personnalisée plutôt que
 vers `api.mistral.ai`, et le résultat fabriqué par le faux serveur s'est
 retrouvé fusionné dans le projet — preuve concluante que le routage
 fonctionne de bout en bout (UI → backend → URL configurée).
+
+---
+
+## ADR-016 — Optimisation des appels LLM (réduction + fiabilité)
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur (« optimise les appels à
+l'API »), précisée via question de clarification : périmètre = appels
+LLM (Anthropic/Mistral), objectifs = réduire le nombre d'appels **et**
+améliorer la fiabilité/robustesse au-delà des retries déjà en place
+(ADR-014).
+
+**Décision — réduction du nombre d'appels** :
+- `SpecificationsPanel.handleGenerateSss` ne construit plus les
+  `activityRefs` envoyés au LLM qu'à partir des activités qui n'ont
+  **pas** encore de `traceLinks` (donc pas déjà de SSS liée), au lieu de
+  renvoyer systématiquement la totalité des activités du projet à
+  chaque clic.
+- Le bouton « Proposer les SSS » se désactive et affiche le nombre
+  d'activités concernées ; quand ce nombre tombe à zéro (tout est déjà
+  spécifié), le clic est un no-op et un message informatif l'indique —
+  aucun appel réseau n'est déclenché.
+- **Écarté** : fusionner l'appel « générer le processus » et l'appel
+  « générer les spécifications » en un seul appel LLM. Cela romprait le
+  flux de relecture volontairement séquentiel (ADR-002) — l'utilisateur
+  peut renommer/supprimer des activités entre les deux étapes, donc les
+  garder séparées et pilotées par l'utilisateur reste plus sûr qu'un
+  gain d'un appel réseau.
+
+**Décision — fiabilité/robustesse** :
+- `GenerateService.Generate` et `GenerateSpecifications` enveloppent
+  désormais le contexte reçu dans un `context.WithTimeout` commun
+  (`generateTimeout = 90s`), au niveau de la couche partagée entre
+  fournisseurs plutôt que dans chaque client. Sans cette borne, la
+  boucle de retry Mistral (jusqu'à 4 tentatives, chacune pouvant
+  attendre le timeout HTTP du client) pouvait théoriquement dépasser
+  plusieurs minutes avant d'échouer.
+- Ajout de garde-fous de taille en défense en profondeur, sur le même
+  patron que les validations existantes (`errEmptyText`) : texte
+  d'entrée limité à `maxTextLength = 20000` caractères, liste
+  d'activités à `maxActivityRefs = 300` — évite d'envoyer par erreur
+  (copier-coller massif, projet très volumineux) une requête
+  disproportionnée à un fournisseur externe, ce qui coûte du temps, des
+  tokens, et augmente le risque de nouvelles limites de débit (cf.
+  incident 429 Mistral, ADR-014). Le `<textarea>` de saisie en langage
+  naturel reçoit un `maxLength` HTML correspondant, pour un signal
+  visuel côté utilisateur cohérent avec la limite serveur.
+
+**Justification** : la limite de contexte est placée dans
+`GenerateService` (couche provider-agnostic) plutôt que dupliquée dans
+chaque client LLM, pour qu'elle protège uniformément Anthropic et
+Mistral sans dépendre du comportement de retry propre à chacun. Les
+limites de taille suivent le patron `validationError` déjà en place
+plutôt que d'introduire un nouveau type d'erreur.
+
+**Conséquences** : premiers tests automatisés pour `internal/service`
+(`generate_service_test.go`) — texte/liste au-dessus et à la limite,
+absence de générateur configuré. Vérifié bout en bout avec un faux
+serveur Mistral local comptant les requêtes : après une première
+génération de SSS, le bouton se désactive et un second clic ne déclenche
+aucun appel HTTP supplémentaire (compteur de requêtes inchangé).

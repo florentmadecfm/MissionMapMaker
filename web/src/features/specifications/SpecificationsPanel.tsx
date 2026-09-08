@@ -29,15 +29,20 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
   const [generateInfo, setGenerateInfo] = useState<string | null>(null)
+  const unspecifiedCount = project.activities.filter((a) => a.traceLinks.length === 0).length
 
   async function handleGenerateSss() {
-    if (project.activities.length === 0) return
+    if (unspecifiedCount === 0) return
     setGenerating(true)
     setGenerateError(null)
     setGenerateNotConfigured(false)
     setGenerateInfo(null)
     try {
-      const activityRefs = project.activities.map((a) => ({
+      // On ne redemande une proposition IA que pour les activités qui n'ont
+      // pas déjà de spécification liée : inutile de renvoyer au LLM des
+      // activités déjà traitées à chaque clic.
+      const unspecifiedActivities = project.activities.filter((a) => a.traceLinks.length === 0)
+      const activityRefs = unspecifiedActivities.map((a) => ({
         name: a.name,
         actorName: project.actors.find((actor) => actor.id === a.actorId)?.name ?? '',
       }))
@@ -123,9 +128,11 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
             type="button"
             className="btn-primary"
             onClick={handleGenerateSss}
-            disabled={generating || project.activities.length === 0}
+            disabled={generating || unspecifiedCount === 0}
           >
-            {generating ? 'Génération…' : 'Proposer les SSS pour toutes les activités (IA)'}
+            {generating
+              ? 'Génération…'
+              : `Proposer les SSS pour les activités sans spécification (IA)${unspecifiedCount > 0 ? ` (${unspecifiedCount})` : ''}`}
           </button>
         </div>
         {generateNotConfigured && (
@@ -133,6 +140,9 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
             Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas de
             la barre latérale pour en saisir une, ou ajoutez les spécifications manuellement ci-dessous.
           </div>
+        )}
+        {!generateNotConfigured && !generateInfo && unspecifiedCount === 0 && project.activities.length > 0 && (
+          <p className="generate-info">Toutes les activités ont déjà une spécification liée.</p>
         )}
         {generateError && <p className="error">{generateError}</p>}
         {generateInfo && <p className="generate-info">{generateInfo}</p>}

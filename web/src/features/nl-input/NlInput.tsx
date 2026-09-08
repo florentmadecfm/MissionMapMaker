@@ -60,6 +60,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
       </p>
       <textarea
         rows={8}
+        maxLength={20000}
         placeholder="Ex. le fonctionnement d'un restaurant..."
         value={text}
         onChange={(e) => setText(e.target.value)}
