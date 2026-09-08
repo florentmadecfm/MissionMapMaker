@@ -35,12 +35,17 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
   const findActorId = (name: string) => actors.find((a) => sameName(a.name, name))?.id
   const findPhaseId = (name: string) => phases.find((p) => sameName(p.name, name))?.id
 
+  // Deux acteurs différents peuvent avoir une activité de même nom (ex.
+  // "Payer" côté client et côté serveur) : dédoublonnage et résolution
+  // toujours par la paire (nom, acteur), jamais par le nom seul, sinon on
+  // perdrait l'une des deux activités ou on relierait une interaction à
+  // la mauvaise.
   const activities: Activity[] = [...project.activities]
   for (const da of draft.activities) {
-    if (activities.some((a) => sameName(a.name, da.name))) continue
     const actorId = findActorId(da.actorName)
     const phaseId = findPhaseId(da.phaseName)
     if (!actorId || !phaseId) continue // acteur/phase non résolu : activité ignorée, à ajouter manuellement
+    if (activities.some((a) => sameName(a.name, da.name) && a.actorId === actorId)) continue
     activities.push({
       id: newId('a'),
       name: da.name,
@@ -55,12 +60,15 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
     })
   }
 
-  const findActivityId = (name: string) => activities.find((a) => sameName(a.name, name))?.id
+  const findActivityId = (name: string, actorName: string) => {
+    const actorId = findActorId(actorName)
+    return activities.find((a) => sameName(a.name, name) && a.actorId === actorId)?.id
+  }
 
   const interactions: Interaction[] = [...project.interactions]
   for (const di of draft.interactions) {
-    const fromId = findActivityId(di.fromActivityName)
-    const toId = findActivityId(di.toActivityName)
+    const fromId = findActivityId(di.fromActivityName, di.fromActorName)
+    const toId = findActivityId(di.toActivityName, di.toActorName)
     if (!fromId || !toId) continue
     if (interactions.some((i) => i.fromActivityId === fromId && i.toActivityId === toId && sameName(i.information, di.information))) {
       continue

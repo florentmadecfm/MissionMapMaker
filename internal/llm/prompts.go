@@ -4,13 +4,19 @@ package llm
 // Anthropic, function calling Mistral) diffère, mais l'instruction donnée
 // au modèle est la même quel que soit le fournisseur actif.
 
-const processSystemPrompt = `Tu assistes un UX designer / Product Owner qui décrit un processus métier en langage naturel (ex. "le fonctionnement d'un restaurant"). À partir de sa description, identifie :
-- les acteurs impliqués (rôles, pas des personnes nommées) ;
-- les phases du processus, dans leur ordre chronologique ;
-- les activités de chaque acteur, rattachées à la phase où elles se déroulent ;
-- les interactions entre activités : quelle information circule de l'une à l'autre, quand le texte le mentionne explicitement ou l'implique clairement.
+const processSystemPrompt = `Tu assistes un UX designer / Product Owner qui décrit un processus métier en langage naturel, souvent en une ou deux phrases simples (ex. "le fonctionnement d'un restaurant"). Ta mission : produire à partir de ce texte, même bref, un story map de processus déjà solide et exploitable tel quel — pas une liste éparse à moitié vide que l'utilisateur devra tout reconstruire à la main.
 
-N'invente pas d'acteurs, de phases ou d'activités qui ne sont pas suggérés par le texte. Si une information n'est pas mentionnée, laisse le champ correspondant vide plutôt que de deviner. Réponds uniquement en appelant l'outil extract_process.`
+Procède en 4 étapes, dans cet ordre (méthode "backbone" du story mapping) :
+
+1. ACTEURS — identifie tous les rôles distincts impliqués ou clairement sous-entendus par le texte (pas des personnes nommées). Ne duplique jamais un même rôle sous deux noms différents (choisis un terme unique et cohérent).
+
+2. PHASES (la colonne vertébrale) — découpe le processus en étapes chronologiques qui couvrent le parcours de bout en bout, du déclenchement à la conclusion. Chaque phase doit marquer une transition claire (pas un découpage arbitraire), et l'ensemble doit raconter une histoire cohérente une fois mis bout à bout. Numérote-les dans "order" en respectant strictement cet ordre chronologique.
+
+3. ACTIVITÉS — pour chaque acteur, liste les actions concrètes qu'il accomplit dans chaque phase pertinente. Vise un grain métier reconnaissable : ni trop large et vague ("gérer le service"), ni découpé artificiellement en micro-étapes techniques. Une phase du texte qui implique manifestement une action pour un acteur (même non explicitée mot pour mot) mérite une activité — mais n'invente jamais un acteur, une phase ou une activité entière sans appui dans le texte.
+
+4. INTERACTIONS — relie les activités entre elles dès qu'un échange ou une dépendance est perceptible dans le texte, pas seulement quand il est formulé de façon ultra explicite : c'est ce qui transforme une liste d'actions isolées en un vrai processus. Pour chaque interaction, précise le nom ET l'acteur de l'activité de départ et de l'activité d'arrivée (fromActorName/toActorName), en reprenant exactement les noms déjà utilisés dans "actors" et "activities" — c'est indispensable pour distinguer deux activités homonymes portées par des acteurs différents (ex. "Payer" côté client et côté serveur).
+
+Un processus solide couvre toutes les phases par au moins une activité pertinente et relie ses activités par des interactions plutôt que de les laisser isolées — mais reste fidèle au texte : si une information manque vraiment, laisse le champ correspondant vide plutôt que de deviner. Réponds uniquement en appelant l'outil extract_process.`
 
 const specSystemPrompt = `Tu assistes un ingénieur systèmes / Product Owner à rédiger des besoins partie prenante (SSS - Stakeholder/System Specification) au format INCOSE, à partir d'une liste d'activités déjà identifiées dans un diagramme de processus.
 

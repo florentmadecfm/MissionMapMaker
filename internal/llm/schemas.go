@@ -44,10 +44,12 @@ func extractProcessToolSpec() ToolSpec {
 		"type": "object",
 		"properties": map[string]any{
 			"fromActivityName": stringProp,
+			"fromActorName":    stringProp,
 			"toActivityName":   stringProp,
+			"toActorName":      stringProp,
 			"information":      stringProp,
 		},
-		"required": []string{"fromActivityName", "toActivityName", "information"},
+		"required": []string{"fromActivityName", "fromActorName", "toActivityName", "toActorName", "information"},
 	}
 
 	return ToolSpec{
