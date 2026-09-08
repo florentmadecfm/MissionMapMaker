@@ -9,16 +9,18 @@ import (
 	"net/http"
 
 	"missionmapmaker/internal/domain"
+	"missionmapmaker/internal/llm"
 	"missionmapmaker/internal/service"
 	"missionmapmaker/internal/storage"
 )
 
 type Handler struct {
 	projects *service.ProjectService
+	generate *service.GenerateService
 }
 
-func NewRouter(projects *service.ProjectService) http.Handler {
-	h := &Handler{projects: projects}
+func NewRouter(projects *service.ProjectService, generate *service.GenerateService) http.Handler {
+	h := &Handler{projects: projects, generate: generate}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/projects", h.listProjects)
@@ -26,6 +28,7 @@ func NewRouter(projects *service.ProjectService) http.Handler {
 	mux.HandleFunc("GET /api/projects/{id}", h.getProject)
 	mux.HandleFunc("PUT /api/projects/{id}", h.updateProject)
 	mux.HandleFunc("DELETE /api/projects/{id}", h.deleteProject)
+	mux.HandleFunc("POST /api/generate", h.generateProcess)
 	mux.HandleFunc("GET /api/health", h.health)
 
 	return withCORS(mux)
@@ -98,6 +101,27 @@ func (h *Handler) updateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h *Handler) generateProcess(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	draft, err := h.generate.Generate(r.Context(), body.Text)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, draft)
 }
 
 func (h *Handler) deleteProject(w http.ResponseWriter, r *http.Request) {

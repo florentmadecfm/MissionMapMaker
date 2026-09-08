@@ -73,3 +73,33 @@ export interface ProjectSummary {
   name: string
   updatedAt: string
 }
+
+export interface DraftActor {
+  name: string
+  description?: string
+}
+
+export interface DraftPhase {
+  name: string
+  order: number
+}
+
+export interface DraftActivity {
+  name: string
+  actorName: string
+  phaseName: string
+  description?: string
+}
+
+export interface DraftInteraction {
+  fromActivityName: string
+  toActivityName: string
+  information: string
+}
+
+export interface DraftProcess {
+  actors: DraftActor[]
+  phases: DraftPhase[]
+  activities: DraftActivity[]
+  interactions: DraftInteraction[]
+}

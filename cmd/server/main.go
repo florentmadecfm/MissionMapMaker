@@ -2,11 +2,13 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"os"
 
 	"missionmapmaker/internal/api"
+	"missionmapmaker/internal/llm"
 	"missionmapmaker/internal/service"
 	"missionmapmaker/internal/storage"
 )
@@ -17,7 +19,18 @@ func main() {
 
 	repo := storage.NewRepository(dataDir)
 	projects := service.NewProjectService(repo)
-	router := api.NewRouter(projects)
+
+	llmClient, err := llm.NewClient()
+	if err != nil {
+		if !errors.Is(err, llm.ErrNotConfigured) {
+			log.Fatal(err)
+		}
+		log.Printf("génération assistée désactivée : %v (saisie manuelle toujours disponible)", err)
+		llmClient = nil
+	}
+	generate := service.NewGenerateService(llmClient)
+
+	router := api.NewRouter(projects, generate)
 
 	log.Printf("MissionMapMaker API sur %s (données : %s)", addr, dataDir)
 	if err := http.ListenAndServe(addr, router); err != nil {

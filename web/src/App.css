@@ -156,3 +156,45 @@
 .error {
   color: #dc2626;
 }
+
+.nl-input {
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.nl-hint {
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.nl-input textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.nl-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nl-actions .secondary {
+  background: none;
+  border: 1px solid #94a3b8;
+  color: #334155;
+}
+
+.nl-warning {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+}

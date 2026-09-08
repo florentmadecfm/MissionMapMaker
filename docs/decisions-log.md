@@ -147,3 +147,41 @@ usage local mono-utilisateur, pas d'infra (conteneur, serveur web séparé)
 **Conséquences** : le pipeline de build doit générer le bundle React avant
 la compilation Go ; à revoir si un besoin de déploiement multi-poste/
 serveur partagé émerge plus tard (Docker resterait une option).
+
+---
+
+## ADR-007 — Modèle Claude et intégration SDK Go pour la génération NL
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : implémentation du Lot 2 (génération assistée par LLM). Deux
+choix techniques : le SDK d'appel, et le modèle Claude par défaut.
+
+**Décision** :
+- SDK officiel `github.com/anthropics/anthropic-sdk-go` (pas d'appels HTTP
+  bruts) pour bénéficier des types et de la gestion d'erreurs du SDK.
+- Extraction structurée via un unique outil (`extract_process`, tool use)
+  décrit par un schéma JSON correspondant à `DraftProcess` (acteurs,
+  phases, activités, interactions référencées par nom). Pas de
+  `tool_choice` forcé : un system prompt explicite demande à Claude de
+  toujours répondre via cet outil, ce qui reste fiable en pratique et évite
+  toute dépendance à un comportement de forçage spécifique au modèle.
+- Modèle par défaut : `claude-opus-5`, configurable via la variable
+  d'environnement `MMM_LLM_MODEL` (ex. `claude-sonnet-5` pour réduire le
+  coût). Clé lue depuis `ANTHROPIC_API_KEY` ; en son absence, le service
+  démarre normalement et renvoie une erreur `ErrNotConfigured` claire côté
+  API (503) plutôt que de bloquer le reste de l'application (voir ADR-002).
+
+**Justification** : le SDK officiel est la voie recommandée pour du Go
+appelant l'API Claude. Le modèle par défaut le plus capable (`claude-opus-5`)
+est retenu pour la qualité d'extraction, avec un mécanisme de configuration
+explicite pour que l'utilisateur final choisisse lui-même un modèle moins
+coûteux s'il le souhaite (jamais de rétrogradation silencieuse par
+l'outillage).
+
+**Conséquences** : aucune clé `ANTHROPIC_API_KEY` n'est disponible dans cet
+environnement de développement (sandbox Claude Code) ; la génération n'a
+donc pas pu être testée avec un vrai appel API — seul le chemin
+"non configurée" (503 + message dans l'UI) a été vérifié bout en bout. À
+tester avec une vraie clé dès qu'elle sera disponible côté utilisateur.

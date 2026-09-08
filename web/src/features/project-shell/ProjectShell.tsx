@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Project, ProjectSummary } from '../../api/types'
+import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { ProjectEditor } from './ProjectEditor'
 
-type Tab = 'edition' | 'diagramme'
+type Tab = 'generer' | 'edition' | 'diagramme'
 
 export function ProjectShell() {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([])
@@ -12,7 +13,7 @@ export function ProjectShell() {
   const [newName, setNewName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Tab>('edition')
+  const [tab, setTab] = useState<Tab>('generer')
 
   const refreshList = () => api.listProjects().then(setSummaries)
 
@@ -91,6 +92,9 @@ export function ProjectShell() {
         {project ? (
           <>
             <nav className="tabs">
+              <button type="button" className={tab === 'generer' ? 'active' : ''} onClick={() => setTab('generer')}>
+                Générer (langage naturel)
+              </button>
               <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
                 Édition
               </button>
@@ -98,11 +102,13 @@ export function ProjectShell() {
                 Diagramme de processus
               </button>
             </nav>
-            {tab === 'edition' ? (
-              <ProjectEditor project={project} onChange={setProject} onSaved={() => refreshList()} />
-            ) : (
-              <ProcessDiagram project={project} />
+            {tab === 'generer' && (
+              <NlInput project={project} onChange={setProject} onGenerated={() => setTab('edition')} />
             )}
+            {tab === 'edition' && (
+              <ProjectEditor project={project} onChange={setProject} onSaved={() => refreshList()} />
+            )}
+            {tab === 'diagramme' && <ProcessDiagram project={project} />}
           </>
         ) : (
           <p className="placeholder">Créez ou ouvrez un projet pour commencer.</p>
