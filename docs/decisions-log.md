@@ -697,3 +697,62 @@ exactement les mêmes points d'ancrage et se superposent visuellement,
 seule la dernière tracée reste visible — un futur ajustement pourrait
 décaler légèrement les tracés réciproques comme c'est déjà fait pour la
 répartition des poignées (`HANDLES_PER_SIDE`).
+
+---
+
+## ADR-018 — Sous-colonnes par phase pour les activités concurrentes
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir répartir les
+activités d'une phase sur plusieurs colonnes, pour clarifier les
+différentes activités de plusieurs acteurs au sein d'une même phase.
+Avant ce changement, une phase occupait toujours une seule colonne de
+largeur fixe (`COLUMN_WIDTH`) : quand un acteur avait plusieurs activités
+concurrentes dans une même phase, elles s'empilaient verticalement dans
+cette colonne étroite (`CARD_STACK_OFFSET`), ce qui allongeait fortement
+la ligne de cet acteur tout en laissant les autres lignes très courtes
+pour la même phase — rendant la phase difficile à lire d'un coup d'œil.
+
+**Décision** :
+- `computeLayout` calcule maintenant, pour chaque phase, le nombre de
+  sous-colonnes nécessaires : le plus grand nombre d'activités qu'un
+  même acteur a dans cette phase (`subColumnsByPhase`). Une phase sans
+  activité concurrente garde une seule sous-colonne (comportement
+  inchangé) ; une phase chargée s'élargit d'autant de multiples de
+  `SUBCOLUMN_WIDTH` (ex-`COLUMN_WIDTH`).
+- Les activités concurrentes d'un acteur dans une phase sont placées
+  côte à côte (sous-colonnes) plutôt qu'empilées verticalement. Les
+  lignes d'acteur repassent à une hauteur fixe (`ROW_HEIGHT`, ex-
+  `MIN_ROW_HEIGHT`) : plus de calcul dynamique par acteur
+  (`maxStackByActor`/`CARD_STACK_OFFSET`, supprimés).
+- L'en-tête de phase (`PhaseHeaderNode`) reçoit sa largeur via
+  `data.width` (calculée par `computeLayout`) au lieu d'une largeur fixe
+  importée : l'en-tête s'étire visuellement sur toute la largeur occupée
+  par les sous-colonnes de la phase.
+- Routage des poignées d'interaction : le critère « même phase » ne
+  suffit plus à décider d'un routage vertical (haut/bas), puisque deux
+  activités de la même phase peuvent maintenant être dans des
+  sous-colonnes différentes (donc pas alignées verticalement). Remplacé
+  par un critère plus précis : même phase **et** même sous-colonne
+  (`activitySubColumn`), sinon routage horizontal (gauche/droite) comme
+  pour les interactions inter-phases.
+
+**Justification** : réutilise le patron déjà en place (une passe de
+comptage par clé `actorId:phaseId`, déjà présente pour l'ancien calcul de
+hauteur de ligne) en changeant simplement l'axe et la cible du calcul
+(largeur de phase plutôt que hauteur de ligne), plutôt que d'introduire
+un mécanisme de mise en page entièrement différent. Aucun nouveau champ
+n'est nécessaire sur `Activity` : la sous-colonne d'une activité est
+déterminée automatiquement par son rang d'apparition (`order`) parmi les
+activités du même acteur dans la même phase, comme l'était déjà sa
+position d'empilement vertical avant ce changement.
+
+**Conséquences** : vérifié bout en bout avec un projet de test où un
+acteur (le serveur) a quatre activités concurrentes dans une même phase
+pendant que les deux autres acteurs n'en ont qu'une ou deux : la phase
+s'élargit correctement sur quatre sous-colonnes, toutes les lignes
+d'acteur restent à hauteur constante, et les interactions traversant la
+phase élargie (y compris celles alignées verticalement dans la même
+sous-colonne) restent correctement colorées et routées (voir ADR-017).

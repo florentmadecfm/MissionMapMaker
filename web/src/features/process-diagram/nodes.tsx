@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { COLUMN_WIDTH, HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT } from './layout'
+import { HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT } from './layout'
 
 // Points d'ancrage répartis verticalement (25/50/75% par défaut pour 3
 // poignées) plutôt qu'un unique point central, pour que plusieurs liens
@@ -7,8 +7,11 @@ import { COLUMN_WIDTH, HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT }
 const HANDLE_OFFSETS = Array.from({ length: HANDLES_PER_SIDE }, (_, i) => `${((i + 1) / (HANDLES_PER_SIDE + 1)) * 100}%`)
 
 export function PhaseHeaderNode({ data }: NodeProps) {
+  // La largeur vient de computeLayout (data.width) : une phase qui a
+  // besoin de plusieurs sous-colonnes (plusieurs activités concurrentes
+  // d'un même acteur) a un en-tête plus large, pas une largeur fixe.
   return (
-    <div className="lane-node phase-header" style={{ width: COLUMN_WIDTH - 8, height: PHASE_HEADER_HEIGHT - 8 }}>
+    <div className="lane-node phase-header" style={{ width: (data.width as number) - 8, height: PHASE_HEADER_HEIGHT - 8 }}>
       {data.label as string}
     </div>
   )
