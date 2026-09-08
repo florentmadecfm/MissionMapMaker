@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { api } from '../../api/client'
 import type { Project } from '../../api/types'
 import { mergeDraft } from './mergeDraft'
+import { extractPdfText } from './pdfText'
 
 interface Props {
   project: Project
   onChange: (project: Project) => void
   onGenerated: () => void
 }
+
+// Doit rester cohérent avec maxTextLength côté serveur
+// (internal/service/generate_service.go) : au-delà, la génération est de
+// toute façon rejetée, autant tronquer et prévenir tout de suite plutôt
+// que de laisser échouer l'appel.
+const MAX_TEXT_LENGTH = 20000
 
 const EXAMPLE =
   "Le fonctionnement d'un restaurant : les acteurs sont les clients, les serveurs, le sommelier, les cuisiniers, " +
@@ -30,6 +37,10 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notConfigured, setNotConfigured] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [pdfInfo, setPdfInfo] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleGenerate() {
     if (!text.trim()) return
@@ -42,7 +53,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
       onGenerated()
     } catch (e) {
       const message = String(e)
-      if (message.includes('ANTHROPIC_API_KEY')) {
+      if (message.includes('clé API non configurée')) {
         setNotConfigured(true)
       } else {
         setError(message)
@@ -52,15 +63,45 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
     }
   }
 
+  async function handlePdfSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permet de reselectionner le même fichier après un échec
+    if (!file) return
+
+    setPdfLoading(true)
+    setPdfError(null)
+    setPdfInfo(null)
+    try {
+      const extracted = (await extractPdfText(file)).trim()
+      if (!extracted) {
+        setPdfError(
+          "Aucun texte n'a pu être extrait de ce PDF — c'est probablement un document scanné (image) : l'OCR n'est pas encore pris en charge, seuls les PDF texte le sont.",
+        )
+        return
+      }
+      const truncated = extracted.length > MAX_TEXT_LENGTH
+      setText(truncated ? extracted.slice(0, MAX_TEXT_LENGTH) : extracted)
+      setPdfInfo(
+        `Texte extrait de « ${file.name} » (${extracted.length} caractères)` +
+          (truncated ? `, tronqué à ${MAX_TEXT_LENGTH} caractères — relisez avant de générer.` : '.'),
+      )
+    } catch (err) {
+      setPdfError(`Échec de la lecture du PDF : ${String(err)}`)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
   return (
     <div className="nl-input">
       <p className="nl-hint">
-        Décrivez le processus en langage naturel (acteurs, phases, qui fait quoi, ce qui est échangé). Claude
-        propose une ébauche que vous pourrez relire et modifier dans l'onglet Édition avant de sauvegarder.
+        Décrivez le processus en langage naturel (acteurs, phases, qui fait quoi, ce qui est échangé), ou chargez un
+        PDF texte dont le contenu sera extrait dans la zone ci-dessous. Claude propose une ébauche que vous pourrez
+        relire et modifier dans l'onglet Édition avant de sauvegarder.
       </p>
       <textarea
         rows={8}
-        maxLength={20000}
+        maxLength={MAX_TEXT_LENGTH}
         placeholder="Ex. le fonctionnement d'un restaurant..."
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -72,7 +113,14 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
         <button type="button" onClick={() => setText(EXAMPLE)} disabled={loading}>
           Charger l'exemple restaurant
         </button>
+        <input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handlePdfSelected} />
+        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading || pdfLoading}>
+          {pdfLoading ? 'Lecture du PDF…' : 'Charger un PDF'}
+        </button>
       </div>
+
+      {pdfError && <p className="error">{pdfError}</p>}
+      {pdfInfo && <p className="generate-info">{pdfInfo}</p>}
 
       {notConfigured && (
         <div className="nl-warning">
