@@ -479,3 +479,40 @@ formée), et la bascule Anthropic ↔ Mistral préserve les deux clés dans
 le fichier de configuration. Comme pour les autres fonctionnalités LLM,
 le contenu réellement généré par Mistral n'a pas pu être validé faute de
 clé réelle dans l'environnement de développement.
+
+---
+
+## ADR-014 — Nouvelles tentatives sur erreurs transitoires (429/5xx) côté Mistral
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : premier retour d'usage réel — avec une vraie clé Mistral,
+l'utilisateur obtient `429 Too Many Requests / Rate limit exceeded`. Le
+SDK Anthropic retente automatiquement les 429/5xx par défaut (2 nouvelles
+tentatives), mais le client Mistral (HTTP brut, ADR-013) n'avait aucune
+logique de ce type : une limite de débit transitoire faisait
+immédiatement échouer la génération.
+
+**Décision** : `mistralClient.call` retente jusqu'à 4 tentatives au total
+sur 429 et 5xx (pas sur les autres 4xx comme 401, qui ne sont pas
+transitoires et doivent échouer immédiatement), avec un backoff
+exponentiel (1s, 2s, 4s) sauf si l'API renvoie un en-tête `Retry-After`
+numérique, auquel cas cette valeur est respectée à la place. `baseURL` et
+`backoff` sont des champs du client (plutôt que des constantes globales)
+pour rester substituables dans les tests — trois tests couvrent
+succès-après-429, non-retry-sur-401, et abandon-après-épuisement des
+tentatives.
+
+**Justification** : aligne le comportement du client Mistral sur celui,
+déjà présent, du SDK Anthropic, plutôt que de laisser un fournisseur plus
+fragile aux limites de débit transitoires que l'autre. Ne pas retenter
+sur 401 évite de perdre du temps sur une erreur qui ne se résoudra
+jamais toute seule.
+
+**Conséquences** : premier test automatisé du projet (`internal/llm`),
+posant un patron réutilisable si un troisième fournisseur HTTP brut est
+ajouté plus tard. Le palier gratuit/essai de Mistral reste probablement
+strict : plusieurs génération rapprochées peuvent quand même échouer
+après les 4 tentatives si le compte est durablement limité — c'est
+attendu, pas un bug.
