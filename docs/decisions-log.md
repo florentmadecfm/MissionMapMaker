@@ -1025,3 +1025,52 @@ avant ADR-021) ne fait plus planter ni l'onglet Spécifications ni son
 sous-onglet Tests V&V une fois le correctif appliqué (zéro erreur JS en
 console, capture d'écran de la page fonctionnelle) — alors qu'avant, la
 même vérification aurait échoué avec le même fichier.
+
+---
+
+## ADR-023 — Filet de sécurité côté client pour les projets renvoyés par l'API
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : le crash d'ADR-022 a persisté pour l'utilisateur après le
+correctif serveur, avec cette fois `Cannot read properties of undefined
+(reading 'length')` — pas `null` comme prévu, mais `undefined` : la clé
+`testScenarios` était totalement **absente** de la réponse JSON, pas
+juste `null`. Cela ne peut arriver que si le processus serveur qui a
+répondu ne connaît pas encore le champ `TestScenarios` dans sa struct Go
+(donc antérieur à ADR-021) — le correctif ADR-022, lui, tourne côté
+serveur : un serveur qui ne l'a pas encore ne peut pas s'auto-corriger.
+Cause la plus probable : un serveur de développement local (`go run
+./cmd/server`) qui n'a pas été redémarré après le `git pull` des derniers
+correctifs — Vite recharge le frontend à chaud automatiquement, mais
+rien ne redémarre le processus Go à sa place.
+
+**Décision** : ajoute un filet de sécurité côté client, en écho à
+`domain.Project.Normalize` côté serveur : une fonction `normalizeProject`
+dans `api/client.ts`, appliquée à toute réponse `Project` (`getProject`,
+`createProject`, `saveProject`), qui remplace par une valeur vide tout
+champ collection absent ou `null` plutôt que de faire confiance à la
+forme exacte de la réponse réseau.
+
+**Justification** : le correctif serveur (ADR-022) reste la bonne
+réparation de fond — sans lui, un fichier projet enregistré avant
+ADR-021 continuerait de produire un `testScenarios: null` non désiré
+dans les réponses d'un serveur à jour. Mais il suppose que le serveur
+qui répond a bien le correctif déployé, ce qui n'est pas garanti à tout
+instant (fenêtre de déploiement, ou ici un processus de dev non
+redémarré) : un frontend qui plante purement parce que le backend qu'il
+interroge est temporairement en retard est une fragilité en soi, quelle
+qu'en soit la cause exacte. Normaliser au point d'entrée unique des
+réponses `Project` (plutôt que des `?? []` dispersés à chaque site
+d'utilisation dans les composants) garde l'invariant centralisé et
+évite d'oublier un site d'utilisation futur.
+
+**Conséquences** : vérifié bout en bout avec Playwright en interceptant
+la réponse `GET /api/projects/:id` pour retirer la clé `testScenarios`
+avant qu'elle n'atteigne le frontend (reproduit exactement le symptôme
+signalé : champ absent, pas `null`) — le frontend affiche désormais
+l'onglet Spécifications et son sous-onglet Tests V&V normalement, zéro
+erreur JS en console, là où il plantait avant ce correctif. Rappel
+transmis à l'utilisateur : penser à redémarrer le serveur Go local après
+chaque `git pull`, Vite ne le fait pas à sa place.
