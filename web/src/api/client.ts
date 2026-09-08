@@ -23,13 +23,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// Filet de sécurité côté client, en écho à domain.Project.Normalize côté
+// serveur : un backend pas encore redémarré après un déploiement (donc
+// servant une version antérieure à un champ collection récent, ex.
+// testScenarios) renverrait ce champ absent plutôt que vide, ce qui ferait
+// planter tout composant qui suppose toujours un tableau — arrivé en
+// pratique (voir ADR-022). On complète ici par une valeur vide plutôt que
+// de faire confiance à la forme exacte de la réponse réseau.
+function normalizeProject(project: Project): Project {
+  return {
+    ...project,
+    actors: project.actors ?? [],
+    phases: project.phases ?? [],
+    activities: (project.activities ?? []).map((a) => ({
+      ...a,
+      userStories: a.userStories ?? [],
+      traceLinks: a.traceLinks ?? [],
+    })),
+    interactions: project.interactions ?? [],
+    specifications: project.specifications ?? [],
+    testScenarios: (project.testScenarios ?? []).map((t) => ({ ...t, steps: t.steps ?? [] })),
+  }
+}
+
 export const api = {
   listProjects: () => request<ProjectSummary[]>('/projects'),
   createProject: (name: string) =>
-    request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name }) }),
-  getProject: (id: string) => request<Project>(`/projects/${id}`),
+    request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name }) }).then(normalizeProject),
+  getProject: (id: string) => request<Project>(`/projects/${id}`).then(normalizeProject),
   saveProject: (project: Project) =>
-    request<Project>(`/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) }),
+    request<Project>(`/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) }).then(normalizeProject),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
   generateFromText: (text: string) =>
     request<DraftProcess>('/generate', { method: 'POST', body: JSON.stringify({ text }) }),
