@@ -7,7 +7,9 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 
+	"missionmapmaker/internal/config"
 	"missionmapmaker/internal/domain"
 	"missionmapmaker/internal/llm"
 	"missionmapmaker/internal/service"
@@ -30,6 +32,9 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("DELETE /api/projects/{id}", h.deleteProject)
 	mux.HandleFunc("POST /api/generate", h.generateProcess)
 	mux.HandleFunc("POST /api/generate-specifications", h.generateSpecifications)
+	mux.HandleFunc("GET /api/settings", h.getSettings)
+	mux.HandleFunc("PUT /api/settings", h.saveSettings)
+	mux.HandleFunc("DELETE /api/settings", h.deleteSettings)
 	mux.HandleFunc("GET /api/health", h.health)
 
 	return withCORS(mux)
@@ -144,6 +149,49 @@ func (h *Handler) generateSpecifications(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, drafts)
+}
+
+func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"configured": h.generate.Configured(),
+		"model":      h.generate.Model(),
+	})
+}
+
+// saveSettings enregistre la clé API saisie dans l'interface : elle prend
+// effet immédiatement (client LLM en mémoire) et est persistée dans le
+// fichier de configuration local pour les prochains démarrages. La clé
+// n'est jamais renvoyée dans une réponse HTTP, seulement son statut.
+func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		APIKey string `json:"apiKey"`
+		Model  string `json:"model"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if strings.TrimSpace(body.APIKey) == "" {
+		writeError(w, http.StatusBadRequest, errors.New("la clé API ne peut pas être vide"))
+		return
+	}
+
+	h.generate.SetAPIKey(body.APIKey, body.Model)
+
+	if err := config.Save(&config.Config{AnthropicAPIKey: body.APIKey, Model: body.Model}); err != nil {
+		log.Printf("sauvegarde de la configuration : %v", err)
+		// la clé reste active en mémoire pour cette session même si l'écriture échoue
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"configured": true, "model": h.generate.Model()})
+}
+
+func (h *Handler) deleteSettings(w http.ResponseWriter, r *http.Request) {
+	h.generate.ClearAPIKey()
+	if err := config.Save(&config.Config{}); err != nil {
+		log.Printf("suppression de la configuration : %v", err)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) deleteProject(w http.ResponseWriter, r *http.Request) {

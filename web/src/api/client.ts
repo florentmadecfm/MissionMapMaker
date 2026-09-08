@@ -1,4 +1,4 @@
-import type { ActivityRef, DraftProcess, DraftSpecification, Project, ProjectSummary } from './types'
+import type { ActivityRef, DraftProcess, DraftSpecification, Project, ProjectSummary, Settings } from './types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -28,4 +28,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ activities }),
     }),
+  getSettings: () => request<Settings>('/settings'),
+  saveApiKey: (apiKey: string, model?: string) =>
+    request<Settings>('/settings', { method: 'PUT', body: JSON.stringify({ apiKey, model }) }),
+  clearApiKey: () => request<void>('/settings', { method: 'DELETE' }),
 }

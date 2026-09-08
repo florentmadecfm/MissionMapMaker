@@ -314,3 +314,110 @@ ajoutant une règle `.actor-chip.active:hover` explicite. À surveiller :
 d'autres combinaisons état-actif + survol pourraient présenter le même
 type de problème de spécificité CSS si de nouveaux composants sont
 ajoutés sans suivre ce pattern.
+
+---
+
+## ADR-011 — Lisibilité du diagramme de processus (liens et exemple enrichi)
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : retour utilisateur — le diagramme de processus devenait
+illisible dès que plusieurs interactions se croisaient, et l'exemple
+restaurant était trop simple pour valider un processus complexe.
+
+**Décision** :
+- **Poignées multiples réparties** (`HANDLES_PER_SIDE = 3`) sur chaque
+  côté d'une carte d'activité plutôt qu'un point unique central, pour que
+  plusieurs liens partageant une même activité ne partent/arrivent pas au
+  même pixel.
+- **Routage directionnel selon la topologie** : une interaction entre
+  deux activités de la **même phase** (très fréquent - beaucoup
+  d'activités de plusieurs acteurs se déroulent dans une même phase, ex.
+  "Repas") est routée verticalement (poignées haut/bas) plutôt
+  qu'horizontalement, pour ne pas partager le couloir gauche/droite
+  utilisé par les interactions inter-phases. Une interaction entre phases
+  différentes reste routée horizontalement (gauche/droite) comme avant.
+- **Hauteur de ligne dynamique par acteur** : calculée à partir de
+  l'empilement maximal de cet acteur sur n'importe quelle phase (au lieu
+  d'une hauteur fixe), pour qu'un acteur chargé ne déborde jamais sur la
+  ligne de l'acteur suivant — un vrai bug de chevauchement de cartes a été
+  découvert et corrigé pendant cette itération (une ligne à hauteur fixe
+  ne suffisait plus dès que l'exemple s'est étoffé).
+- **Couleur par lien** = couleur de l'acteur source, **flèches
+  directionnelles** (`MarkerType.ArrowClosed`), et **fond blanc sous les
+  labels** pour qu'ils restent lisibles par-dessus le quadrillage et les
+  autres liens.
+- **Exemple restaurant étoffé** dans le bouton "Charger l'exemple" (Lot 2,
+  langage naturel) : 6 acteurs, 5 phases, ~19 activités, ~13 interactions
+  (gestion des allergies, réclamation, remise, etc.) au lieu de 5
+  acteurs/3 phases/8 activités, pour représenter un processus réellement
+  complexe.
+
+**Justification** : le routage horizontal uniforme d'origine faisait
+converger toutes les interactions dans un couloir étroit entre colonnes,
+quel que soit leur trajet réel ; distinguer "même phase" (vertical) de
+"inter-phases" (horizontal) reflète mieux la structure réelle du
+processus et réduit fortement les croisements visuels.
+
+**Conséquences** : vérifié avec l'exemple restaurant étoffé (6 acteurs,
+19 activités, 13 interactions) — plus de chevauchement de cartes, liens
+directionnels et colorés, labels lisibles. Limite connue : dans une zone
+très dense (beaucoup d'acteurs interagissant dans une seule phase), les
+labels de liens proches peuvent encore se rapprocher les uns des autres ;
+un vrai algorithme de minimisation des croisements (réordonnancement des
+acteurs façon Sugiyama) apporterait un gain supplémentaire mais dépasse
+le cadre de cette itération.
+
+---
+
+## ADR-012 — Clé API configurable depuis l'interface + sidebar repliable
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir saisir la clé API
+Anthropic depuis l'interface plutôt que par variable d'environnement
+uniquement, et pouvoir replier/déplier le menu latéral.
+
+**Décision (clé API)** :
+- Nouveau package `internal/config` : lit/écrit un fichier
+  `~/.config/missionmapmaker/config.json` (via `os.UserConfigDir()`,
+  permissions 0600/répertoire 0700), **séparé du dossier `data/`** des
+  projets — c'est un secret propre au poste, il ne doit pas se retrouver
+  mêlé à des fichiers projet qu'on pourrait exporter ou versionner.
+- `GenerateService` rendu mutable (client LLM protégé par un `sync.RWMutex`)
+  avec `SetAPIKey`/`ClearAPIKey`/`Configured`/`Model`, pour que la clé
+  puisse changer après le démarrage du serveur, avec effet immédiat.
+- Endpoints `GET/PUT/DELETE /api/settings` : la clé n'est **jamais
+  renvoyée** dans une réponse HTTP (seulement un booléen `configured` et
+  le modèle), seulement acceptée en écriture.
+- Priorité au démarrage : `ANTHROPIC_API_KEY` (variable d'environnement)
+  reste prioritaire si présente ; sinon la clé du fichier de config est
+  chargée. Une fois le serveur démarré, l'écran Paramètres peut toujours
+  changer la clé active en mémoire (et la persiste pour le prochain
+  démarrage), mais si la variable d'environnement est encore définie au
+  redémarrage suivant, elle reprend la main — documenté dans l'UI pour
+  éviter la confusion.
+
+**Décision (sidebar repliable)** : état `sidebarCollapsed` dans
+`ProjectShell`, persisté en `localStorage` (préférence purement visuelle,
+pas de round-trip serveur nécessaire). Repliée, la sidebar se réduit à
+une bande étroite avec le bouton de bascule et l'accès aux Paramètres
+(icône ⚙) toujours visible.
+
+**Justification** : conserver le fichier de config hors de `data/` évite
+qu'un secret se retrouve dans un export/partage de projet. Ne jamais
+renvoyer la clé en lecture suit la pratique standard pour les secrets
+API. La priorité "variable d'environnement > fichier" préserve le
+comportement de déploiement scripté (CI, conteneur) tout en ajoutant un
+chemin simple pour l'usage local interactif.
+
+**Conséquences** : vérifié bout en bout avec une fausse clé — la
+sauvegarde déclenche un vrai appel sortant vers `api.anthropic.com` (401
+"API key is invalid", confirmant que le câblage clé → génération
+fonctionne réellement), la configuration persiste après un redémarrage
+propre du serveur sans variable d'environnement, et le repli/dépli de la
+sidebar fonctionne avec transition. Reste à faire : tester avec une
+vraie clé pour valider le contenu généré (toujours bloqué par l'absence
+de clé réelle dans l'environnement de développement).

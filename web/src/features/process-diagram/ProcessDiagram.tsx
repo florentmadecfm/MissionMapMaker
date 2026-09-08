@@ -1,13 +1,31 @@
 import { useMemo } from 'react'
-import { ReactFlow, Background, Controls, type Edge, type Node } from '@xyflow/react'
+import { ReactFlow, Background, Controls, MarkerType, type Edge, type Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { Project } from '../../api/types'
-import { computeLayout } from './layout'
+import { computeLayout, type LayoutEdge } from './layout'
 import { nodeTypes } from './nodes'
 import './process-diagram.css'
 
 interface Props {
   project: Project
+}
+
+function toFlowEdge(e: LayoutEdge): Edge {
+  return {
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    sourceHandle: e.sourceHandle,
+    targetHandle: e.targetHandle,
+    label: e.label,
+    type: 'smoothstep',
+    style: { stroke: e.color, strokeWidth: 1.75 },
+    markerEnd: { type: MarkerType.ArrowClosed, color: e.color, width: 16, height: 16 },
+    labelStyle: { fontSize: 11, fontWeight: 600, fill: e.color },
+    labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92 },
+    labelBgPadding: [5, 3],
+    labelBgBorderRadius: 4,
+  }
 }
 
 export function ProcessDiagram({ project }: Props) {
@@ -21,7 +39,7 @@ export function ProcessDiagram({ project }: Props) {
     <div className="process-diagram">
       <ReactFlow
         nodes={nodes as unknown as Node[]}
-        edges={edges.map((e) => ({ ...e, type: 'smoothstep', animated: false })) as unknown as Edge[]}
+        edges={edges.map(toFlowEdge)}
         nodeTypes={nodeTypes}
         fitView
         nodesConnectable={false}

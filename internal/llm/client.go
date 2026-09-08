@@ -16,7 +16,7 @@ import (
 // fonctionne sans elle (voir docs/architecture.md, mode manuel de secours).
 var ErrNotConfigured = errors.New("ANTHROPIC_API_KEY non configurée")
 
-const defaultModel = "claude-opus-5"
+const DefaultModel = "claude-opus-5"
 
 const systemPrompt = `Tu assistes un UX designer / Product Owner qui décrit un processus métier en langage naturel (ex. "le fonctionnement d'un restaurant"). À partir de sa description, identifie :
 - les acteurs impliqués (rôles, pas des personnes nommées) ;
@@ -43,22 +43,27 @@ type Client struct {
 
 // NewClient lit ANTHROPIC_API_KEY (et éventuellement MMM_LLM_MODEL) dans
 // l'environnement. Retourne ErrNotConfigured si aucune clé n'est présente :
-// à l'appelant de proposer la saisie manuelle en secours.
+// à l'appelant de proposer la saisie manuelle en secours, ou de configurer
+// la clé depuis l'interface (voir internal/config et NewClientWithKey).
 func NewClient() (*Client, error) {
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
 		return nil, ErrNotConfigured
 	}
+	return NewClientWithKey(apiKey, os.Getenv("MMM_LLM_MODEL")), nil
+}
 
-	model := os.Getenv("MMM_LLM_MODEL")
+// NewClientWithKey construit un client à partir d'une clé fournie
+// explicitement (saisie dans l'interface ou lue d'un fichier de config),
+// plutôt que de l'environnement. model="" utilise DefaultModel.
+func NewClientWithKey(apiKey, model string) *Client {
 	if model == "" {
-		model = defaultModel
+		model = DefaultModel
 	}
-
 	return &Client{
 		api:   anthropic.NewClient(option.WithAPIKey(apiKey)),
 		model: model,
-	}, nil
+	}
 }
 
 func extractProcessTool() anthropic.ToolUnionParam {
