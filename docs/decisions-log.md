@@ -1201,3 +1201,60 @@ visible dès le chargement initial (sidebar dépliée et repliée), disparaît
 immédiatement après l'enregistrement d'une clé (avant même la fermeture
 de la modale), reste absente une fois la modale fermée, puis réapparaît
 après le retrait de la clé.
+
+---
+
+## ADR-027 — Extraction du processus : méthode backbone + correction d'un bug d'homonymes
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — améliorer l'analyse de la
+description en langage naturel utilisée pour générer le diagramme, pour
+qu'une description simple produise déjà un processus solide, en
+s'appuyant si utile sur des skills. La skill `story-mapping` (méthode
+backbone : acteurs → grandes étapes chronologiques → tâches par
+activité → dépendances) a servi de référence pour restructurer le prompt
+d'extraction (`processSystemPrompt`).
+
+**Décision** :
+- Prompt réécrit en 4 étapes explicites reprenant la méthode backbone :
+  (1) acteurs, sans doublon de rôle sous deux noms ; (2) phases comme
+  colonne vertébrale chronologique couvrant le parcours de bout en bout,
+  chaque phase marquant une transition claire ; (3) activités à grain
+  métier reconnaissable (ni trop larges/vagues, ni découpées en
+  micro-étapes techniques) ; (4) interactions capturées dès qu'un
+  échange est perceptible dans le texte, pas seulement quand il est
+  formulé explicitement. Le garde-fou anti-invention (ADR déjà en place
+  implicitement) est conservé et reformulé : inférer ce qui découle
+  logiquement du texte est admis, inventer un acteur/une phase/une
+  activité sans appui dans le texte ne l'est pas.
+- **Bug corrigé au passage** (découvert en concevant le point 4) :
+  `DraftInteraction` n'identifiait une activité que par son **nom seul**
+  (`fromActivityName`/`toActivityName`), sans son acteur. Deux acteurs
+  différents portant une activité de même nom (ex. "Payer" côté client
+  et côté serveur, cas fréquent) étaient donc, côté frontend
+  (`mergeDraft.ts`) : (a) l'un des deux silencieusement perdu au
+  dédoublonnage des activités (comparaison par nom seul), et (b) même
+  quand les deux étaient présentes, une interaction les visant pouvait
+  se relier à la mauvaise occurrence. Corrigé en ajoutant
+  `fromActorName`/`toActorName` à `DraftInteraction` (Go et TypeScript,
+  schéma d'outil mis à jour), et en faisant résoudre `mergeDraft.ts`
+  toute activité — au dédoublonnage comme à la résolution des
+  interactions — par la paire (nom, acteur), jamais le nom seul, sur le
+  même patron déjà utilisé par `mergeSpecDrafts.ts`.
+
+**Justification** : la qualité d'un "processus solide" à partir d'un
+texte simple tient autant à la méthode d'extraction (le prompt) qu'à la
+fidélité du plan de données à ce que le LLM restitue — un bug qui perd
+ou mélange des activités homonymes aurait continué à saboter des
+extractions par ailleurs bien structurées. Les deux corrections sont
+donc traitées ensemble plutôt que séparément.
+
+**Conséquences** : vérifié bout en bout avec un faux serveur Mistral
+renvoyant délibérément deux activités "Payer" (une par acteur) reliées
+par une interaction : les deux activités sont bien créées (avant le
+correctif, la seconde aurait été perdue), et le diagramme affiche
+correctement la flèche partant du "Payer" du client vers celui du
+serveur, avec le dégradé de couleur attendu (ADR-017) — confirmant que
+l'interaction s'est reliée à la bonne paire.

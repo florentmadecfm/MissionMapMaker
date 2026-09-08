@@ -32,9 +32,16 @@ type DraftActivity struct {
 	Description string `json:"description,omitempty"`
 }
 
+// FromActorName/ToActorName lèvent l'ambiguïté quand deux acteurs
+// différents ont une activité de même nom (ex. "Payer" pour le client et
+// pour le serveur) : sans eux, la fusion côté frontend (mergeDraft.ts) ne
+// pourrait retrouver l'activité que par son nom seul, et relierait
+// l'interaction à la mauvaise activité si plusieurs partagent ce nom.
 type DraftInteraction struct {
 	FromActivityName string `json:"fromActivityName"`
+	FromActorName    string `json:"fromActorName"`
 	ToActivityName   string `json:"toActivityName"`
+	ToActorName      string `json:"toActorName"`
 	Information      string `json:"information"`
 }
 

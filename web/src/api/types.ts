@@ -114,7 +114,9 @@ export interface DraftActivity {
 
 export interface DraftInteraction {
   fromActivityName: string
+  fromActorName: string
   toActivityName: string
+  toActorName: string
   information: string
 }
 
