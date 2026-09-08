@@ -4,6 +4,11 @@ import type { Provider, Settings } from '../../api/types'
 
 interface Props {
   onClose: () => void
+  // Notifie l'écran parent à chaque fois que l'état "un fournisseur
+  // LLM est configuré" change (chargement initial, enregistrement,
+  // retrait) — sert par ex. à afficher/masquer la pastille d'alerte sur
+  // le bouton Paramètres de la barre latérale sans dupliquer l'appel API.
+  onSettingsChange?: (configured: boolean) => void
 }
 
 const PROVIDER_LABELS: Record<Provider, string> = {
@@ -26,7 +31,7 @@ const PROVIDER_DEFAULT_BASE_URL: Record<Provider, string> = {
   mistral: 'https://api.mistral.ai/v1/chat/completions',
 }
 
-export function SettingsModal({ onClose }: Props) {
+export function SettingsModal({ onClose, onSettingsChange }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [provider, setProvider] = useState<Provider>('anthropic')
   const [apiKey, setApiKey] = useState('')
@@ -43,9 +48,13 @@ export function SettingsModal({ onClose }: Props) {
       .then((s) => {
         setSettings(s)
         if (s.provider) setProvider(s.provider)
+        onSettingsChange?.(s.configured)
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
+    // Chargement une seule fois au montage de la modale (pas à chaque
+    // fois que le parent recrée onSettingsChange) : tableau de
+    // dépendances volontairement vide.
   }, [])
 
   function handleProviderChange(next: Provider) {
@@ -65,6 +74,7 @@ export function SettingsModal({ onClose }: Props) {
       setSettings(s)
       setApiKey('')
       setInfo(`Clé ${PROVIDER_LABELS[provider]} enregistrée. La génération assistée est activée dès maintenant.`)
+      onSettingsChange?.(s.configured)
     } catch (e) {
       setError(String(e))
     } finally {
@@ -80,6 +90,7 @@ export function SettingsModal({ onClose }: Props) {
       await api.clearApiKey()
       setSettings({ configured: false, provider: '', model: '', baseUrl: '' })
       setInfo('Clé retirée. La génération assistée est désactivée.')
+      onSettingsChange?.(false)
     } catch (e) {
       setError(String(e))
     } finally {

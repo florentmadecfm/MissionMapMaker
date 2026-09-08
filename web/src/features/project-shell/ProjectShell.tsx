@@ -29,6 +29,10 @@ export function ProjectShell() {
   const [tab, setTab] = useState<Tab>('generer')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // null tant que le premier chargement des paramètres n'a pas répondu :
+  // évite d'afficher brièvement la pastille d'alerte à chaque démarrage
+  // avant de savoir si un fournisseur LLM est réellement configuré.
+  const [llmConfigured, setLlmConfigured] = useState<boolean | null>(null)
 
   function toggleSidebar() {
     setSidebarCollapsed((prev) => {
@@ -48,6 +52,13 @@ export function ProjectShell() {
     refreshList()
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    api
+      .getSettings()
+      .then((s) => setLlmConfigured(s.configured))
+      .catch(() => setLlmConfigured(false))
   }, [])
 
   async function handleCreate() {
@@ -134,14 +145,17 @@ export function ProjectShell() {
             type="button"
             className="sidebar-settings"
             onClick={() => setSettingsOpen(true)}
-            title="Paramètres"
+            title={llmConfigured === false ? 'Paramètres — aucun fournisseur LLM configuré' : 'Paramètres'}
           >
             {sidebarCollapsed ? '⚙' : '⚙ Paramètres'}
+            {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
           </button>
         </div>
       </aside>
 
-      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsModal onClose={() => setSettingsOpen(false)} onSettingsChange={setLlmConfigured} />
+      )}
 
       <main className="shell-main">
         {project ? (

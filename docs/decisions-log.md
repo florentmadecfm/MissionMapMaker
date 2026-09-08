@@ -1157,3 +1157,47 @@ spécifiée mais non testée (le message "Aucun test lié" apparaît), une
 sans aucune spécification (seul "Aucune spécification liée" s'affiche,
 pas de message redondant sur les tests). Le compteur de synthèse reflète
 correctement "1 sans spécification liée · 1 sans test lié".
+
+---
+
+## ADR-026 — Pastille d'alerte sur Paramètres tant qu'aucun LLM n'est configuré
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — tant qu'aucune
+information de connexion à un fournisseur LLM n'est renseignée, afficher
+une pastille rouge sur le bouton Paramètres de la barre latérale, pour
+que l'absence de configuration soit visible sans avoir à ouvrir la
+modale.
+
+**Décision** :
+- `ProjectShell` charge désormais `api.getSettings()` au montage (comme
+  il le fait déjà pour la liste des projets) et garde
+  `llmConfigured: boolean | null` en état — `null` tant que la réponse
+  n'est pas arrivée, pour ne pas afficher brièvement la pastille à
+  chaque démarrage avant de savoir si un fournisseur est réellement
+  configuré.
+- `SettingsModal` reçoit un callback optionnel `onSettingsChange` qu'il
+  appelle à chaque fois que son propre état `configured` change
+  (chargement initial de la modale, après enregistrement, après retrait
+  de la clé) — `ProjectShell` le branche sur `setLlmConfigured` pour que
+  la pastille réagisse immédiatement, sans réinterroger l'API une
+  seconde fois ni attendre la fermeture de la modale.
+- Pastille (`.settings-alert-dot`, un simple point rouge) affichée
+  uniquement quand `llmConfigured === false`, à côté du texte "⚙
+  Paramètres" en barre latérale dépliée, ou en surimpression sur
+  l'icône seule en barre repliée.
+
+**Justification** : plutôt que de dupliquer l'appel `getSettings` dans
+les deux composants sans les synchroniser, le callback fait de
+`SettingsModal` la source de vérité pour tout changement pendant qu'il
+est ouvert, tandis que `ProjectShell` ne fait le chargement initial
+qu'une fois — évite un état incohérent où la pastille resterait affichée
+après un enregistrement réussi tant que la modale n'a pas été refermée.
+
+**Conséquences** : vérifié bout en bout avec Playwright — pastille
+visible dès le chargement initial (sidebar dépliée et repliée), disparaît
+immédiatement après l'enregistrement d'une clé (avant même la fermeture
+de la modale), reste absente une fois la modale fermée, puis réapparaît
+après le retrait de la clé.

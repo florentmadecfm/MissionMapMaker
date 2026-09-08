@@ -78,6 +78,7 @@
 }
 
 .sidebar-settings {
+  position: relative;
   width: 100%;
   background: none;
   border: 1px solid transparent;
@@ -94,6 +95,26 @@
 .shell-sidebar.collapsed .sidebar-settings {
   text-align: center;
   padding: 0.45rem 0;
+}
+
+/* Pastille d'alerte tant qu'aucun fournisseur LLM n'est configuré (voir
+   SettingsModal.onSettingsChange) : repliée, elle se cale sur le coin du
+   bouton icône ; dépliée, à côté du texte, sur la même ligne. */
+.settings-alert-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger);
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
+.shell-sidebar.collapsed .settings-alert-dot {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  margin-left: 0;
 }
 
 .shell-main {
