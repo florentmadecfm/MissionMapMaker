@@ -1,0 +1,9 @@
+# Données de projets locales (fichiers JSON générés à l'exécution)
+/data/
+
+# Binaires Go
+/bin/
+
+# Éditeurs
+.vscode/
+.idea/
