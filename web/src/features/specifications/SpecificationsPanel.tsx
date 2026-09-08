@@ -110,7 +110,7 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
     <div className="editor">
       <header className="editor-header">
         <h2 className="panel-title">Spécifications</h2>
-        <button type="button" onClick={handleSave} disabled={saving}>
+        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Sauvegarde…' : 'Sauvegarder'}
         </button>
         {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
@@ -119,7 +119,12 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
 
       <section>
         <div className="nl-actions">
-          <button type="button" onClick={handleGenerateSss} disabled={generating || project.activities.length === 0}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleGenerateSss}
+            disabled={generating || project.activities.length === 0}
+          >
             {generating ? 'Génération…' : 'Proposer les SSS pour toutes les activités (IA)'}
           </button>
         </div>

@@ -67,7 +67,7 @@ export function ProjectShell() {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
           />
-          <button type="button" onClick={handleCreate}>
+          <button type="button" className="btn-primary" onClick={handleCreate}>
             Créer
           </button>
         </div>

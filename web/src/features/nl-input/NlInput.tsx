@@ -57,10 +57,10 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
         onChange={(e) => setText(e.target.value)}
       />
       <div className="nl-actions">
-        <button type="button" onClick={handleGenerate} disabled={loading || !text.trim()}>
+        <button type="button" className="btn-primary" onClick={handleGenerate} disabled={loading || !text.trim()}>
           {loading ? 'Génération…' : 'Générer'}
         </button>
-        <button type="button" className="secondary" onClick={() => setText(EXAMPLE)} disabled={loading}>
+        <button type="button" onClick={() => setText(EXAMPLE)} disabled={loading}>
           Charger l'exemple restaurant
         </button>
       </div>

@@ -134,7 +134,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           value={project.name}
           onChange={(e) => onChange({ ...project, name: e.target.value })}
         />
-        <button type="button" onClick={handleSave} disabled={saving}>
+        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Sauvegarde…' : 'Sauvegarder'}
         </button>
         {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
