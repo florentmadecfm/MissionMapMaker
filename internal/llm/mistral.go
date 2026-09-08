@@ -32,19 +32,25 @@ type mistralClient struct {
 	apiKey  string
 	model   string
 	http    *http.Client
-	baseURL string        // surchargeable dans les tests, mistralEndpoint en usage normal
+	baseURL string        // URL de l'API (surchargeable par l'utilisateur ou dans les tests)
 	backoff time.Duration // surchargeable dans les tests, mistralBaseBackoff en usage normal
 }
 
-func newMistralClient(apiKey, model string) *mistralClient {
+// newMistralClient construit le client. baseURL="" utilise mistralEndpoint
+// (api.mistral.ai) ; une valeur permet de pointer vers un proxy, un
+// déploiement régional/entreprise, un service compatible auto-hébergé...
+func newMistralClient(apiKey, model, baseURL string) *mistralClient {
 	if model == "" {
 		model = MistralDefaultModel
+	}
+	if baseURL == "" {
+		baseURL = mistralEndpoint
 	}
 	return &mistralClient{
 		apiKey:  apiKey,
 		model:   model,
 		http:    &http.Client{Timeout: 60 * time.Second},
-		baseURL: mistralEndpoint,
+		baseURL: baseURL,
 		backoff: mistralBaseBackoff,
 	}
 }

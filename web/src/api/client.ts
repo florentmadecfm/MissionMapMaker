@@ -29,7 +29,7 @@ export const api = {
       body: JSON.stringify({ activities }),
     }),
   getSettings: () => request<Settings>('/settings'),
-  saveApiKey: (provider: Provider, apiKey: string, model?: string) =>
-    request<Settings>('/settings', { method: 'PUT', body: JSON.stringify({ provider, apiKey, model }) }),
+  saveApiKey: (provider: Provider, apiKey: string, model?: string, baseUrl?: string) =>
+    request<Settings>('/settings', { method: 'PUT', body: JSON.stringify({ provider, apiKey, model, baseUrl }) }),
   clearApiKey: () => request<void>('/settings', { method: 'DELETE' }),
 }

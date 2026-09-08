@@ -719,3 +719,9 @@
   font-size: 0.78rem;
   color: var(--color-text-faint);
 }
+
+.settings-hint {
+  font-size: 0.76rem;
+  color: var(--color-text-faint);
+  margin-top: -0.2rem;
+}

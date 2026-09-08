@@ -17,26 +17,34 @@ type anthropicClient struct {
 	model string
 }
 
-func newAnthropicClient(apiKey, model string) *anthropicClient {
+// newAnthropicClient construit le client. baseURL="" utilise l'URL par
+// défaut du SDK (api.anthropic.com) ; une valeur permet de pointer vers un
+// proxy, un déploiement régional/entreprise, etc.
+func newAnthropicClient(apiKey, model, baseURL string) *anthropicClient {
 	if model == "" {
 		model = AnthropicDefaultModel
 	}
+	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
+	if baseURL != "" {
+		opts = append(opts, option.WithBaseURL(baseURL))
+	}
 	return &anthropicClient{
-		api:   anthropic.NewClient(option.WithAPIKey(apiKey)),
+		api:   anthropic.NewClient(opts...),
 		model: model,
 	}
 }
 
-// NewClientFromEnv lit ANTHROPIC_API_KEY (et éventuellement MMM_LLM_MODEL)
-// dans l'environnement. Retourne ErrNotConfigured si aucune clé n'est
-// présente : à l'appelant de proposer la saisie manuelle en secours, ou de
-// configurer une clé (n'importe quel fournisseur) depuis l'interface.
+// NewClientFromEnv lit ANTHROPIC_API_KEY (et éventuellement MMM_LLM_MODEL /
+// ANTHROPIC_BASE_URL) dans l'environnement. Retourne ErrNotConfigured si
+// aucune clé n'est présente : à l'appelant de proposer la saisie manuelle
+// en secours, ou de configurer une clé (n'importe quel fournisseur) depuis
+// l'interface.
 func NewClientFromEnv() (Generator, error) {
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
 		return nil, ErrNotConfigured
 	}
-	return newAnthropicClient(apiKey, os.Getenv("MMM_LLM_MODEL")), nil
+	return newAnthropicClient(apiKey, os.Getenv("MMM_LLM_MODEL"), os.Getenv("ANTHROPIC_BASE_URL")), nil
 }
 
 func toAnthropicTool(spec ToolSpec) anthropic.ToolUnionParam {

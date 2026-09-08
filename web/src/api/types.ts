@@ -103,6 +103,7 @@ export interface Settings {
   configured: boolean
   provider: Provider | ''
   model: string
+  baseUrl: string
 }
 
 export interface DraftProcess {

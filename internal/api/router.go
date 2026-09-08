@@ -157,19 +157,23 @@ func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 		"configured": h.generate.Configured(),
 		"provider":   string(h.generate.Provider()),
 		"model":      h.generate.Model(),
+		"baseUrl":    h.generate.BaseURL(),
 	})
 }
 
-// saveSettings enregistre le fournisseur et la clé API saisis dans
-// l'interface : effet immédiat (générateur en mémoire) et persistance
-// dans le fichier de configuration local pour les prochains démarrages.
-// La clé n'est jamais renvoyée dans une réponse HTTP, seulement son
-// statut. Le réglage de l'autre fournisseur (non actif) est préservé.
+// saveSettings enregistre le fournisseur, la clé API et l'URL de base
+// saisis dans l'interface : effet immédiat (générateur en mémoire) et
+// persistance dans le fichier de configuration local pour les prochains
+// démarrages. La clé n'est jamais renvoyée dans une réponse HTTP,
+// seulement son statut. Le réglage de l'autre fournisseur (non actif) est
+// préservé. baseUrl n'est pas un secret (contrairement à apiKey) : elle
+// est donc renvoyée telle quelle par getSettings.
 func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Provider string `json:"provider"`
 		APIKey   string `json:"apiKey"`
 		Model    string `json:"model"`
+		BaseURL  string `json:"baseUrl"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -186,7 +190,7 @@ func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.generate.SetProvider(provider, body.APIKey, body.Model); err != nil {
+	if err := h.generate.SetProvider(provider, body.APIKey, body.Model, body.BaseURL); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
@@ -197,7 +201,7 @@ func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
 		cfg = &config.Config{}
 	}
 	cfg.Provider = string(provider)
-	settings := config.ProviderSettings{APIKey: body.APIKey, Model: body.Model}
+	settings := config.ProviderSettings{APIKey: body.APIKey, Model: body.Model, BaseURL: body.BaseURL}
 	switch provider {
 	case llm.ProviderAnthropic:
 		cfg.Anthropic = settings
@@ -209,7 +213,12 @@ func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
 		// la clé reste active en mémoire pour cette session même si l'écriture échoue
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"configured": true, "provider": string(provider), "model": h.generate.Model()})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"configured": true,
+		"provider":   string(provider),
+		"model":      h.generate.Model(),
+		"baseUrl":    h.generate.BaseURL(),
+	})
 }
 
 // deleteSettings retire la clé du fournisseur actuellement actif (le

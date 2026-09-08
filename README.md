@@ -39,3 +39,7 @@ basculer de l'un à l'autre ne perd pas la clé du premier.
 Vous pouvez aussi définir `ANTHROPIC_API_KEY` en variable d'environnement
 au lancement du serveur : elle est alors prioritaire (fournisseur
 Anthropic) sur la configuration enregistrée depuis l'interface.
+
+Le champ **URL de base** (optionnel, dans le même écran) permet de
+pointer vers un proxy, un déploiement régional/entreprise ou un service
+compatible auto-hébergé, plutôt que l'API publique du fournisseur.

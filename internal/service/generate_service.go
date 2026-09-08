@@ -9,18 +9,20 @@ import (
 )
 
 // GenerateService encapsule le générateur LLM utilisé pour la génération
-// assistée. Il est mutable (protégé par un mutex) car le fournisseur et la
-// clé API peuvent être configurés après le démarrage du serveur, depuis
-// l'écran Paramètres de l'interface (voir internal/api et internal/config).
+// assistée. Il est mutable (protégé par un mutex) car le fournisseur, la
+// clé API et l'URL de base peuvent être configurés après le démarrage du
+// serveur, depuis l'écran Paramètres de l'interface (voir internal/api et
+// internal/config).
 type GenerateService struct {
 	mu        sync.RWMutex
 	generator llm.Generator // nil si aucun fournisseur n'est configuré
 	provider  llm.Provider
 	model     string
+	baseURL   string
 }
 
-func NewGenerateService(generator llm.Generator, provider llm.Provider, model string) *GenerateService {
-	return &GenerateService{generator: generator, provider: provider, model: model}
+func NewGenerateService(generator llm.Generator, provider llm.Provider, model, baseURL string) *GenerateService {
+	return &GenerateService{generator: generator, provider: provider, model: model, baseURL: baseURL}
 }
 
 // Configured indique si un fournisseur est actuellement actif.
@@ -42,11 +44,17 @@ func (s *GenerateService) Model() string {
 	return s.model
 }
 
+func (s *GenerateService) BaseURL() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.baseURL
+}
+
 // SetProvider remplace le générateur actif par un nouveau, construit pour
-// le fournisseur et la clé fournis. model="" utilise le modèle par défaut
-// du fournisseur.
-func (s *GenerateService) SetProvider(provider llm.Provider, apiKey, model string) error {
-	generator, err := llm.NewGenerator(provider, apiKey, model)
+// le fournisseur, la clé et l'URL de base fournis. model="" utilise le
+// modèle par défaut du fournisseur ; baseURL="" utilise l'URL par défaut.
+func (s *GenerateService) SetProvider(provider llm.Provider, apiKey, model, baseURL string) error {
+	generator, err := llm.NewGenerator(provider, llm.GeneratorOptions{APIKey: apiKey, Model: model, BaseURL: baseURL})
 	if err != nil {
 		return err
 	}
@@ -59,6 +67,7 @@ func (s *GenerateService) SetProvider(provider llm.Provider, apiKey, model strin
 	s.generator = generator
 	s.provider = provider
 	s.model = model
+	s.baseURL = baseURL
 	return nil
 }
 
@@ -67,6 +76,7 @@ func (s *GenerateService) ClearProvider() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.generator = nil
+	s.baseURL = ""
 }
 
 func (s *GenerateService) currentGenerator() llm.Generator {

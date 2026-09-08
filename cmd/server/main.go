@@ -40,7 +40,7 @@ func main() {
 func setupGenerateService() *service.GenerateService {
 	if generator, err := llm.NewClientFromEnv(); err == nil {
 		model := envOr("MMM_LLM_MODEL", llm.ProviderAnthropic.DefaultModel())
-		return service.NewGenerateService(generator, llm.ProviderAnthropic, model)
+		return service.NewGenerateService(generator, llm.ProviderAnthropic, model, os.Getenv("ANTHROPIC_BASE_URL"))
 	} else if !errors.Is(err, llm.ErrNotConfigured) {
 		log.Fatal(err)
 	}
@@ -53,17 +53,21 @@ func setupGenerateService() *service.GenerateService {
 
 	if settings := cfg.Active(); settings.APIKey != "" {
 		provider := llm.Provider(cfg.Provider)
-		generator, err := llm.NewGenerator(provider, settings.APIKey, settings.Model)
+		generator, err := llm.NewGenerator(provider, llm.GeneratorOptions{
+			APIKey:  settings.APIKey,
+			Model:   settings.Model,
+			BaseURL: settings.BaseURL,
+		})
 		if err != nil {
 			log.Printf("configuration locale invalide (%v) : génération assistée désactivée", err)
-			return service.NewGenerateService(nil, "", "")
+			return service.NewGenerateService(nil, "", "", "")
 		}
 		log.Printf("génération assistée activée depuis la configuration locale (fournisseur : %s)", provider)
-		return service.NewGenerateService(generator, provider, settings.Model)
+		return service.NewGenerateService(generator, provider, settings.Model, settings.BaseURL)
 	}
 
 	log.Printf("génération assistée désactivée : %v (configurez un fournisseur depuis l'écran Paramètres, ou définissez ANTHROPIC_API_KEY)", llm.ErrNotConfigured)
-	return service.NewGenerateService(nil, "", "")
+	return service.NewGenerateService(nil, "", "", "")
 }
 
 func envOr(key, fallback string) string {
