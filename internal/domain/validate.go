@@ -62,5 +62,11 @@ func (p *Project) Validate() error {
 		}
 	}
 
+	for _, ts := range p.TestScenarios {
+		if !specIDs[ts.SpecificationID] {
+			return fmt.Errorf("%w: test scenario %q references unknown specification %q", ErrInvalidProject, ts.ID, ts.SpecificationID)
+		}
+	}
+
 	return nil
 }

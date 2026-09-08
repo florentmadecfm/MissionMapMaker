@@ -20,6 +20,10 @@ func (stubGenerator) GenerateSpecifications(ctx context.Context, activities []ll
 	return nil, nil
 }
 
+func (stubGenerator) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef) ([]llm.DraftTestScenario, error) {
+	return nil, nil
+}
+
 func TestGenerate_RejectsTextTooLong(t *testing.T) {
 	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
 	_, err := s.Generate(context.Background(), strings.Repeat("a", maxTextLength+1))
@@ -59,5 +63,31 @@ func TestGenerate_NotConfiguredWithoutGenerator(t *testing.T) {
 	_, err := s.Generate(context.Background(), "un texte valide")
 	if err != llm.ErrNotConfigured {
 		t.Fatalf("expected llm.ErrNotConfigured, got %v", err)
+	}
+}
+
+func TestGenerateTestScenarios_RejectsEmpty(t *testing.T) {
+	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
+	_, err := s.GenerateTestScenarios(context.Background(), nil)
+	if err != errNoSpecifications {
+		t.Fatalf("expected errNoSpecifications, got %v", err)
+	}
+}
+
+func TestGenerateTestScenarios_RejectsTooManySpecifications(t *testing.T) {
+	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
+	refs := make([]llm.SpecRef, maxSpecRefs+1)
+	_, err := s.GenerateTestScenarios(context.Background(), refs)
+	if err != errTooManySpecifications {
+		t.Fatalf("expected errTooManySpecifications, got %v", err)
+	}
+}
+
+func TestGenerateTestScenarios_AcceptsCountAtLimit(t *testing.T) {
+	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
+	refs := make([]llm.SpecRef, maxSpecRefs)
+	_, err := s.GenerateTestScenarios(context.Background(), refs)
+	if err != nil {
+		t.Fatalf("expected no error at the limit, got %v", err)
 	}
 }

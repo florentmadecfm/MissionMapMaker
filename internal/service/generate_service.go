@@ -24,6 +24,7 @@ const generateTimeout = 90 * time.Second
 const (
 	maxTextLength   = 20000
 	maxActivityRefs = 300
+	maxSpecRefs     = 300
 )
 
 // GenerateService encapsule le générateur LLM utilisé pour la génération
@@ -135,10 +136,28 @@ func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities
 	return generator.GenerateSpecifications(ctx, activities)
 }
 
+func (s *GenerateService) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef) ([]llm.DraftTestScenario, error) {
+	if len(specifications) == 0 {
+		return nil, errNoSpecifications
+	}
+	if len(specifications) > maxSpecRefs {
+		return nil, errTooManySpecifications
+	}
+	generator := s.currentGenerator()
+	if generator == nil {
+		return nil, llm.ErrNotConfigured
+	}
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
+	return generator.GenerateTestScenarios(ctx, specifications)
+}
+
 var errEmptyText = &validationError{"le texte à analyser est vide"}
 var errNoActivities = &validationError{"aucune activité à traiter"}
+var errNoSpecifications = &validationError{"aucune spécification à traiter"}
 var errTextTooLong = &validationError{fmt.Sprintf("le texte dépasse la longueur maximale autorisée (%d caractères)", maxTextLength)}
 var errTooManyActivities = &validationError{fmt.Sprintf("trop d'activités à traiter en une seule fois (maximum %d)", maxActivityRefs)}
+var errTooManySpecifications = &validationError{fmt.Sprintf("trop de spécifications à traiter en une seule fois (maximum %d)", maxSpecRefs)}
 
 type validationError struct{ msg string }
 

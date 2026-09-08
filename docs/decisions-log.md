@@ -891,3 +891,85 @@ elle s'y positionne et le reste après rechargement (`column: 2` confirmé
 via relecture API après Sauvegarder). Non-régression vérifiée sur les
 deux scénarios d'ADR-019 (réassignation d'acteur/phase, réordonnancement
 au sein d'une même pile) : comportement inchangé.
+
+---
+
+## ADR-021 — Scénarios de test V&V (Polarion) liés aux SSS
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — sur la base des SSS
+générées, ajouter un sous-onglet dans l'onglet Spécifications pour les
+scénarios de test de Vérification & Validation, au format Polarion.
+Explicitement, la génération des SSS doit aussi générer leurs scénarios
+de test dans la foulée (un seul clic). Deux questions de clarification
+posées et tranchées par l'utilisateur : (1) le "format Polarion" attendu
+est une structure V&V générique affichée/éditable dans l'app (titre,
+préconditions, étapes numérotées action/résultat attendu), pas un export
+vers un gabarit Polarion précis ; (2) la génération doit être possible
+aussi bien groupée (avec les SSS) qu'à la demande pour des SSS
+existantes (y compris saisies manuellement).
+
+**Décision** :
+- Nouveau domaine `TestScenario` (`ID`, `Code`, `Title`,
+  `SpecificationID`, `Preconditions`, `Steps []TestStep{Action,
+  ExpectedResult}`, `Status`), sur le même patron que `Specification`
+  (code séquentiel `TC-NNN`, statut brouillon/approuvé/obsolète). Lien
+  one-directionnel vers la spécification vérifiée (`SpecificationID`),
+  comme `Interaction` référence ses activités — validé par
+  `Project.Validate()` (référence vers une spécification existante).
+  `Project` gagne un champ `TestScenarios`.
+- Nouvelle capacité LLM `GenerateTestScenarios(specs []SpecRef)
+  []DraftTestScenario`, ajoutée à l'interface `Generator` et implémentée
+  par les deux fournisseurs (Anthropic, Mistral), sur le même patron que
+  `GenerateSpecifications` : outil dédié (`propose_test_scenarios`),
+  prompt dédié, corrélation par **code** de spécification (`SpecRef.Code`,
+  ex. "SSS-001") plutôt que par nom+texte — un code est un identifiant
+  plus fiable qu'un couple (nom d'activité, nom d'acteur) pour ce cas.
+  `GenerateService.GenerateTestScenarios` reprend les mêmes garde-fous
+  que `GenerateSpecifications` (timeout, taille max de la liste, ADR-016).
+- Frontend : sous-onglet "Tests V&V" dans `SpecificationsPanel` (nav
+  locale, pas un nouvel onglet principal — partage l'en-tête et le
+  bouton Sauvegarder existants). `handleGenerateSss` enchaîne, après la
+  fusion des SSS proposées, un appel `generateTestScenarios` pour
+  uniquement les SSS **qui viennent d'être ajoutées** à cet appel (pas
+  toutes les SSS du projet) puis fusionne le résultat dans le même
+  `onChange` — un échec de cette seconde étape ne fait pas échouer la
+  première (les SSS déjà générées restent acquises, message d'erreur
+  distinct). `TestScenariosPanel` a son propre bouton "Générer... (IA)"
+  filtré aux SSS sans scénario de test lié, pour l'usage à la demande.
+  Suppression d'une spécification (`removeSpec`) cascade désormais vers
+  ses scénarios de test liés, comme elle le fait déjà vers les
+  `traceLinks` des activités.
+- Corrigé au passage : la détection "clé API non configurée" dans
+  `SpecificationsPanel` testait la sous-chaîne `"ANTHROPIC_API_KEY"`,
+  qui n'apparaît dans aucun message d'erreur réel depuis l'introduction
+  du multi-fournisseurs (ADR-013/014) — le message effectif est "clé API
+  non configurée" (`llm.ErrNotConfigured`). Ce chemin ne s'était donc
+  jamais déclenché correctement ; corrigé pour les deux générations (SSS
+  et tests).
+
+**Justification** : structure V&V générique plutôt qu'un export Polarion
+strict, conformément à la clarification utilisateur — évite de figer un
+gabarit d'export avant qu'un besoin précis (import direct dans une
+instance Polarion réelle) ne soit exprimé. Corrélation par code plutôt
+que par nom+texte : le texte d'une SSS peut être long et sujet à de
+petites variations reformulées par le LLM, alors que son code est un
+identifiant stable affiché tel quel dans le projet. Sous-onglet plutôt
+que nouvel onglet principal : les scénarios de test n'ont de sens que
+rapportés à des spécifications déjà là, pas un concept autonome au même
+niveau que Édition/Diagramme/Spécifications.
+
+**Conséquences** : vérifié bout en bout avec Playwright et un faux
+serveur Mistral local répondant aux trois outils (`extract_process`,
+`propose_specifications`, `propose_test_scenarios`) : un seul clic sur
+"Proposer les SSS" produit bien 2 SSS puis 2 scénarios de test liés (un
+par SSS) dans la même action ; le sous-onglet affiche le compte
+("Tests V&V (2)") et chaque scénario avec sa spécification liée, ses
+préconditions et son tableau d'étapes ; le bouton de génération à la
+demande se désactive quand tout est déjà couvert et se réactive après
+l'ajout manuel d'une SSS, puis génère correctement un scénario
+supplémentaire pour cette seule SSS ; la suppression d'une SSS supprime
+bien son scénario de test lié (cascade). Le tout confirmé persisté côté
+serveur après Sauvegarder (relecture directe via l'API).

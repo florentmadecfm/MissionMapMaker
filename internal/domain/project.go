@@ -16,6 +16,7 @@ type Project struct {
 	Activities     []Activity      `json:"activities"`
 	Interactions   []Interaction   `json:"interactions"`
 	Specifications []Specification `json:"specifications"`
+	TestScenarios  []TestScenario  `json:"testScenarios"`
 }
 
 type Actor struct {
@@ -89,4 +90,30 @@ type Specification struct {
 	ParentID  string            `json:"parentId,omitempty"`
 	Status    string            `json:"status"` // draft | approved | deprecated
 	Priority  string            `json:"priority"`
+}
+
+// TestStep est une étape d'un scénario de test V&V (Vérification &
+// Validation) : une action et le résultat attendu qu'elle doit produire,
+// sur le modèle des tableaux d'étapes Polarion (colonnes "Step" /
+// "Expected Result").
+type TestStep struct {
+	Action         string `json:"action"`
+	ExpectedResult string `json:"expectedResult"`
+}
+
+// TestScenario est un scénario de test de vérification/validation d'une
+// spécification (typiquement une SSS), au format V&V générique inspiré de
+// Polarion : préconditions puis étapes numérotées action/résultat
+// attendu. Comme Specification, un scénario peut être proposé par le LLM
+// (voir internal/llm) ou saisi à la main ; SpecificationID est toujours
+// requis (un scénario vérifie une spécification précise, jamais
+// "flottant").
+type TestScenario struct {
+	ID              string     `json:"id"`
+	Code            string     `json:"code"`
+	Title           string     `json:"title"`
+	SpecificationID string     `json:"specificationId"`
+	Preconditions   string     `json:"preconditions,omitempty"`
+	Steps           []TestStep `json:"steps"`
+	Status          string     `json:"status"` // draft | approved | deprecated
 }

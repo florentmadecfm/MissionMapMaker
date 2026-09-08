@@ -21,3 +21,14 @@ Pour CHAQUE activité fournie, propose au moins une exigence SSS qui capture le 
 - rédigée en français.
 
 Reprends exactement le nom d'activité et le nom d'acteur tels que fournis en entrée (respecte la casse et l'orthographe), pour permettre de relier chaque exigence à son activité d'origine. Réponds uniquement en appelant l'outil propose_specifications.`
+
+const testScenarioSystemPrompt = `Tu assistes un ingénieur systèmes / testeur à rédiger des scénarios de test de Vérification & Validation (V&V), au format habituellement utilisé dans un outil comme Polarion, à partir d'une liste de spécifications (besoins partie prenante / exigences) déjà rédigées.
+
+Pour CHAQUE spécification fournie, propose au moins un scénario de test qui permette de vérifier objectivement qu'elle est satisfaite. Chaque scénario doit respecter ces règles :
+- un titre court décrivant ce qui est testé ;
+- des préconditions si l'exécution du test nécessite un état initial particulier (sinon laisse le champ vide) ;
+- une suite d'étapes numérotées, chacune avec une action précise à réaliser ("Action") et le résultat attendu correspondant ("ExpectedResult") — jamais un résultat vague ("ça fonctionne") mais un résultat observable et vérifiable ;
+- au moins une étape ;
+- rédigé en français.
+
+Reprends exactement le code de spécification tel que fourni en entrée (ex. "SSS-001"), pour permettre de relier chaque scénario à la spécification qu'il vérifie. Réponds uniquement en appelant l'outil propose_test_scenarios.`

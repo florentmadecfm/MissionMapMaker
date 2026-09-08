@@ -12,6 +12,7 @@ import (
 type Generator interface {
 	GenerateProcess(ctx context.Context, text string) (*DraftProcess, error)
 	GenerateSpecifications(ctx context.Context, activities []ActivityRef) ([]DraftSpecification, error)
+	GenerateTestScenarios(ctx context.Context, specifications []SpecRef) ([]DraftTestScenario, error)
 }
 
 // Provider identifie un fournisseur LLM supporté. Ajouter un fournisseur

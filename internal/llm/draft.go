@@ -56,3 +56,30 @@ type DraftSpecification struct {
 	Text         string `json:"text"`
 	Rationale    string `json:"rationale,omitempty"`
 }
+
+// SpecRef identifie une spécification par son code (ex. "SSS-001"), tel
+// qu'affiché dans le projet ouvert : comme ActivityRef pour les
+// activités, le LLM ne connaît pas les ID internes, seulement le texte
+// du projet.
+type SpecRef struct {
+	Code string `json:"code"`
+	Text string `json:"text"`
+}
+
+// DraftTestStep est une étape d'un scénario de test V&V proposé : une
+// action et le résultat attendu, au format Polarion habituel.
+type DraftTestStep struct {
+	Action         string `json:"action"`
+	ExpectedResult string `json:"expectedResult"`
+}
+
+// DraftTestScenario est un scénario de test de vérification/validation
+// proposé pour une spécification donnée (identifiée par son code, voir
+// SpecRef). Comme DraftSpecification, c'est une proposition à relire
+// avant sauvegarde (ADR-002).
+type DraftTestScenario struct {
+	SpecificationCode string          `json:"specificationCode"`
+	Title             string          `json:"title"`
+	Preconditions     string          `json:"preconditions,omitempty"`
+	Steps             []DraftTestStep `json:"steps"`
+}
