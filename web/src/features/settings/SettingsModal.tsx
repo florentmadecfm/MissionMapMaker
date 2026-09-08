@@ -1,13 +1,29 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
-import type { Settings } from '../../api/types'
+import type { Provider, Settings } from '../../api/types'
 
 interface Props {
   onClose: () => void
 }
 
+const PROVIDER_LABELS: Record<Provider, string> = {
+  anthropic: 'Anthropic (Claude)',
+  mistral: 'Mistral AI',
+}
+
+const PROVIDER_KEY_PLACEHOLDER: Record<Provider, string> = {
+  anthropic: 'sk-ant-...',
+  mistral: 'Clé API Mistral',
+}
+
+const PROVIDER_DEFAULT_MODEL: Record<Provider, string> = {
+  anthropic: 'claude-opus-5',
+  mistral: 'mistral-large-latest',
+}
+
 export function SettingsModal({ onClose }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [provider, setProvider] = useState<Provider>('anthropic')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('')
   const [loading, setLoading] = useState(true)
@@ -20,11 +36,17 @@ export function SettingsModal({ onClose }: Props) {
       .getSettings()
       .then((s) => {
         setSettings(s)
-        setModel(s.model)
+        if (s.provider) setProvider(s.provider)
       })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
   }, [])
+
+  function handleProviderChange(next: Provider) {
+    setProvider(next)
+    setModel('')
+    setInfo(null)
+  }
 
   async function handleSave() {
     if (!apiKey.trim()) return
@@ -32,10 +54,10 @@ export function SettingsModal({ onClose }: Props) {
     setError(null)
     setInfo(null)
     try {
-      const s = await api.saveApiKey(apiKey.trim(), model.trim() || undefined)
+      const s = await api.saveApiKey(provider, apiKey.trim(), model.trim() || undefined)
       setSettings(s)
       setApiKey('')
-      setInfo('Clé enregistrée. La génération assistée est activée dès maintenant.')
+      setInfo(`Clé ${PROVIDER_LABELS[provider]} enregistrée. La génération assistée est activée dès maintenant.`)
     } catch (e) {
       setError(String(e))
     } finally {
@@ -49,7 +71,7 @@ export function SettingsModal({ onClose }: Props) {
     setInfo(null)
     try {
       await api.clearApiKey()
-      setSettings({ configured: false, model })
+      setSettings({ configured: false, provider: '', model: '' })
       setInfo('Clé retirée. La génération assistée est désactivée.')
     } catch (e) {
       setError(String(e))
@@ -57,6 +79,8 @@ export function SettingsModal({ onClose }: Props) {
       setSaving(false)
     }
   }
+
+  const activeLabel = settings?.configured && settings.provider ? PROVIDER_LABELS[settings.provider] : null
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -73,10 +97,10 @@ export function SettingsModal({ onClose }: Props) {
         ) : (
           <>
             <div className="settings-status">
-              {settings?.configured ? (
-                <span className="status-badge status-ok">Clé API configurée</span>
+              {activeLabel ? (
+                <span className="status-badge status-ok">{activeLabel} configuré</span>
               ) : (
-                <span className="status-badge status-off">Aucune clé API configurée</span>
+                <span className="status-badge status-off">Aucun fournisseur configuré</span>
               )}
             </div>
 
@@ -85,13 +109,28 @@ export function SettingsModal({ onClose }: Props) {
               (onglet Spécifications). Elle est stockée localement sur cette machine, hors des fichiers projet.
             </p>
 
+            <label className="field-label" htmlFor="settings-provider">
+              Fournisseur
+            </label>
+            <select
+              id="settings-provider"
+              value={provider}
+              onChange={(e) => handleProviderChange(e.target.value as Provider)}
+            >
+              {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
+                <option key={p} value={p}>
+                  {PROVIDER_LABELS[p]}
+                </option>
+              ))}
+            </select>
+
             <label className="field-label" htmlFor="settings-api-key">
-              Clé API Anthropic
+              Clé API {PROVIDER_LABELS[provider]}
             </label>
             <input
               id="settings-api-key"
               type="password"
-              placeholder="sk-ant-..."
+              placeholder={PROVIDER_KEY_PLACEHOLDER[provider]}
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               autoComplete="off"
@@ -103,7 +142,11 @@ export function SettingsModal({ onClose }: Props) {
             <input
               id="settings-model"
               type="text"
-              placeholder={settings?.model || 'claude-opus-5'}
+              placeholder={
+                settings?.configured && settings.provider === provider && settings.model
+                  ? settings.model
+                  : PROVIDER_DEFAULT_MODEL[provider]
+              }
               value={model}
               onChange={(e) => setModel(e.target.value)}
             />
@@ -112,7 +155,7 @@ export function SettingsModal({ onClose }: Props) {
               <button type="button" className="btn-primary" onClick={handleSave} disabled={saving || !apiKey.trim()}>
                 {saving ? 'Enregistrement…' : 'Enregistrer'}
               </button>
-              {settings?.configured && (
+              {activeLabel && (
                 <button type="button" className="danger" onClick={handleClear} disabled={saving}>
                   Retirer la clé
                 </button>
@@ -123,8 +166,9 @@ export function SettingsModal({ onClose }: Props) {
             {error && <p className="error">{error}</p>}
 
             <p className="settings-note">
-              Si la variable d'environnement <code>ANTHROPIC_API_KEY</code> est définie au démarrage du serveur,
-              elle est utilisée en priorité au prochain lancement.
+              Basculer de fournisseur ne perd pas la clé de l'autre : chacune est mémorisée séparément. Si la
+              variable d'environnement <code>ANTHROPIC_API_KEY</code> est définie au démarrage du serveur, elle est
+              utilisée en priorité (fournisseur Anthropic) au prochain lancement.
             </p>
           </>
         )}

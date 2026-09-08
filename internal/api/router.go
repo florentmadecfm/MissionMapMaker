@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -154,18 +155,21 @@ func (h *Handler) generateSpecifications(w http.ResponseWriter, r *http.Request)
 func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"configured": h.generate.Configured(),
+		"provider":   string(h.generate.Provider()),
 		"model":      h.generate.Model(),
 	})
 }
 
-// saveSettings enregistre la clé API saisie dans l'interface : elle prend
-// effet immédiatement (client LLM en mémoire) et est persistée dans le
-// fichier de configuration local pour les prochains démarrages. La clé
-// n'est jamais renvoyée dans une réponse HTTP, seulement son statut.
+// saveSettings enregistre le fournisseur et la clé API saisis dans
+// l'interface : effet immédiat (générateur en mémoire) et persistance
+// dans le fichier de configuration local pour les prochains démarrages.
+// La clé n'est jamais renvoyée dans une réponse HTTP, seulement son
+// statut. Le réglage de l'autre fournisseur (non actif) est préservé.
 func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		APIKey string `json:"apiKey"`
-		Model  string `json:"model"`
+		Provider string `json:"provider"`
+		APIKey   string `json:"apiKey"`
+		Model    string `json:"model"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -176,19 +180,56 @@ func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.generate.SetAPIKey(body.APIKey, body.Model)
+	provider := llm.Provider(body.Provider)
+	if !provider.Valid() {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("%w : %q", llm.ErrUnknownProvider, body.Provider))
+		return
+	}
 
-	if err := config.Save(&config.Config{AnthropicAPIKey: body.APIKey, Model: body.Model}); err != nil {
+	if err := h.generate.SetProvider(provider, body.APIKey, body.Model); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("lecture de la configuration existante : %v", err)
+		cfg = &config.Config{}
+	}
+	cfg.Provider = string(provider)
+	settings := config.ProviderSettings{APIKey: body.APIKey, Model: body.Model}
+	switch provider {
+	case llm.ProviderAnthropic:
+		cfg.Anthropic = settings
+	case llm.ProviderMistral:
+		cfg.Mistral = settings
+	}
+	if err := config.Save(cfg); err != nil {
 		log.Printf("sauvegarde de la configuration : %v", err)
 		// la clé reste active en mémoire pour cette session même si l'écriture échoue
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"configured": true, "model": h.generate.Model()})
+	writeJSON(w, http.StatusOK, map[string]any{"configured": true, "provider": string(provider), "model": h.generate.Model()})
 }
 
+// deleteSettings retire la clé du fournisseur actuellement actif (le
+// réglage de l'autre fournisseur, s'il existe, n'est pas touché).
 func (h *Handler) deleteSettings(w http.ResponseWriter, r *http.Request) {
-	h.generate.ClearAPIKey()
-	if err := config.Save(&config.Config{}); err != nil {
+	provider := h.generate.Provider()
+	h.generate.ClearProvider()
+
+	cfg, err := config.Load()
+	if err != nil {
+		cfg = &config.Config{}
+	}
+	switch provider {
+	case llm.ProviderAnthropic:
+		cfg.Anthropic = config.ProviderSettings{}
+	case llm.ProviderMistral:
+		cfg.Mistral = config.ProviderSettings{}
+	}
+	cfg.Provider = ""
+	if err := config.Save(cfg); err != nil {
 		log.Printf("suppression de la configuration : %v", err)
 	}
 	w.WriteHeader(http.StatusNoContent)

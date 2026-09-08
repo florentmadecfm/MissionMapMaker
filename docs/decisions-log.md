@@ -421,3 +421,61 @@ propre du serveur sans variable d'environnement, et le repli/dépli de la
 sidebar fonctionne avec transition. Reste à faire : tester avec une
 vraie clé pour valider le contenu généré (toujours bloqué par l'absence
 de clé réelle dans l'environnement de développement).
+
+---
+
+## ADR-013 — Abstraction multi-fournisseurs LLM (Anthropic + Mistral)
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir configurer une clé
+API Mistral (ou un autre fournisseur) plutôt que d'être limité à
+Anthropic. Le code de génération (ADR-002, ADR-007) était jusqu'ici
+directement couplé au SDK Anthropic.
+
+**Décision** :
+- Nouvelle interface `llm.Generator` (`GenerateProcess`,
+  `GenerateSpecifications`) : le reste de l'application (service, API)
+  ne dépend plus que de cette interface, jamais d'un client de
+  fournisseur concret. Ajouter un fournisseur = une implémentation de
+  cette interface + un cas dans `llm.NewGenerator`.
+- Schémas d'outils (`ToolSpec` : nom, description, propriétés JSON
+  Schema) et prompts système extraits dans des fichiers partagés
+  (`schemas.go`, `prompts.go`), traduits vers le format propre à chaque
+  fournisseur (tool use Anthropic vs function calling Mistral) au
+  moment de l'appel plutôt que dupliqués.
+- Client Mistral en HTTP brut (pas de SDK Go officiel disponible) :
+  `POST https://api.mistral.ai/v1/chat/completions`,
+  `Authorization: Bearer <clé>`, `tool_choice: "any"` pour forcer
+  l'appel de l'outil plutôt qu'une réponse en texte libre. Format
+  vérifié auprès de la documentation Mistral avant implémentation
+  (function calling proche du format OpenAI).
+- `internal/config.Config` stocke un réglage (`ProviderSettings` :
+  clé + modèle) **par fournisseur**, plus un champ `Provider` pour le
+  fournisseur actif — changer de fournisseur ne fait pas perdre la clé
+  de l'autre.
+- `GenerateService` manipule un `llm.Generator` (au lieu d'un
+  `*llm.Client` concret) derrière son mutex existant ; `SetProvider`
+  remplace `SetAPIKey`.
+- Endpoints `/api/settings` : `GET` renvoie aussi `provider` ; `PUT`
+  prend `provider` en plus de `apiKey`/`model` et valide qu'il fait
+  partie des fournisseurs connus (`llm.Provider.Valid()`).
+- Frontend : sélecteur de fournisseur dans l'écran Paramètres, libellés
+  et placeholders adaptés (`claude-opus-5` / `mistral-large-latest`).
+
+**Justification** : l'interface `Generator` découple complètement le
+reste de l'application du fournisseur choisi, ce qui rend l'ajout d'un
+troisième fournisseur (OpenAI, etc.) mécanique plutôt que structurant.
+Stocker une configuration par fournisseur (plutôt qu'un seul couple
+clé/modèle écrasé à chaque bascule) évite la frustration de devoir
+ressaisir une clé après être passé d'un fournisseur à l'autre pour
+comparer les résultats.
+
+**Conséquences** : vérifié bout en bout avec une fausse clé Mistral —
+l'appel a atteint `api.mistral.ai` (401 "Invalid API Key" plutôt qu'une
+erreur de validation de format, confirmant que la requête HTTP est bien
+formée), et la bascule Anthropic ↔ Mistral préserve les deux clés dans
+le fichier de configuration. Comme pour les autres fonctionnalités LLM,
+le contenu réellement généré par Mistral n'a pas pu être validé faute de
+clé réelle dans l'environnement de développement.
