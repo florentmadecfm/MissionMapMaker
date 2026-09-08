@@ -15,8 +15,7 @@ func newTestMistralClient(t *testing.T, handler http.HandlerFunc) *mistralClient
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
-	c := newMistralClient("test-key", "")
-	c.baseURL = server.URL
+	c := newMistralClient("test-key", "", server.URL)
 	c.backoff = time.Millisecond // tests rapides, pas de vraie attente
 	return c
 }

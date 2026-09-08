@@ -19,6 +19,10 @@ import (
 type ProviderSettings struct {
 	APIKey string `json:"apiKey,omitempty"`
 	Model  string `json:"model,omitempty"`
+	// BaseURL surcharge l'URL d'API par défaut du fournisseur (proxy,
+	// déploiement régional/entreprise, service compatible auto-hébergé...).
+	// Vide = URL par défaut du fournisseur.
+	BaseURL string `json:"baseUrl,omitempty"`
 }
 
 type Config struct {

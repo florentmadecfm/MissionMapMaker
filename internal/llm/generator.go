@@ -51,17 +51,26 @@ var ErrUnknownProvider = errors.New("fournisseur LLM inconnu")
 // reste de l'application fonctionne sans elle (mode manuel de secours).
 var ErrNotConfigured = errors.New("clé API non configurée")
 
-// NewGenerator construit le client du fournisseur demandé. model="" utilise
-// le modèle par défaut de ce fournisseur.
-func NewGenerator(provider Provider, apiKey, model string) (Generator, error) {
+// GeneratorOptions regroupe les paramètres de construction d'un
+// Generator. Model et BaseURL vides utilisent les valeurs par défaut du
+// fournisseur.
+type GeneratorOptions struct {
+	APIKey  string
+	Model   string
+	BaseURL string
+}
+
+// NewGenerator construit le client du fournisseur demandé.
+func NewGenerator(provider Provider, opts GeneratorOptions) (Generator, error) {
+	model := opts.Model
 	if model == "" {
 		model = provider.DefaultModel()
 	}
 	switch provider {
 	case ProviderAnthropic:
-		return newAnthropicClient(apiKey, model), nil
+		return newAnthropicClient(opts.APIKey, model, opts.BaseURL), nil
 	case ProviderMistral:
-		return newMistralClient(apiKey, model), nil
+		return newMistralClient(opts.APIKey, model, opts.BaseURL), nil
 	default:
 		return nil, fmt.Errorf("%w: %q", ErrUnknownProvider, provider)
 	}

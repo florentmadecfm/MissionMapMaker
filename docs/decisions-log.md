@@ -516,3 +516,56 @@ ajouté plus tard. Le palier gratuit/essai de Mistral reste probablement
 strict : plusieurs génération rapprochées peuvent quand même échouer
 après les 4 tentatives si le compte est durablement limité — c'est
 attendu, pas un bug.
+
+**Post-scriptum diagnostic** : le 429 a persisté malgré les nouvelles
+tentatives (ADR-014). Diagnostic mené avec l'utilisateur via un `curl`
+direct vers `api.mistral.ai` (en dehors de l'app, sans exposer la clé) :
+la réponse contenait `x-ratelimit-limit-req-minute: 0`, prouvant sans
+ambiguïté que le compte Mistral lui-même n'a aucun quota alloué (aucune
+tentative ne pouvait résoudre ça) — probablement un compte tout juste
+créé sans moyen de paiement enregistré. Pas une action corrective dans
+l'app, mais une méthode de diagnostic à retenir : quand une erreur
+persiste malgré des correctifs raisonnables côté client, un appel `curl`
+direct au fournisseur (sans passer par notre code) isole rapidement si
+le problème est chez nous ou chez le fournisseur, en s'appuyant sur les
+en-têtes de réponse plutôt que sur le seul message d'erreur.
+
+---
+
+## ADR-015 — URL de base configurable par fournisseur
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir configurer l'URL
+d'API (ex. `https://api.mistral.ai/v1/chat/completions`) plutôt que
+d'être limité à l'endpoint public codé en dur. Utile pour un proxy, un
+déploiement régional/entreprise, un service compatible auto-hébergé, ou
+pour diagnostiquer un problème réseau/fournisseur (voir post-scriptum
+ci-dessus).
+
+**Décision** :
+- `config.ProviderSettings` gagne un champ `BaseURL` (comme `APIKey` et
+  `Model`, mémorisé par fournisseur).
+- `llm.NewGenerator` prend désormais une struct `GeneratorOptions`
+  (`APIKey`, `Model`, `BaseURL`) plutôt que des paramètres positionnels,
+  pour rester lisible avec un troisième paramètre optionnel.
+- Client Anthropic : `option.WithBaseURL(...)` du SDK si une URL est
+  fournie. Client Mistral : le champ `baseURL` (déjà présent pour les
+  tests, ADR-014) sert aussi de valeur configurable par l'utilisateur,
+  avec `mistralEndpoint` comme valeur par défaut.
+- `GenerateService.SetProvider` et `/api/settings` (GET/PUT) propagent
+  `baseUrl` de bout en bout. Contrairement à la clé API, l'URL de base
+  n'est pas un secret : `GET /api/settings` la renvoie telle quelle.
+
+**Justification** : réutilise le patron déjà en place (un réglage par
+fournisseur, propagé via `GeneratorOptions`) plutôt que d'introduire un
+mécanisme séparé. Champ optionnel et vide par défaut : n'affecte aucun
+comportement existant tant qu'il n'est pas renseigné.
+
+**Conséquences** : vérifié bout en bout avec un faux serveur HTTP local
+imitant l'API Mistral (`chat/completions` + réponse d'outil) : la
+génération a bien été routée vers cette URL personnalisée plutôt que
+vers `api.mistral.ai`, et le résultat fabriqué par le faux serveur s'est
+retrouvé fusionné dans le projet — preuve concluante que le routage
+fonctionne de bout en bout (UI → backend → URL configurée).

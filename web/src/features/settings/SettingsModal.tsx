@@ -21,11 +21,17 @@ const PROVIDER_DEFAULT_MODEL: Record<Provider, string> = {
   mistral: 'mistral-large-latest',
 }
 
+const PROVIDER_DEFAULT_BASE_URL: Record<Provider, string> = {
+  anthropic: 'https://api.anthropic.com',
+  mistral: 'https://api.mistral.ai/v1/chat/completions',
+}
+
 export function SettingsModal({ onClose }: Props) {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [provider, setProvider] = useState<Provider>('anthropic')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,6 +51,7 @@ export function SettingsModal({ onClose }: Props) {
   function handleProviderChange(next: Provider) {
     setProvider(next)
     setModel('')
+    setBaseUrl('')
     setInfo(null)
   }
 
@@ -54,7 +61,7 @@ export function SettingsModal({ onClose }: Props) {
     setError(null)
     setInfo(null)
     try {
-      const s = await api.saveApiKey(provider, apiKey.trim(), model.trim() || undefined)
+      const s = await api.saveApiKey(provider, apiKey.trim(), model.trim() || undefined, baseUrl.trim() || undefined)
       setSettings(s)
       setApiKey('')
       setInfo(`Clé ${PROVIDER_LABELS[provider]} enregistrée. La génération assistée est activée dès maintenant.`)
@@ -71,7 +78,7 @@ export function SettingsModal({ onClose }: Props) {
     setInfo(null)
     try {
       await api.clearApiKey()
-      setSettings({ configured: false, provider: '', model: '' })
+      setSettings({ configured: false, provider: '', model: '', baseUrl: '' })
       setInfo('Clé retirée. La génération assistée est désactivée.')
     } catch (e) {
       setError(String(e))
@@ -150,6 +157,25 @@ export function SettingsModal({ onClose }: Props) {
               value={model}
               onChange={(e) => setModel(e.target.value)}
             />
+
+            <label className="field-label" htmlFor="settings-base-url">
+              URL de base (optionnel)
+            </label>
+            <input
+              id="settings-base-url"
+              type="text"
+              placeholder={
+                settings?.configured && settings.provider === provider && settings.baseUrl
+                  ? settings.baseUrl
+                  : PROVIDER_DEFAULT_BASE_URL[provider]
+              }
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+            />
+            <p className="settings-hint">
+              Pour un proxy, un déploiement régional/entreprise ou un service compatible auto-hébergé. Laissez vide
+              pour utiliser l'API {PROVIDER_LABELS[provider]} standard.
+            </p>
 
             <div className="nl-actions">
               <button type="button" className="btn-primary" onClick={handleSave} disabled={saving || !apiKey.trim()}>
