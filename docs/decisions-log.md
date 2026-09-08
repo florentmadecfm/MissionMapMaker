@@ -265,3 +265,52 @@ utilisateur) : le texte des exigences était tronqué dans un `<input>`
 étroit ; passage à une disposition en carte avec `<textarea>` pleine
 largeur pour le texte et la justification, afin de pouvoir relire et
 éditer le texte complet des SSS proposées.
+
+---
+
+## ADR-010 — Refonte visuelle (design system léger)
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : retour utilisateur — "le design est horrible". Diagnostic :
+`web/src/index.css` avait conservé le CSS du template Vite par défaut
+(accent violet inutilisé, `#root` limité à 1126px de large et centré,
+`text-align: center` hérité, grands titres 56px) jamais nettoyé au Lot 0,
+en plus de styles de composants très bruts (boutons/inputs par défaut du
+navigateur, pas de hiérarchie visuelle).
+
+**Décision** : refonte du système visuel plutôt que des ajustements
+ponctuels :
+- `index.css` réécrit comme une base propre : tokens CSS (`--color-*`,
+  `--radius-*`, `--shadow-*`), reset, layout plein écran (suppression de
+  la contrainte 1126px/`text-align:center`), style par défaut des
+  éléments natifs (`button`, `input`, `select`, `textarea`) pour que tout
+  composant non stylé spécifiquement reste cohérent.
+- Palette : neutres slate + accent indigo (`#4f46e5`) plutôt que le bleu
+  générique utilisé jusque-là, jeu de couleurs sémantiques pour
+  succès/erreur/avertissement.
+- `App.css` réécrit intégralement en réutilisant les noms de classes déjà
+  présents dans les composants (aucune classe renommée) : sections en
+  cartes avec ombre légère, liste de projets avec bouton "supprimer"
+  révélé au survol, onglets soulignés, matrice de traçabilité et cartes
+  d'activité harmonisées avec les mêmes tokens que le diagramme de
+  processus (`process-diagram.css` mis à jour en parallèle).
+- Ajout ciblé de la classe `btn-primary` sur les 5 actions principales
+  (Créer, Sauvegarder ×2, Générer, Proposer les SSS) — seul changement de
+  JSX nécessaire, le reste de la refonte est passé par CSS seul.
+
+**Justification** : réutiliser les classes existantes plutôt que
+restructurer les composants limite le risque de régression fonctionnelle
+pour un changement purement visuel, tout en donnant un résultat cohérent
+sur tous les écrans en une seule passe.
+
+**Conséquences** : vérifié visuellement sur les 5 onglets avec l'exemple
+restaurant. Un bug de contraste a été détecté et corrigé pendant cette
+vérification : la règle globale `button:hover` (spécificité CSS plus
+élevée que `.actor-chip.active` seule) faisait passer le texte d'un chip
+d'acteur actif en blanc sur fond quasi blanc au survol — corrigé en
+ajoutant une règle `.actor-chip.active:hover` explicite. À surveiller :
+d'autres combinaisons état-actif + survol pourraient présenter le même
+type de problème de spécificité CSS si de nouveaux composants sont
+ajoutés sans suivre ce pattern.
