@@ -135,46 +135,58 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
 
         <ul className="spec-list">
           {project.specifications.map((spec) => (
-            <li key={spec.id} className="spec-row">
-              <input
-                className="spec-code"
-                value={spec.code}
-                onChange={(e) => updateSpec(spec.id, { code: e.target.value })}
-              />
-              <select value={spec.type} onChange={(e) => updateSpec(spec.id, { type: e.target.value as SpecificationType })}>
-                {SPEC_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-              <input
+            <li key={spec.id} className="spec-card">
+              <div className="spec-card-meta">
+                <input
+                  className="spec-code"
+                  value={spec.code}
+                  onChange={(e) => updateSpec(spec.id, { code: e.target.value })}
+                />
+                <select value={spec.type} onChange={(e) => updateSpec(spec.id, { type: e.target.value as SpecificationType })}>
+                  {SPEC_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                <select value={spec.parentId ?? ''} onChange={(e) => updateSpec(spec.id, { parentId: e.target.value || undefined })}>
+                  <option value="">— sans parent —</option>
+                  {project.specifications
+                    .filter((s) => s.id !== spec.id)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.code}
+                      </option>
+                    ))}
+                </select>
+                <select
+                  value={spec.status}
+                  onChange={(e) => updateSpec(spec.id, { status: e.target.value as Specification['status'] })}
+                >
+                  <option value="draft">brouillon</option>
+                  <option value="approved">approuvée</option>
+                  <option value="deprecated">obsolète</option>
+                </select>
+                <button type="button" className="danger" onClick={() => removeSpec(spec.id)}>
+                  supprimer
+                </button>
+              </div>
+              <textarea
                 className="spec-text"
+                rows={2}
                 placeholder="Texte de l'exigence"
                 value={spec.text}
                 onChange={(e) => updateSpec(spec.id, { text: e.target.value })}
               />
-              <select value={spec.parentId ?? ''} onChange={(e) => updateSpec(spec.id, { parentId: e.target.value || undefined })}>
-                <option value="">— sans parent —</option>
-                {project.specifications
-                  .filter((s) => s.id !== spec.id)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.code}
-                    </option>
-                  ))}
-              </select>
-              <select
-                value={spec.status}
-                onChange={(e) => updateSpec(spec.id, { status: e.target.value as Specification['status'] })}
-              >
-                <option value="draft">brouillon</option>
-                <option value="approved">approuvée</option>
-                <option value="deprecated">obsolète</option>
-              </select>
-              <button type="button" className="danger" onClick={() => removeSpec(spec.id)}>
-                supprimer
-              </button>
+              {spec.rationale && (
+                <textarea
+                  className="spec-rationale"
+                  rows={1}
+                  placeholder="Justification"
+                  value={spec.rationale}
+                  onChange={(e) => updateSpec(spec.id, { rationale: e.target.value })}
+                />
+              )}
             </li>
           ))}
           {project.specifications.length === 0 && <li className="empty">Aucune spécification pour l'instant.</li>}

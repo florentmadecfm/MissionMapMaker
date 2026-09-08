@@ -225,3 +225,43 @@ vérifiée avec une réponse simulée (mock réseau côté test), y compris le
 cas d'une activité non reconnue. Un bug de numérotation des codes SSS
 (doublon d'incrément lors de la fusion) a été détecté et corrigé pendant
 cette vérification.
+
+---
+
+## ADR-009 — Vue dynamique par acteur (Lot 4)
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : dernière brique du périmètre initial — permettre à un
+utilisateur de vérifier la cohérence des activités d'un acteur donné dans
+le processus (objectif d'origine du projet).
+
+**Décision** : nouvel onglet "Vue par acteur". Sélection d'un acteur via
+des chips colorées, puis chronologie de ses activités organisée par
+colonnes de phases (toutes les phases du projet sont affichées, y compris
+celles où l'acteur n'a aucune activité, pour rendre visibles les "trous").
+Chaque carte d'activité affiche : description, interactions entrantes
+(← information, acteur source) et sortantes (→ information, acteur
+cible), spécifications liées (chips avec le texte complet en tooltip). Un
+résumé en tête d'écran compte les activités sans aucune interaction
+("isolées") et sans spécification liée. Vue en lecture seule (pas
+d'édition ici, qui reste dans les onglets Édition/Spécifications).
+
+**Justification** : dériver entièrement la vue du modèle existant
+(activités/interactions/specs) sans nouvel état ni backend, cohérent avec
+l'approche du diagramme de processus (Lot 1). Afficher les phases vides
+plutôt que de les masquer est le choix clé pour la "cohérence" demandée :
+un acteur absent d'une phase où on l'attendrait devient visible d'un coup
+d'œil, de même qu'une activité sans interaction ou sans traçabilité.
+
+**Conséquences** : vérifié bout en bout avec l'exemple restaurant
+(acteur "Plongeur" avec une seule activité isolée dans "Repas" et une
+phase "Arrivée des clients" vide pour lui — les deux avertissements
+s'affichent correctement).
+
+Par ailleurs, correction UX dans l'onglet Spécifications (retour
+utilisateur) : le texte des exigences était tronqué dans un `<input>`
+étroit ; passage à une disposition en carte avec `<textarea>` pleine
+largeur pour le texte et la justification, afin de pouvoir relire et
+éditer le texte complet des SSS proposées.
