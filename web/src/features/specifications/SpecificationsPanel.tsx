@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
 import type { Project, Specification, SpecificationType } from '../../api/types'
+import { mergeSpecDrafts } from './mergeSpecDrafts'
 import { TraceabilityMatrix } from './TraceabilityMatrix'
 
 function newId(prefix: string) {
@@ -24,6 +25,41 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
+  const [generateInfo, setGenerateInfo] = useState<string | null>(null)
+
+  async function handleGenerateSss() {
+    if (project.activities.length === 0) return
+    setGenerating(true)
+    setGenerateError(null)
+    setGenerateNotConfigured(false)
+    setGenerateInfo(null)
+    try {
+      const activityRefs = project.activities.map((a) => ({
+        name: a.name,
+        actorName: project.actors.find((actor) => actor.id === a.actorId)?.name ?? '',
+      }))
+      const drafts = await api.generateSpecifications(activityRefs)
+      const result = mergeSpecDrafts(project, drafts)
+      onChange(result.project)
+      const parts = [`${result.addedCount} SSS proposée${result.addedCount > 1 ? 's' : ''}`]
+      if (result.unmatchedActivities.length > 0) {
+        parts.push(`${result.unmatchedActivities.length} activité(s) non reconnue(s) : ${result.unmatchedActivities.join(', ')}`)
+      }
+      setGenerateInfo(parts.join(' — '))
+    } catch (e) {
+      const message = String(e)
+      if (message.includes('ANTHROPIC_API_KEY')) {
+        setGenerateNotConfigured(true)
+      } else {
+        setGenerateError(message)
+      }
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -82,6 +118,21 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
       </header>
 
       <section>
+        <div className="nl-actions">
+          <button type="button" onClick={handleGenerateSss} disabled={generating || project.activities.length === 0}>
+            {generating ? 'Génération…' : 'Proposer les SSS pour toutes les activités (IA)'}
+          </button>
+        </div>
+        {generateNotConfigured && (
+          <div className="nl-warning">
+            Génération indisponible : aucune clé ANTHROPIC_API_KEY n'est configurée côté serveur. Ajoutez les
+            spécifications manuellement ci-dessous, ou définissez <code>ANTHROPIC_API_KEY</code> avant de lancer{' '}
+            <code>go run ./cmd/server</code>.
+          </div>
+        )}
+        {generateError && <p className="error">{generateError}</p>}
+        {generateInfo && <p className="generate-info">{generateInfo}</p>}
+
         <ul className="spec-list">
           {project.specifications.map((spec) => (
             <li key={spec.id} className="spec-row">

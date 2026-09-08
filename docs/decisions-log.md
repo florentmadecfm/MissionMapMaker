@@ -185,3 +185,43 @@ environnement de développement (sandbox Claude Code) ; la génération n'a
 donc pas pu être testée avec un vrai appel API — seul le chemin
 "non configurée" (503 + message dans l'UI) a été vérifié bout en bout. À
 tester avec une vraie clé dès qu'elle sera disponible côté utilisateur.
+
+---
+
+## ADR-008 — Proposition automatique de SSS par activité/acteur
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite de l'utilisateur — l'outil doit "proposer
+directement une liste des SSS au bon format pour chaque activité pour
+chaque acteur", plutôt que de laisser la saisie des spécifications
+entièrement manuelle dans l'onglet Spécifications.
+
+**Décision** : nouveau bouton "Proposer les SSS pour toutes les activités
+(IA)" dans l'onglet Spécifications. Le frontend envoie la liste des
+activités (nom + nom d'acteur) au backend, qui appelle Claude (nouvel outil
+`propose_specifications`, même mécanisme que `extract_process` du Lot 2)
+avec un prompt imposant le format de rédaction d'exigence : phrase unique
+atomique, tournure "Le système doit permettre à [acteur] de [capacité]",
+vérifiable, non ambiguë. Le résultat est fusionné côté frontend
+(`mergeSpecDrafts`) : une spécification `StakeholderNeed` (code `SSS-NNN`)
+est créée par proposition non dupliquée et reliée à l'activité
+correspondante via `traceLinks` ; les propositions dont l'activité/acteur
+ne correspond à rien dans le projet ouvert sont ignorées et signalées à
+l'utilisateur plutôt que silencieusement perdues. Même principe que pour
+la génération de processus : jamais d'écriture automatique, tout reste
+éditable/supprimable avant sauvegarde.
+
+**Justification** : réutilise le mécanisme déjà validé du Lot 2 (tool use,
+relecture avant sauvegarde) plutôt que d'introduire un nouveau paradigme ;
+génère au niveau du projet entier (toutes activités de tous les acteurs en
+un appel) plutôt qu'activité par activité, pour limiter le nombre d'appels
+API et donner une vue d'ensemble cohérente à relire.
+
+**Conséquences** : comme pour l'ADR-007, l'appel réel n'a pas pu être testé
+faute de clé API dans cet environnement — la logique de fusion a été
+vérifiée avec une réponse simulée (mock réseau côté test), y compris le
+cas d'une activité non reconnue. Un bug de numérotation des codes SSS
+(doublon d'incrément lors de la fusion) a été détecté et corrigé pendant
+cette vérification.

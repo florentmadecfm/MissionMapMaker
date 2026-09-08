@@ -29,6 +29,7 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("PUT /api/projects/{id}", h.updateProject)
 	mux.HandleFunc("DELETE /api/projects/{id}", h.deleteProject)
 	mux.HandleFunc("POST /api/generate", h.generateProcess)
+	mux.HandleFunc("POST /api/generate-specifications", h.generateSpecifications)
 	mux.HandleFunc("GET /api/health", h.health)
 
 	return withCORS(mux)
@@ -122,6 +123,27 @@ func (h *Handler) generateProcess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, draft)
+}
+
+func (h *Handler) generateSpecifications(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Activities []llm.ActivityRef `json:"activities"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	drafts, err := h.generate.GenerateSpecifications(r.Context(), body.Activities)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, drafts)
 }
 
 func (h *Handler) deleteProject(w http.ResponseWriter, r *http.Request) {

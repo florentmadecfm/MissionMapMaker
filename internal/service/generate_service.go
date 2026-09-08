@@ -25,7 +25,18 @@ func (s *GenerateService) Generate(ctx context.Context, text string) (*llm.Draft
 	return s.client.GenerateProcess(ctx, text)
 }
 
+func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef) ([]llm.DraftSpecification, error) {
+	if len(activities) == 0 {
+		return nil, errNoActivities
+	}
+	if s.client == nil {
+		return nil, llm.ErrNotConfigured
+	}
+	return s.client.GenerateSpecifications(ctx, activities)
+}
+
 var errEmptyText = &validationError{"le texte à analyser est vide"}
+var errNoActivities = &validationError{"aucune activité à traiter"}
 
 type validationError struct{ msg string }
 

@@ -37,3 +37,22 @@ type DraftInteraction struct {
 	ToActivityName   string `json:"toActivityName"`
 	Information      string `json:"information"`
 }
+
+// ActivityRef identifie une activité par son nom et celui de son acteur,
+// tel qu'affichés dans le projet ouvert (pas d'ID : le LLM ne connaît que
+// le texte du processus).
+type ActivityRef struct {
+	Name      string `json:"name"`
+	ActorName string `json:"actorName"`
+}
+
+// DraftSpecification est un besoin partie prenante (SSS) proposé pour une
+// activité donnée, au format d'exigence habituel (une phrase atomique,
+// vérifiable, "le système doit ..."). Comme DraftProcess, c'est une
+// proposition à relire avant sauvegarde (ADR-002).
+type DraftSpecification struct {
+	ActivityName string `json:"activityName"`
+	ActorName    string `json:"actorName"`
+	Text         string `json:"text"`
+	Rationale    string `json:"rationale,omitempty"`
+}

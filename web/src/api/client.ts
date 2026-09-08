@@ -1,4 +1,4 @@
-import type { DraftProcess, Project, ProjectSummary } from './types'
+import type { ActivityRef, DraftProcess, DraftSpecification, Project, ProjectSummary } from './types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -23,4 +23,9 @@ export const api = {
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
   generateFromText: (text: string) =>
     request<DraftProcess>('/generate', { method: 'POST', body: JSON.stringify({ text }) }),
+  generateSpecifications: (activities: ActivityRef[]) =>
+    request<DraftSpecification[]>('/generate-specifications', {
+      method: 'POST',
+      body: JSON.stringify({ activities }),
+    }),
 }
