@@ -85,12 +85,18 @@ func (r *Repository) Load(id string) (*domain.Project, error) {
 	if err := json.Unmarshal(data, &p); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
+	// Un fichier enregistré avant l'ajout d'un champ collection (ex.
+	// TestScenarios) ne l'a pas en JSON : Unmarshal laisse alors le slice Go
+	// à nil, qui se sérialiserait en `null` côté API et ferait planter le
+	// frontend. Voir domain.Project.Normalize.
+	p.Normalize()
 	return &p, nil
 }
 
 // Save writes the project atomically (temp file + rename) and keeps a
 // timestamped backup of the previous version, if any.
 func (r *Repository) Save(p *domain.Project) error {
+	p.Normalize()
 	if err := p.Validate(); err != nil {
 		return err
 	}

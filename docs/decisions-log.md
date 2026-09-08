@@ -973,3 +973,55 @@ l'ajout manuel d'une SSS, puis génère correctement un scénario
 supplémentaire pour cette seule SSS ; la suppression d'une SSS supprime
 bien son scénario de test lié (cascade). Le tout confirmé persisté côté
 serveur après Sauvegarder (relecture directe via l'API).
+
+---
+
+## ADR-022 — Correctif : crash sur l'onglet Spécifications (projets existants)
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : bug utilisateur remonté juste après ADR-021 — l'onglet
+Spécifications plantait à l'ouverture pour un projet existant (créé
+avant l'ajout des scénarios de test V&V). Cause : le fichier JSON d'un
+projet enregistré avant ADR-021 n'a pas la clé `testScenarios`.
+`encoding/json` laisse alors le slice Go correspondant à `nil` plutôt
+qu'à un slice vide, et sérialise un slice `nil` en `null` (jamais `[]`).
+L'API renvoyait donc `"testScenarios": null` pour tout projet antérieur
+à ce champ ; côté frontend, plusieurs endroits (`SpecificationsPanel`,
+`TestScenariosPanel`) appellent `.filter`/`.some`/`.length` dessus en
+supposant toujours un tableau (comme le déclare le type TypeScript
+`Project.testScenarios: TestScenario[]`, non optionnel) — d'où le crash
+à l'appel sur `null`.
+
+**Décision** :
+- Nouvelle méthode `domain.Project.Normalize()` : force à `[]` tout
+  champ collection resté `nil` après désérialisation (`Actors`,
+  `Phases`, `Activities`, `Interactions`, `Specifications`,
+  `TestScenarios`, ainsi que `Activity.UserStories`/`TraceLinks` et
+  `TestScenario.Steps`) — pas seulement `TestScenarios`, pour parer
+  pareillement à un futur champ collection ajouté de la même manière.
+- Appelée dans `storage.Repository.Load` (juste après
+  `json.Unmarshal`, avant de renvoyer le projet) et dans
+  `storage.Repository.Save` (avant `Validate`, pour qu'un corps de
+  requête `PUT` incomplet ne réécrive pas un `null` sur disque non plus).
+
+**Justification** : corrigé à la source (couche stockage), pas côté
+frontend avec des `?? []` défensifs à chaque site d'utilisation — l'API
+REST ne doit jamais renvoyer `null` là où le contrat (type TypeScript
+non optionnel) promet un tableau ; une normalisation dispersée côté
+client aurait masqué le vrai problème sans le résoudre pour d'autres
+consommateurs futurs de l'API. Champ par champ plutôt qu'une
+normalisation générique par réflexion : reste explicite et lisible, et
+le nombre de champs collection du domaine est petit et stable.
+
+**Conséquences** : premier test pour `internal/storage`
+(`TestLoad_NormalizesMissingCollectionsFromLegacyFile`) — charge un
+fichier JSON minimal sans `testScenarios`/`interactions`/
+`specifications`, vérifie qu'aucun de ces champs ne se résérialise en
+`null`. Reproduit et vérifié bout en bout : un fichier project.json
+écrit à la main sans la clé `testScenarios` (simulant un projet créé
+avant ADR-021) ne fait plus planter ni l'onglet Spécifications ni son
+sous-onglet Tests V&V une fois le correctif appliqué (zéro erreur JS en
+console, capture d'écran de la page fonctionnelle) — alors qu'avant, la
+même vérification aurait échoué avec le même fichier.
