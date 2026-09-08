@@ -28,8 +28,12 @@ export function ActorHeaderNode({ data }: NodeProps) {
 export function ActivityNode({ data }: NodeProps) {
   const storyCount = data.storyCount as number
   const specCount = data.specCount as number
+  const color = data.color as string
   return (
-    <div className="activity-card" style={{ borderTopColor: data.color as string }}>
+    <div
+      className="activity-card"
+      style={{ borderTopColor: color, borderLeftColor: color, ['--card-color' as string]: color }}
+    >
       {/* Poignées gauche/droite : interactions entre activités de phases différentes. */}
       {HANDLE_OFFSETS.map((top, i) => (
         <Handle key={`in-h${i}`} id={`in-h${i}`} type="target" position={Position.Left} style={{ top }} />

@@ -632,3 +632,68 @@ absence de générateur configuré. Vérifié bout en bout avec un faux
 serveur Mistral local comptant les requêtes : après une première
 génération de SSS, le bouton se désactive et un second clic ne déclenche
 aucun appel HTTP supplémentaire (compteur de requêtes inchangé).
+
+---
+
+## ADR-017 — Couleurs des flèches et des cases : distinguer départ et arrivée
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — sur le diagramme de
+processus, jouer sur la couleur des flèches et des cartes pour bien
+visualiser le départ et l'arrivée de chaque flèche. Avant ce changement,
+une interaction était peinte d'une seule couleur (celle de l'acteur
+source) du début à la fin, y compris la pointe de flèche : rien ne
+distinguait visuellement le point de départ du point d'arrivée quand une
+interaction traversait deux acteurs de couleurs différentes.
+
+**Décision** :
+- Chaque flèche (interaction) est maintenant tracée avec un dégradé
+  linéaire allant de la couleur de l'acteur source à celle de l'acteur
+  cible (`LayoutEdge.sourceColor` / `targetColor` dans `layout.ts`, un
+  `<linearGradient>` par flèche dans `ProcessDiagram.tsx`), plutôt qu'une
+  couleur unique.
+- Point de départ marqué par un petit disque plein dans la couleur de
+  l'acteur source (marqueur SVG mutualisé par couleur, pas par flèche,
+  pour limiter le nombre d'éléments DOM) ; pointe d'arrivée marquée par
+  une flèche plus large (18px) dans la couleur de l'acteur cible.
+- Cartes d'activité (`nodes.tsx` / `process-diagram.css`) : bordure
+  gauche ajoutée en plus de la bordure supérieure déjà existante, et léger
+  fond teinté (`color-mix`) dans la couleur de l'acteur, pour que la carte
+  elle-même soit facilement associée à la couleur des flèches qui en
+  partent ou y arrivent.
+- **Piège technique rencontré** : un premier essai avec
+  `gradientUnits="objectBoundingBox"` (dégradé exprimé en pourcentage de
+  la boîte englobante du tracé) s'est révélé invisible sur la majorité
+  des flèches. Cause : les tracés `smoothstep` de React Flow sont
+  composés de segments droits horizontaux ou verticaux ; sur un segment
+  purement horizontal ou vertical, la boîte englobante a une largeur ou
+  une hauteur nulle dans un axe, ce qui rend la transformation du
+  dégradé `objectBoundingBox` singulière (le SVG ne peut pas la peindre,
+  silencieusement — pas d'erreur console). Corrigé en passant à
+  `gradientUnits="userSpaceOnUse"` avec des coordonnées absolues (centre
+  approximatif de la carte source et de la carte cible, calculées dans
+  `computeLayout`) : ce système de coordonnées est celui du `<path>` qui
+  référence le dégradé (donc le même repère que les positions de nœuds
+  du layout), pas celui du conteneur SVG qui définit le `<defs>`.
+
+**Justification** : dégradé plutôt que, par exemple, une flèche à
+pointillés bicolores ou deux segments de couleurs différentes, pour
+rester lisible sur des tracés courts comme longs sans complexifier le
+tracé SVG lui-même (on ne touche qu'au remplissage `stroke`, pas au `d`
+du chemin). Marqueur de départ mutualisé par couleur (et non par flèche)
+pour ne pas multiplier inutilement les `<marker>` du DOM alors que le
+nombre de couleurs distinctes (une par acteur) reste petit.
+
+**Conséquences** : vérifié bout en bout avec un projet de test couvrant
+des interactions dans les deux sens (avant/arrière dans le temps, entre
+phases et au sein d'une même phase) : dans tous les cas, le dégradé part
+bien de la couleur de l'acteur source et arrive à celle de l'acteur
+cible, quel que soit le sens géométrique réel du tracé. Limite connue,
+non corrigée ici (hors périmètre de la demande) : deux interactions
+réciproques entre les deux mêmes activités (aller et retour) partagent
+exactement les mêmes points d'ancrage et se superposent visuellement,
+seule la dernière tracée reste visible — un futur ajustement pourrait
+décaler légèrement les tracés réciproques comme c'est déjà fait pour la
+répartition des poignées (`HANDLES_PER_SIDE`).

@@ -35,9 +35,13 @@
 
 .activity-card {
   width: 210px;
-  background: var(--color-surface);
+  /* Léger fond teinté de la couleur de l'acteur (--card-color, posée en
+     inline style) : renforce l'association visuelle entre une carte et les
+     flèches de même couleur qui en partent ou y arrivent. */
+  background: color-mix(in srgb, var(--card-color, transparent) 7%, var(--color-surface));
   border: 1px solid var(--color-border);
   border-top: 4px solid var(--color-primary);
+  border-left: 3px solid var(--color-primary);
   border-radius: var(--radius-md);
   padding: 0.55rem 0.7rem;
   box-shadow: var(--shadow-md);

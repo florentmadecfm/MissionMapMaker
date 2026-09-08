@@ -6,6 +6,13 @@ export const COLUMN_WIDTH = 300
 export const MIN_ROW_HEIGHT = 160
 export const CARD_MARGIN = 16
 export const CARD_STACK_OFFSET = 78
+// Largeur fixe (voir .activity-card en CSS) et hauteur approximative d'une
+// carte d'activité, utilisées uniquement pour estimer un point central par
+// carte (repère du dégradé des flèches, cf. LayoutEdge.gradient) : la
+// hauteur réelle varie légèrement avec le contenu, mais une approximation
+// suffit pour orienter un dégradé de couleur.
+const CARD_WIDTH = 210
+const CARD_HEIGHT_ESTIMATE = 60
 
 // Nombre de points d'ancrage répartis verticalement de chaque côté d'une
 // carte d'activité (voir nodes.tsx) : plusieurs interactions partant/
@@ -30,7 +37,20 @@ export interface LayoutEdge {
   sourceHandle: string
   targetHandle: string
   label: string
-  color: string
+  // Couleur de l'acteur au départ (source) et à l'arrivée (target) de
+  // l'interaction : les deux bouts de la flèche restent identifiables même
+  // quand ils traversent plusieurs acteurs, en écho à la couleur de bordure
+  // des cartes d'activité (voir nodes.tsx).
+  sourceColor: string
+  targetColor: string
+  // Repères (en coordonnées internes du canevas, "userSpaceOnUse") du
+  // centre de la carte de départ et de celle d'arrivée : sert d'axe au
+  // dégradé de couleur de la flèche. Un dégradé en pourcentage relatif à
+  // la boîte englobante du tracé (objectBoundingBox) ne fonctionne pas ici
+  // : les tracés "smoothstep" sont faits de segments droits horizontaux ou
+  // verticaux, dont la boîte englobante a une largeur ou une hauteur nulle
+  // sur ces segments — un dégradé objectBoundingBox y devient invisible.
+  gradient: { x1: number; y1: number; x2: number; y2: number }
 }
 
 // Calcule une disposition en swimlanes : les phases forment les colonnes
@@ -99,6 +119,9 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
 
   const stacking = new Map<string, number>() // clé "actorId:phaseId" -> nombre déjà placé
   const activitiesByOrder = [...project.activities].sort((a, b) => a.order - b.order)
+  // Centre approximatif de chaque carte d'activité (voir gradient dans
+  // LayoutEdge), rempli au fur et à mesure du placement ci-dessous.
+  const activityCenters = new Map<string, { x: number; y: number }>()
 
   for (const activity of activitiesByOrder) {
     const pi = phaseIndex.get(activity.phaseId)
@@ -110,13 +133,15 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     stacking.set(key, stackPos + 1)
 
     const actor = actors[ai]
+    const position = {
+      x: LANE_LABEL_WIDTH + pi * COLUMN_WIDTH + CARD_MARGIN,
+      y: rowOffsets[ai] + CARD_MARGIN + stackPos * CARD_STACK_OFFSET,
+    }
+    activityCenters.set(activity.id, { x: position.x + CARD_WIDTH / 2, y: position.y + CARD_HEIGHT_ESTIMATE / 2 })
     nodes.push({
       id: activity.id,
       type: 'activity',
-      position: {
-        x: LANE_LABEL_WIDTH + pi * COLUMN_WIDTH + CARD_MARGIN,
-        y: rowOffsets[ai] + CARD_MARGIN + stackPos * CARD_STACK_OFFSET,
-      },
+      position,
       data: {
         label: activity.name,
         color: actor.color,
@@ -149,6 +174,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       const fromActivity = activityById.get(i.fromActivityId)
       const toActivity = activityById.get(i.toActivityId)
       const fromActor = actorById.get(fromActivity?.actorId ?? '')
+      const toActor = actorById.get(toActivity?.actorId ?? '')
 
       // Même phase (colonne) : route en vertical (haut/bas) pour ne pas
       // partager le couloir gauche/droite utilisé par les interactions
@@ -172,6 +198,10 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         targetHandle = `in-${nextHandle(i.toActivityId, 'in')}`
       }
 
+      const fromCenter = activityCenters.get(i.fromActivityId) ?? { x: 0, y: 0 }
+      const toCenter = activityCenters.get(i.toActivityId) ?? { x: 0, y: 0 }
+      const gradient = { x1: fromCenter.x, y1: fromCenter.y, x2: toCenter.x, y2: toCenter.y }
+
       return {
         id: i.id,
         source: i.fromActivityId,
@@ -179,7 +209,9 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         sourceHandle,
         targetHandle,
         label: i.information,
-        color: fromActor?.color ?? '#64748b',
+        sourceColor: fromActor?.color ?? '#64748b',
+        targetColor: toActor?.color ?? '#64748b',
+        gradient,
       }
     })
 
