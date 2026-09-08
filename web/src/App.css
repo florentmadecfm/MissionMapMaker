@@ -437,6 +437,64 @@
   font-size: 0.8rem;
 }
 
+/* ---------- Sous-onglets (ex. Spécifications / Tests V&V) ---------- */
+
+.subtabs {
+  margin-bottom: 1.1rem;
+}
+
+.subtabs button {
+  font-size: 0.82rem;
+  padding: 0.4rem 0.65rem;
+}
+
+/* ---------- Tests V&V (scénarios de vérification/validation) ---------- */
+
+.test-title {
+  flex: 1;
+  min-width: 160px;
+  font-weight: 600;
+  background: var(--color-surface);
+}
+
+.test-linked-spec {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.test-steps {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.test-steps th {
+  text-align: left;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0.3rem 0.4rem;
+}
+
+.test-steps td {
+  padding: 0.2rem 0.4rem;
+  vertical-align: middle;
+}
+
+.test-steps td:first-child {
+  width: 1.5rem;
+  color: var(--color-text-faint);
+  text-align: center;
+}
+
+.test-steps input {
+  width: 100%;
+  background: var(--color-surface);
+}
+
 /* ---------- Matrice de traçabilité ---------- */
 
 .matrix-scroll {

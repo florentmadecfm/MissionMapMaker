@@ -25,6 +25,11 @@ export interface Activity {
   actorId: string
   phaseId: string
   order: number
+  // Sous-colonne explicitement choisie (glisser-déposer sur le
+  // diagramme) au sein de la cellule (actorId, phaseId) ; 0 = pas de
+  // choix explicite, empilement automatique par `order` comme avant.
+  // Voir layout.ts (computeLayout) pour l'algorithme de placement.
+  column: number
   description: string
   sourceText?: string
   userStories: UserStory[]
@@ -56,6 +61,21 @@ export interface Specification {
   priority: string
 }
 
+export interface TestStep {
+  action: string
+  expectedResult: string
+}
+
+export interface TestScenario {
+  id: string
+  code: string
+  title: string
+  specificationId: string
+  preconditions?: string
+  steps: TestStep[]
+  status: 'draft' | 'approved' | 'deprecated'
+}
+
 export interface Project {
   id: string
   name: string
@@ -66,6 +86,7 @@ export interface Project {
   activities: Activity[]
   interactions: Interaction[]
   specifications: Specification[]
+  testScenarios: TestScenario[]
 }
 
 export interface ProjectSummary {
@@ -123,4 +144,21 @@ export interface DraftSpecification {
   actorName: string
   text: string
   rationale?: string
+}
+
+export interface SpecRef {
+  code: string
+  text: string
+}
+
+export interface DraftTestStep {
+  action: string
+  expectedResult: string
+}
+
+export interface DraftTestScenario {
+  specificationCode: string
+  title: string
+  preconditions?: string
+  steps: DraftTestStep[]
 }

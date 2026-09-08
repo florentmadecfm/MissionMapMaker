@@ -47,6 +47,7 @@ func (s *ProjectService) Create(name string) (*domain.Project, error) {
 		Activities:     []domain.Activity{},
 		Interactions:   []domain.Interaction{},
 		Specifications: []domain.Specification{},
+		TestScenarios:  []domain.TestScenario{},
 	}
 
 	if err := s.repo.Save(p); err != nil {

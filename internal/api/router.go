@@ -33,6 +33,7 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("DELETE /api/projects/{id}", h.deleteProject)
 	mux.HandleFunc("POST /api/generate", h.generateProcess)
 	mux.HandleFunc("POST /api/generate-specifications", h.generateSpecifications)
+	mux.HandleFunc("POST /api/generate-test-scenarios", h.generateTestScenarios)
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.saveSettings)
 	mux.HandleFunc("DELETE /api/settings", h.deleteSettings)
@@ -141,6 +142,27 @@ func (h *Handler) generateSpecifications(w http.ResponseWriter, r *http.Request)
 	}
 
 	drafts, err := h.generate.GenerateSpecifications(r.Context(), body.Activities)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, drafts)
+}
+
+func (h *Handler) generateTestScenarios(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Specifications []llm.SpecRef `json:"specifications"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	drafts, err := h.generate.GenerateTestScenarios(r.Context(), body.Specifications)
 	if err != nil {
 		if errors.Is(err, llm.ErrNotConfigured) {
 			writeError(w, http.StatusServiceUnavailable, err)

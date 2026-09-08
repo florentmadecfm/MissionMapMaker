@@ -80,6 +80,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       actorId: project.actors[0].id,
       phaseId: project.phases[0].id,
       order: project.activities.length + 1,
+      column: 0,
       description: '',
       userStories: [],
       traceLinks: [],

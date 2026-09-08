@@ -122,3 +122,40 @@ func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities
 
 	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
 }
+
+func (c *anthropicClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef) ([]DraftTestScenario, error) {
+	input, err := json.Marshal(specifications)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation des spécifications : %w", err)
+	}
+
+	spec := proposeTestScenariosToolSpec()
+	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.Model(c.model),
+		MaxTokens: 8000,
+		System: []anthropic.TextBlockParam{
+			{Text: testScenarioSystemPrompt},
+		},
+		Tools: []anthropic.ToolUnionParam{toAnthropicTool(spec)},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(string(input))),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("appel API Claude : %w", err)
+	}
+
+	for _, block := range resp.Content {
+		if toolUse, ok := block.AsAny().(anthropic.ToolUseBlock); ok && toolUse.Name == spec.Name {
+			var result struct {
+				Scenarios []DraftTestScenario `json:"scenarios"`
+			}
+			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &result); err != nil {
+				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
+			}
+			return result.Scenarios, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
+}

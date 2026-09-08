@@ -257,3 +257,23 @@ func (c *mistralClient) GenerateSpecifications(ctx context.Context, activities [
 	}
 	return result.Specifications, nil
 }
+
+func (c *mistralClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef) ([]DraftTestScenario, error) {
+	input, err := json.Marshal(specifications)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation des spécifications : %w", err)
+	}
+
+	spec := proposeTestScenariosToolSpec()
+	raw, err := c.call(ctx, testScenarioSystemPrompt, string(input), spec)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Scenarios []DraftTestScenario `json:"scenarios"`
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, fmt.Errorf("parsing des arguments de l'outil : %w", err)
+	}
+	return result.Scenarios, nil
+}

@@ -1,4 +1,14 @@
-import type { ActivityRef, DraftProcess, DraftSpecification, Project, ProjectSummary, Provider, Settings } from './types'
+import type {
+  ActivityRef,
+  DraftProcess,
+  DraftSpecification,
+  DraftTestScenario,
+  Project,
+  ProjectSummary,
+  Provider,
+  Settings,
+  SpecRef,
+} from './types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -27,6 +37,11 @@ export const api = {
     request<DraftSpecification[]>('/generate-specifications', {
       method: 'POST',
       body: JSON.stringify({ activities }),
+    }),
+  generateTestScenarios: (specifications: SpecRef[]) =>
+    request<DraftTestScenario[]>('/generate-test-scenarios', {
+      method: 'POST',
+      body: JSON.stringify({ specifications }),
     }),
   getSettings: () => request<Settings>('/settings'),
   saveApiKey: (provider: Provider, apiKey: string, model?: string, baseUrl?: string) =>

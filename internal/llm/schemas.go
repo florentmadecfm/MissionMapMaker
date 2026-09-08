@@ -85,3 +85,35 @@ func proposeSpecificationsToolSpec() ToolSpec {
 		Required: []string{"specifications"},
 	}
 }
+
+func proposeTestScenariosToolSpec() ToolSpec {
+	stringProp := map[string]any{"type": "string"}
+
+	stepSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"action":         stringProp,
+			"expectedResult": stringProp,
+		},
+		"required": []string{"action", "expectedResult"},
+	}
+	scenarioSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"specificationCode": stringProp,
+			"title":             stringProp,
+			"preconditions":     stringProp,
+			"steps":             map[string]any{"type": "array", "items": stepSchema},
+		},
+		"required": []string{"specificationCode", "title", "steps"},
+	}
+
+	return ToolSpec{
+		Name:        "propose_test_scenarios",
+		Description: "Enregistre les scénarios de test de vérification/validation proposés pour chaque spécification.",
+		Properties: map[string]any{
+			"scenarios": map[string]any{"type": "array", "items": scenarioSchema},
+		},
+		Required: []string{"scenarios"},
+	}
+}
