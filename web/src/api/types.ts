@@ -103,3 +103,15 @@ export interface DraftProcess {
   activities: DraftActivity[]
   interactions: DraftInteraction[]
 }
+
+export interface ActivityRef {
+  name: string
+  actorName: string
+}
+
+export interface DraftSpecification {
+  activityName: string
+  actorName: string
+  text: string
+  rationale?: string
+}

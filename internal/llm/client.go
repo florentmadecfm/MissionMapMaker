@@ -26,6 +26,16 @@ const systemPrompt = `Tu assistes un UX designer / Product Owner qui décrit un 
 
 N'invente pas d'acteurs, de phases ou d'activités qui ne sont pas suggérés par le texte. Si une information n'est pas mentionnée, laisse le champ correspondant vide plutôt que de deviner. Réponds uniquement en appelant l'outil extract_process.`
 
+const specSystemPrompt = `Tu assistes un ingénieur systèmes / Product Owner à rédiger des besoins partie prenante (SSS - Stakeholder/System Specification) au format INCOSE, à partir d'une liste d'activités déjà identifiées dans un diagramme de processus.
+
+Pour CHAQUE activité fournie, propose au moins une exigence SSS qui capture le besoin sous-jacent côté système d'information/outil qui supporterait cette activité pour cet acteur. Chaque exigence doit respecter ces règles de rédaction :
+- une phrase unique, atomique (un seul besoin par exigence, jamais "et"/"ou" combinant deux besoins distincts) ;
+- formulée avec la tournure "Le système doit permettre à [acteur] de [capacité]" ou "Le système doit [capacité]" ;
+- vérifiable et non ambiguë (pas de "rapidement", "si possible", "de préférence") ;
+- rédigée en français.
+
+Reprends exactement le nom d'activité et le nom d'acteur tels que fournis en entrée (respecte la casse et l'orthographe), pour permettre de relier chaque exigence à son activité d'origine. Réponds uniquement en appelant l'outil propose_specifications.`
+
 type Client struct {
 	api   anthropic.Client
 	model string
@@ -105,6 +115,71 @@ func extractProcessTool() anthropic.ToolUnionParam {
 	}
 
 	return anthropic.ToolUnionParam{OfTool: &tool}
+}
+
+func proposeSpecificationsTool() anthropic.ToolUnionParam {
+	stringProp := map[string]any{"type": "string"}
+
+	specSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"activityName": stringProp,
+			"actorName":    stringProp,
+			"text":         stringProp,
+			"rationale":    stringProp,
+		},
+		"required": []string{"activityName", "actorName", "text"},
+	}
+
+	tool := anthropic.ToolParam{
+		Name:        "propose_specifications",
+		Description: anthropic.String("Enregistre les besoins partie prenante (SSS) proposés pour chaque activité."),
+		InputSchema: anthropic.ToolInputSchemaParam{
+			Properties: map[string]any{
+				"specifications": map[string]any{"type": "array", "items": specSchema},
+			},
+		},
+	}
+
+	return anthropic.ToolUnionParam{OfTool: &tool}
+}
+
+// GenerateSpecifications appelle Claude pour proposer, pour chaque activité
+// fournie, une ou plusieurs exigences SSS au format INCOSE.
+func (c *Client) GenerateSpecifications(ctx context.Context, activities []ActivityRef) ([]DraftSpecification, error) {
+	input, err := json.Marshal(activities)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation des activités : %w", err)
+	}
+
+	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.Model(c.model),
+		MaxTokens: 8000,
+		System: []anthropic.TextBlockParam{
+			{Text: specSystemPrompt},
+		},
+		Tools: []anthropic.ToolUnionParam{proposeSpecificationsTool()},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(string(input))),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("appel API Claude : %w", err)
+	}
+
+	for _, block := range resp.Content {
+		if toolUse, ok := block.AsAny().(anthropic.ToolUseBlock); ok && toolUse.Name == "propose_specifications" {
+			var result struct {
+				Specifications []DraftSpecification `json:"specifications"`
+			}
+			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &result); err != nil {
+				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
+			}
+			return result.Specifications, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Claude n'a pas appelé l'outil propose_specifications (stop_reason=%s)", resp.StopReason)
 }
 
 // GenerateProcess appelle Claude pour extraire une ébauche de processus à

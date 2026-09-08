@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Project, ProjectSummary } from '../../api/types'
+import { ActorView } from '../actor-view/ActorView'
 import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
+import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
 import { ProjectEditor } from './ProjectEditor'
 
-type Tab = 'generer' | 'edition' | 'diagramme'
+type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
 
 export function ProjectShell() {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([])
@@ -101,6 +103,16 @@ export function ProjectShell() {
               <button type="button" className={tab === 'diagramme' ? 'active' : ''} onClick={() => setTab('diagramme')}>
                 Diagramme de processus
               </button>
+              <button
+                type="button"
+                className={tab === 'specifications' ? 'active' : ''}
+                onClick={() => setTab('specifications')}
+              >
+                Spécifications
+              </button>
+              <button type="button" className={tab === 'acteur' ? 'active' : ''} onClick={() => setTab('acteur')}>
+                Vue par acteur
+              </button>
             </nav>
             {tab === 'generer' && (
               <NlInput project={project} onChange={setProject} onGenerated={() => setTab('edition')} />
@@ -109,6 +121,10 @@ export function ProjectShell() {
               <ProjectEditor project={project} onChange={setProject} onSaved={() => refreshList()} />
             )}
             {tab === 'diagramme' && <ProcessDiagram project={project} />}
+            {tab === 'specifications' && (
+              <SpecificationsPanel project={project} onChange={setProject} onSaved={() => refreshList()} />
+            )}
+            {tab === 'acteur' && <ActorView project={project} />}
           </>
         ) : (
           <p className="placeholder">Créez ou ouvrez un projet pour commencer.</p>
