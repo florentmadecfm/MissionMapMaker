@@ -30,6 +30,14 @@ export function ActorView({ project }: Props) {
       !project.interactions.some((i) => i.toActivityId === act.id),
   ).length
   const noSpecCount = actorActivities.filter((act) => act.traceLinks.length === 0).length
+  // Une activité "sans test" a au moins une spécification liée, mais
+  // aucune d'elles n'est vérifiée par un scénario de test — distinct de
+  // noSpecCount, qui n'a même pas de spécification à tester.
+  const noTestCount = actorActivities.filter(
+    (act) =>
+      act.traceLinks.length > 0 &&
+      !project.testScenarios.some((t) => act.traceLinks.includes(t.specificationId)),
+  ).length
 
   return (
     <div className="actor-view">
@@ -54,6 +62,8 @@ export function ActorView({ project }: Props) {
         <span className={isolatedCount > 0 ? 'summary-warn' : ''}>{isolatedCount} sans interaction</span>
         {' · '}
         <span className={noSpecCount > 0 ? 'summary-warn' : ''}>{noSpecCount} sans spécification liée</span>
+        {' · '}
+        <span className={noTestCount > 0 ? 'summary-warn' : ''}>{noTestCount} sans test lié</span>
       </div>
 
       <div className="actor-timeline">
@@ -70,6 +80,13 @@ export function ActorView({ project }: Props) {
                 const specs = act.traceLinks
                   .map((id) => project.specifications.find((s) => s.id === id))
                   .filter((s): s is NonNullable<typeof s> => Boolean(s))
+                // Scénarios de test vérifiant l'une des spécifications de
+                // cette activité (une spécification peut avoir plusieurs
+                // scénarios, d'où le dédoublonnage par id).
+                const specIds = new Set(specs.map((s) => s.id))
+                const tests = [...new Map(
+                  project.testScenarios.filter((t) => specIds.has(t.specificationId)).map((t) => [t.id, t]),
+                ).values()]
 
                 return (
                   <div key={act.id} className={`actor-activity-card${isolated ? ' isolated' : ''}`}>
@@ -109,6 +126,19 @@ export function ActorView({ project }: Props) {
                     ) : (
                       <p className="actor-warning">Aucune spécification liée.</p>
                     )}
+
+                    {specs.length > 0 &&
+                      (tests.length > 0 ? (
+                        <div className="actor-tests">
+                          {tests.map((t) => (
+                            <span key={t.id} className="test-chip" title={t.title}>
+                              {t.code}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="actor-warning">Aucun test lié.</p>
+                      ))}
                   </div>
                 )
               })}
