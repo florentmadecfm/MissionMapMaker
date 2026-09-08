@@ -717,6 +717,21 @@
   font-weight: 500;
 }
 
+.actor-tests {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.test-chip {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border-radius: 4px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
 /* ---------- Modale Paramètres ---------- */
 
 .modal-backdrop {

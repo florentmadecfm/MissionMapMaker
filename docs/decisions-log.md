@@ -1115,3 +1115,45 @@ test avec deux SSS (une seule liée à un scénario de test) affiche
 correctement l'ordre des sous-onglets (Spécifications, Tests V&V,
 Matrice de traçabilité), le décompte "1/2 couvertes" dans le libellé, et
 les badges "✓ testée" / "✗ sans test" sur les bonnes colonnes.
+
+---
+
+## ADR-025 — Tags des tests liés dans la vue par acteur
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — dans la vue par acteur,
+ajouter le tag du/des scénarios de test qui vérifient chaque activité,
+en écho aux puces de spécifications déjà affichées.
+
+**Décision** :
+- Pour chaque activité, calcule les scénarios de test vérifiant l'une de
+  ses spécifications liées (`act.traceLinks` → spécifications → tests
+  dont `specificationId` correspond), dédoublonnés par id (une
+  spécification peut avoir plusieurs scénarios).
+- Affiche ces tests sous forme de puces vertes (`.test-chip`, écho
+  visuel du badge "✓ testée" d'ADR-024), juste sous les puces de
+  spécification existantes (`.spec-chip`, bleues) — seulement quand
+  l'activité a au moins une spécification (sinon le message "Aucune
+  spécification liée" déjà affiché suffit, un second message "Aucun
+  test lié" serait redondant).
+- Étend le compteur de synthèse en tête de vue (déjà "X sans
+  interaction · Y sans spécification liée") d'un "Z sans test lié" :
+  une activité qui a une spécification mais dont aucune n'est vérifiée
+  par un test.
+
+**Justification** : réutilise directement les données déjà chargées
+(`project.testScenarios`, liées par `specificationId`) sans recalcul
+côté serveur ni nouveau champ — cohérent avec le reste de la vue par
+acteur, qui est un simple regroupement/filtrage de l'état déjà présent
+dans `project`. Puces vertes plutôt que bleues comme les specs : reprend
+le code couleur déjà établi pour "couvert par un test" (ADR-024).
+
+**Conséquences** : vérifié bout en bout avec un acteur ayant trois
+activités aux profils différents — une entièrement couverte (2
+spécifications, 2 tests, les deux puces vertes affichées), une
+spécifiée mais non testée (le message "Aucun test lié" apparaît), une
+sans aucune spécification (seul "Aucune spécification liée" s'affiche,
+pas de message redondant sur les tests). Le compteur de synthèse reflète
+correctement "1 sans spécification liée · 1 sans test lié".
