@@ -130,9 +130,8 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
         </div>
         {generateNotConfigured && (
           <div className="nl-warning">
-            Génération indisponible : aucune clé ANTHROPIC_API_KEY n'est configurée côté serveur. Ajoutez les
-            spécifications manuellement ci-dessous, ou définissez <code>ANTHROPIC_API_KEY</code> avant de lancer{' '}
-            <code>go run ./cmd/server</code>.
+            Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas de
+            la barre latérale pour en saisir une, ou ajoutez les spécifications manuellement ci-dessous.
           </div>
         )}
         {generateError && <p className="error">{generateError}</p>}

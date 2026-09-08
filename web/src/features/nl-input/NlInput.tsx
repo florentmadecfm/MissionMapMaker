@@ -75,9 +75,8 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
 
       {notConfigured && (
         <div className="nl-warning">
-          Génération indisponible : aucune clé ANTHROPIC_API_KEY n'est configurée côté serveur. Définissez
-          la variable d'environnement <code>ANTHROPIC_API_KEY</code> avant de lancer <code>go run ./cmd/server</code>,
-          ou utilisez la saisie manuelle dans l'onglet Édition.
+          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas de
+          la barre latérale pour en saisir une, ou utilisez la saisie manuelle dans l'onglet Édition.
         </div>
       )}
       {error && <p className="error">{error}</p>}

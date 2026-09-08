@@ -97,6 +97,11 @@ export interface DraftInteraction {
   information: string
 }
 
+export interface Settings {
+  configured: boolean
+  model: string
+}
+
 export interface DraftProcess {
   actors: DraftActor[]
   phases: DraftPhase[]
