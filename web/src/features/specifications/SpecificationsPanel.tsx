@@ -23,7 +23,7 @@ interface Props {
   onSaved: () => void
 }
 
-type SubTab = 'specifications' | 'tests'
+type SubTab = 'specifications' | 'tests' | 'matrix'
 
 export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
   const [subTab, setSubTab] = useState<SubTab>('specifications')
@@ -153,6 +153,12 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
         <button type="button" className={subTab === 'tests' ? 'active' : ''} onClick={() => setSubTab('tests')}>
           Tests V&V{project.testScenarios.length > 0 ? ` (${project.testScenarios.length})` : ''}
         </button>
+        <button type="button" className={subTab === 'matrix' ? 'active' : ''} onClick={() => setSubTab('matrix')}>
+          Matrice de traçabilité
+          {project.specifications.length > 0
+            ? ` (${project.specifications.filter((s) => project.testScenarios.some((t) => t.specificationId === s.id)).length}/${project.specifications.length} couvertes)`
+            : ''}
+        </button>
       </nav>
 
       {subTab === 'specifications' && (
@@ -244,15 +250,16 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
               + Ajouter une spécification
             </button>
           </section>
-
-          <section>
-            <h2>Matrice de traçabilité</h2>
-            <TraceabilityMatrix project={project} onChange={onChange} />
-          </section>
         </>
       )}
 
       {subTab === 'tests' && <TestScenariosPanel project={project} onChange={onChange} />}
+
+      {subTab === 'matrix' && (
+        <section>
+          <TraceabilityMatrix project={project} onChange={onChange} />
+        </section>
+      )}
     </div>
   )
 }

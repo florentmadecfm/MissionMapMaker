@@ -530,6 +530,27 @@
   color: var(--color-text-muted);
 }
 
+.coverage-badge {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.coverage-badge.covered {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+}
+
+.coverage-badge.uncovered {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
 .trace-matrix tbody th {
   text-align: left;
   background: var(--color-surface-muted);
