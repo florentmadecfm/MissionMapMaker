@@ -10,12 +10,20 @@ interface Props {
 }
 
 const EXAMPLE =
-  "Le fonctionnement d'un restaurant : les acteurs sont les clients, les serveurs, le sommelier, les cuisiniers et les plongeurs. " +
-  "Le processus se déroule en trois phases : l'arrivée des clients, puis le repas, puis le paiement. " +
-  "À l'arrivée, le serveur accueille et installe les clients, et le sommelier présente la carte des vins. " +
-  "Pendant le repas, le serveur prend la commande et transmet un bon de commande au cuisinier, qui prépare les plats ; " +
-  "le serveur sert ensuite les plats, et le plongeur débarrasse et lave la vaisselle. " +
-  "Au moment de payer, le client demande l'addition et le serveur encaisse le paiement."
+  "Le fonctionnement d'un restaurant : les acteurs sont les clients, les serveurs, le sommelier, les cuisiniers, " +
+  "les plongeurs et le manager de salle. Le processus se déroule en cinq phases : la réservation, l'arrivée des " +
+  "clients, le repas, le paiement, puis le départ. " +
+  "Pendant la réservation, le client réserve une table et le serveur confirme la réservation. " +
+  "À l'arrivée, le manager vérifie la disponibilité des tables, le serveur accueille et installe les clients, " +
+  "et le sommelier présente la carte des vins. " +
+  "Pendant le repas, le serveur prend la commande et transmet un bon de commande au cuisinier ; le sommelier " +
+  "conseille un accord mets-vins ; le cuisinier prépare les plats et gère aussi les allergies alimentaires en " +
+  "tenant compte des alertes transmises par le serveur ; le serveur sert ensuite les plats, puis vérifie la " +
+  "satisfaction des clients et signale toute réclamation au manager, qui la traite ; le plongeur débarrasse et " +
+  "lave la vaisselle. " +
+  "Au moment de payer, le client demande l'addition, le serveur la prépare puis encaisse le paiement, et le " +
+  "manager valide les remises éventuelles. " +
+  "Au départ, le plongeur débarrasse et nettoie la table, et le serveur remercie et salue les clients."
 
 export function NlInput({ project, onChange, onGenerated }: Props) {
   const [text, setText] = useState('')
