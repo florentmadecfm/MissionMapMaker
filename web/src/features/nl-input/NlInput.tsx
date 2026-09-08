@@ -106,16 +106,20 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
+      {/* Ordre pensé comme un flux de gauche à droite : d'abord remplir la
+          zone de texte (PDF ou exemple), puis lancer la génération —
+          plutôt que l'action finale en premier, avant même d'avoir de
+          quoi générer quoi que ce soit. */}
       <div className="nl-actions">
-        <button type="button" className="btn-primary" onClick={handleGenerate} disabled={loading || !text.trim()}>
-          {loading ? 'Génération…' : 'Générer'}
+        <input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handlePdfSelected} />
+        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading || pdfLoading}>
+          {pdfLoading ? 'Lecture du PDF…' : 'Charger un PDF'}
         </button>
         <button type="button" onClick={() => setText(EXAMPLE)} disabled={loading}>
           Charger l'exemple restaurant
         </button>
-        <input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handlePdfSelected} />
-        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading || pdfLoading}>
-          {pdfLoading ? 'Lecture du PDF…' : 'Charger un PDF'}
+        <button type="button" className="btn-primary" onClick={handleGenerate} disabled={loading || !text.trim()}>
+          {loading ? 'Génération…' : 'Générer'}
         </button>
       </div>
 

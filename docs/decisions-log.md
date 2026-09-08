@@ -1319,3 +1319,36 @@ Vérifié aussi le cas PDF sans texte (page dessinée, aucun contenu
 textuel) : message d'erreur explicite affiché, aucune génération
 tentée. Bundle applicatif principal confirmé inchangé après le passage à
 l'import dynamique (regression testée via une mesure avant/après).
+
+---
+
+## ADR-029 — Ordre des boutons de l'onglet Générer
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — revoir l'ordre des
+boutons de l'onglet Générer pour qu'il soit logique du point de vue UX.
+Depuis l'ajout du chargement de PDF (ADR-028), l'ordre était "Générer",
+"Charger l'exemple restaurant", "Charger un PDF" : l'action finale
+(lancer la génération) apparaissait en premier, avant même les actions
+qui remplissent la zone de texte dont elle dépend.
+
+**Décision** : réordonné en "Charger un PDF", "Charger l'exemple
+restaurant", "Générer" — les deux actions qui alimentent le textarea
+d'abord (dans l'ordre où elles ont été ajoutées au fil des sessions),
+puis l'action de génération en dernier. Le bouton "Générer" garde son
+style `btn-primary` (mise en avant visuelle) malgré sa position en fin
+de ligne : la hiérarchie visuelle (couleur) et l'ordre de lecture
+(position) restent deux signaux distincts et cohérents avec le patron
+habituel "remplir un formulaire puis valider".
+
+**Justification** : l'ordre gauche-à-droite d'une barre d'actions se lit
+naturellement comme une séquence chronologique. Un bouton d'action
+finale placé avant ses prérequis est trompeur, même désactivé — l'œil le
+voit et le lit en premier avant de comprendre qu'il faut faire autre
+chose avant.
+
+**Conséquences** : vérifié visuellement (Playwright) — l'ordre affiché
+est désormais "Charger un PDF", "Charger l'exemple restaurant",
+"Générer", conforme au flux attendu.
