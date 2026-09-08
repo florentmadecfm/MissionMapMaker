@@ -1,6 +1,21 @@
+/* Colonne flex plutôt qu'une hauteur fixe pour le canevas : l'en-tête
+   (indication + bouton Sauvegarder) peut changer de hauteur sans qu'il
+   faille retoucher un nombre magique ailleurs — le canevas prend le
+   reste de l'espace disponible. */
+.process-diagram-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px);
+}
+
+.process-diagram-page .editor-header {
+  flex-shrink: 0;
+}
+
 .process-diagram {
   width: 100%;
-  height: calc(100vh - 160px);
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;

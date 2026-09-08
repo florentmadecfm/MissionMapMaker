@@ -756,3 +756,72 @@ s'élargit correctement sur quatre sous-colonnes, toutes les lignes
 d'acteur restent à hauteur constante, et les interactions traversant la
 phase élargie (y compris celles alignées verticalement dans la même
 sous-colonne) restent correctement colorées et routées (voir ADR-017).
+
+---
+
+## ADR-019 — Glisser-déposer une activité pour la réassigner
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir déplacer une
+carte d'activité à la souris sur le diagramme. Avant ce changement, la
+seule façon de changer l'acteur ou la phase d'une activité était
+l'onglet Édition (deux menus déroulants par activité) : correct mais
+indirect pour un ajustement rapide pendant qu'on regarde le diagramme.
+
+**Décision** :
+- Seules les cartes d'activité deviennent déplaçables (`draggable: true`
+  dans `layout.ts`) ; les en-têtes de ligne/colonne restent fixes.
+- Au relâchement (`onNodeDragStop`), la position de dépose est convertie
+  en cellule (acteur, phase) cible via une nouvelle fonction
+  `computeDropTarget` : elle cherche, parmi les nœuds d'en-tête déjà
+  calculés par `computeLayout`, la ligne d'acteur et la colonne de phase
+  dont la bande contient le centre de la carte lâchée (repli sur la
+  ligne/colonne la plus proche si le dépôt tombe hors de la grille,
+  plutôt que d'ignorer le geste).
+- La carte n'a **pas** de position libre mémorisée : `computeDropTarget`
+  ne fait que déterminer `actorId`/`phaseId` (et un index d'insertion
+  dans la pile de la cellule cible, pour l'ordre relatif si plusieurs
+  activités s'y trouvent déjà). Au rendu suivant, `computeLayout`
+  replace la carte exactement à la position de grille de sa nouvelle
+  cellule — cohérent avec le reste de l'app où la disposition est
+  entièrement dérivée des données, jamais stockée à part.
+- Réassigner une carte à une cellule déjà occupée par d'autres activités
+  déclenche naturellement l'élargissement en sous-colonnes déjà décrit en
+  ADR-018 (aucune logique supplémentaire nécessaire : `computeLayout`
+  recalcule le nombre de sous-colonnes de chaque phase à chaque rendu).
+- Suit le même modèle d'édition que les autres onglets (Édition,
+  Spécifications) : le déplacement ne modifie que l'état React local
+  (`onChange`) ; un bouton « Sauvegarder » dédié (ajouté dans un nouvel
+  en-tête au-dessus du canevas, avec le même statut d'enregistrement que
+  les autres onglets) persiste vers l'API. Pas de sauvegarde automatique
+  à chaque glisser-déposer, pour rester cohérent avec l'app et éviter de
+  multiplier les écritures réseau pendant qu'on ajuste le diagramme.
+- Renumérotation de `order` limitée à la cellule cible (et, implicitement
+  laissée inchangée pour la cellule de départ, dont l'ordre relatif des
+  activités restantes ne change pas quand l'une d'elles part) : `order`
+  n'a d'effet que comparé entre activités partageant le même
+  (`actorId`,`phaseId`) — vérifié qu'aucun autre écran de l'app n'utilise
+  `Activity.order` en dehors de ce calcul d'empilement — donc aucun
+  besoin d'unicité globale des valeurs, ni de renumérotation en cascade
+  du reste du projet.
+
+**Justification** : réutilise les nœuds d'en-tête déjà produits par
+`computeLayout` (positions et largeurs déjà calculées pour l'affichage)
+plutôt que de dupliquer le calcul de grille dans une fonction séparée —
+`computeDropTarget` se contente de les parcourir. Pas de nouveau champ de
+position libre sur `Activity` : le glisser-déposer est une manière plus
+directe d'éditer les mêmes champs (`actorId`, `phaseId`, `order`) que
+l'onglet Édition modifie déjà, pas un mode d'affichage parallèle avec son
+propre état à synchroniser.
+
+**Conséquences** : vérifié bout en bout avec Playwright (glisser-déposer
+réel à la souris, pas une simulation d'événement React) sur deux
+scénarios : (1) déplacer une carte vers un autre acteur dans la même
+phase — `actorId` mis à jour, couleur de la carte et dégradé de la
+flèche entrante recalculés correctement ; (2) déplacer une carte vers une
+autre phase déjà occupée par une activité du même acteur — `phaseId`
+mis à jour et la phase cible s'élargit automatiquement en deuxième
+sous-colonne (ADR-018). Changements confirmés persistés côté serveur
+après clic sur Sauvegarder (relecture directe via l'API).

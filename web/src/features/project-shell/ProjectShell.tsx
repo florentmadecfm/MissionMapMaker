@@ -173,7 +173,9 @@ export function ProjectShell() {
             {tab === 'edition' && (
               <ProjectEditor project={project} onChange={setProject} onSaved={() => refreshList()} />
             )}
-            {tab === 'diagramme' && <ProcessDiagram project={project} />}
+            {tab === 'diagramme' && (
+              <ProcessDiagram project={project} onChange={setProject} onSaved={() => refreshList()} />
+            )}
             {tab === 'specifications' && (
               <SpecificationsPanel project={project} onChange={setProject} onSaved={() => refreshList()} />
             )}

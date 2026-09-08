@@ -14,8 +14,11 @@ export const CARD_MARGIN = 16
 // carte (repère du dégradé des flèches, cf. LayoutEdge.gradient) : la
 // hauteur réelle varie légèrement avec le contenu, mais une approximation
 // suffit pour orienter un dégradé de couleur.
-const CARD_WIDTH = 210
-const CARD_HEIGHT_ESTIMATE = 60
+// Exportées : réutilisées par ProcessDiagram.tsx pour convertir la
+// position de dépose d'une carte glissée-déposée en cellule (acteur,
+// phase) cible — voir computeDropTarget.
+export const CARD_WIDTH = 210
+export const CARD_HEIGHT_ESTIMATE = 60
 
 // Nombre de points d'ancrage répartis verticalement de chaque côté d'une
 // carte d'activité (voir nodes.tsx) : plusieurs interactions partant/
@@ -29,7 +32,10 @@ export interface LayoutNode {
   type: 'phaseHeader' | 'actorHeader' | 'activity'
   position: { x: number; y: number }
   data: Record<string, unknown>
-  draggable: false
+  // Seules les cartes d'activité sont déplaçables (glisser-déposer pour
+  // réassigner acteur/phase, voir computeDropTarget) ; les en-têtes de
+  // ligne/colonne restent fixes.
+  draggable: boolean
   selectable: boolean
 }
 
@@ -159,7 +165,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         storyCount: activity.userStories.length,
         specCount: activity.traceLinks.length,
       },
-      draggable: false,
+      draggable: true,
       selectable: true,
     })
   }
@@ -231,4 +237,55 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     })
 
   return { nodes, edges }
+}
+
+export interface DropTarget {
+  actorId: string
+  phaseId: string
+  // Position souhaitée au sein de la pile de cette cellule (acteur,
+  // phase), déduite du décalage horizontal du point de dépose au sein de
+  // la colonne de phase. Non bornée à la taille réelle de la pile cible :
+  // à charge de l'appelant de la ramener dans l'intervalle valide, qui
+  // dépend du nombre d'activités déjà présentes dans cette cellule (en
+  // excluant celle qu'on déplace).
+  subColumnIndex: number
+}
+
+// À partir de la position (coordonnées internes du canevas, celles que
+// React Flow rapporte dans l'événement de fin de glisser-déposer) où une
+// carte d'activité a été lâchée, détermine la cellule (acteur, phase)
+// cible : la ligne d'acteur et la colonne de phase dont la bande contient
+// le centre de la carte. Un dépôt hors de la grille (au-dessus de la
+// première ligne, à droite de la dernière phase, etc.) se rabat sur la
+// ligne/colonne la plus proche plutôt que d'ignorer le geste — glisser
+// une carte franchement à gauche ou à droite du canevas revient ainsi à
+// la déposer dans la première ou la dernière phase.
+export function computeDropTarget(
+  project: Project,
+  nodes: LayoutNode[],
+  dropPosition: { x: number; y: number },
+): DropTarget | null {
+  const actorHeaders = nodes.filter((n) => n.type === 'actorHeader')
+  const phaseHeaders = nodes.filter((n) => n.type === 'phaseHeader')
+  if (actorHeaders.length === 0 || phaseHeaders.length === 0) return null
+
+  // Le centre de la carte représente mieux l'intention de dépose que son
+  // coin haut-gauche (la position brute rapportée par React Flow).
+  const centerX = dropPosition.x + CARD_WIDTH / 2
+  const centerY = dropPosition.y + CARD_HEIGHT_ESTIMATE / 2
+
+  const actorRow =
+    actorHeaders.find((n) => centerY >= n.position.y && centerY < n.position.y + ROW_HEIGHT) ??
+    (centerY < actorHeaders[0].position.y ? actorHeaders[0] : actorHeaders[actorHeaders.length - 1])
+  const phaseColumn =
+    phaseHeaders.find((n) => centerX >= n.position.x && centerX < n.position.x + (n.data.width as number)) ??
+    (centerX < phaseHeaders[0].position.x ? phaseHeaders[0] : phaseHeaders[phaseHeaders.length - 1])
+
+  const actorId = actorRow.id.replace('actor-header-', '')
+  const phaseId = phaseColumn.id.replace('phase-header-', '')
+  if (!project.actors.some((a) => a.id === actorId) || !project.phases.some((p) => p.id === phaseId)) return null
+
+  const subColumnIndex = Math.round((centerX - phaseColumn.position.x) / SUBCOLUMN_WIDTH)
+
+  return { actorId, phaseId, subColumnIndex }
 }
