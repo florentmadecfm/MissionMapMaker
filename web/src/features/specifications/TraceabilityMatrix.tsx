@@ -24,6 +24,11 @@ export function TraceabilityMatrix({ project, onChange }: Props) {
     })
   }
 
+  // Une spécification est couverte dès qu'au moins un scénario de test
+  // V&V la vérifie (voir le sous-onglet Tests V&V) — indépendant de la
+  // traçabilité activité <-> spécification que la matrice édite déjà.
+  const isCovered = (specId: string) => project.testScenarios.some((t) => t.specificationId === specId)
+
   return (
     <div className="matrix-scroll">
       <table className="trace-matrix">
@@ -32,7 +37,10 @@ export function TraceabilityMatrix({ project, onChange }: Props) {
             <th>Activité \ Spécification</th>
             {project.specifications.map((spec) => (
               <th key={spec.id} title={spec.text}>
-                {spec.code}
+                <div>{spec.code}</div>
+                <span className={`coverage-badge ${isCovered(spec.id) ? 'covered' : 'uncovered'}`}>
+                  {isCovered(spec.id) ? '✓ testée' : '✗ sans test'}
+                </span>
               </th>
             ))}
           </tr>

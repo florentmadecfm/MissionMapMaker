@@ -1074,3 +1074,44 @@ l'onglet Spécifications et son sous-onglet Tests V&V normalement, zéro
 erreur JS en console, là où il plantait avant ce correctif. Rappel
 transmis à l'utilisateur : penser à redémarrer le serveur Go local après
 chaque `git pull`, Vite ne le fait pas à sa place.
+
+---
+
+## ADR-024 — Matrice de traçabilité en sous-onglet, avec couverture par test
+
+**Date** : 2026-09-08
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — déplacer la matrice de
+traçabilité (jusqu'ici une section en bas du sous-onglet Spécifications)
+dans son propre sous-onglet, à droite de "Tests V&V", et y ajouter une
+dimension indiquant si chaque spécification est couverte par un
+scénario de test ou non.
+
+**Décision** :
+- `SpecificationsPanel` gagne un troisième sous-onglet `matrix`
+  ("Matrice de traçabilité"), après "Spécifications" et "Tests V&V" —
+  la section `<TraceabilityMatrix>` est sortie du sous-onglet
+  "Spécifications" pour y être déplacée telle quelle.
+- Le libellé du sous-onglet affiche un décompte `(N/M couvertes)`
+  (spécifications ayant au moins un scénario de test lié / total), sur
+  le même patron que "Tests V&V (N)".
+- `TraceabilityMatrix` : chaque en-tête de colonne (une spécification)
+  affiche désormais, sous son code, un badge "✓ testée" ou "✗ sans
+  test" — calculé directement (`project.testScenarios.some(t =>
+  t.specificationId === spec.id)`), sans nouveau champ ni état à
+  synchroniser.
+
+**Justification** : la couverture par un test est une propriété de la
+**spécification** (la colonne), pas de la paire activité↔spécification
+que la matrice édite déjà (les cases à cocher) — d'où un badge sur
+l'en-tête de colonne plutôt qu'une ligne ou une case supplémentaire, qui
+aurait mélangé deux dimensions différentes. Affiché dans l'en-tête
+(toujours visible) plutôt que dans une ligne de pied de tableau, qui
+serait hors champ dès que la liste d'activités s'allonge.
+
+**Conséquences** : vérifié bout en bout avec Playwright — un projet de
+test avec deux SSS (une seule liée à un scénario de test) affiche
+correctement l'ordre des sous-onglets (Spécifications, Tests V&V,
+Matrice de traçabilité), le décompte "1/2 couvertes" dans le libellé, et
+les badges "✓ testée" / "✗ sans test" sur les bonnes colonnes.
