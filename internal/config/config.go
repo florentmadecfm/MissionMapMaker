@@ -1,8 +1,9 @@
-// Package config persiste les réglages de l'instance locale (actuellement
-// la clé API Anthropic saisie depuis l'interface) dans le répertoire de
-// configuration de l'utilisateur, séparé des dossiers de projets — la clé
-// est un secret propre au poste, elle ne doit pas se retrouver mêlée aux
-// fichiers projet qu'on pourrait exporter ou versionner.
+// Package config persiste les réglages de l'instance locale (le
+// fournisseur LLM actif et une clé API par fournisseur, saisis depuis
+// l'interface) dans le répertoire de configuration de l'utilisateur,
+// séparé des dossiers de projets — une clé API est un secret propre au
+// poste, elle ne doit pas se retrouver mêlée aux fichiers projet qu'on
+// pourrait exporter ou versionner.
 package config
 
 import (
@@ -11,9 +12,35 @@ import (
 	"path/filepath"
 )
 
+// ProviderSettings regroupe la clé API et le modèle configurés pour un
+// fournisseur donné. Un réglage est conservé par fournisseur (même non
+// actif) pour ne pas perdre la clé Mistral quand on bascule sur
+// Anthropic, et inversement.
+type ProviderSettings struct {
+	APIKey string `json:"apiKey,omitempty"`
+	Model  string `json:"model,omitempty"`
+}
+
 type Config struct {
-	AnthropicAPIKey string `json:"anthropicApiKey,omitempty"`
-	Model           string `json:"model,omitempty"`
+	// Provider est le fournisseur actif ("anthropic" | "mistral").
+	// Vide = aucun fournisseur configuré.
+	Provider string `json:"provider,omitempty"`
+
+	Anthropic ProviderSettings `json:"anthropic,omitempty"`
+	Mistral   ProviderSettings `json:"mistral,omitempty"`
+}
+
+// Active renvoie les réglages du fournisseur actif, ou un ProviderSettings
+// vide si aucun n'est configuré.
+func (c *Config) Active() ProviderSettings {
+	switch c.Provider {
+	case "mistral":
+		return c.Mistral
+	case "anthropic":
+		return c.Anthropic
+	default:
+		return ProviderSettings{}
+	}
 }
 
 func path() (string, error) {

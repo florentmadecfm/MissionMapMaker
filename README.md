@@ -30,8 +30,12 @@ Ouvrir http://localhost:5173.
 ### Clé API (génération assistée par LLM)
 
 Pas besoin de variable d'environnement : ouvrez **⚙ Paramètres** en bas de
-la barre latérale et collez votre clé `ANTHROPIC_API_KEY`. Elle est
-stockée localement (`~/.config/missionmapmaker/config.json`, permissions
-restreintes), hors des fichiers projet. Vous pouvez aussi définir
-`ANTHROPIC_API_KEY` en variable d'environnement au lancement du serveur :
-elle est alors prioritaire sur la clé enregistrée depuis l'interface.
+la barre latérale, choisissez un fournisseur (**Anthropic** ou
+**Mistral AI**) et collez sa clé API. Elle est stockée localement
+(`~/.config/missionmapmaker/config.json`, permissions restreintes), hors
+des fichiers projet — une clé par fournisseur est mémorisée séparément,
+basculer de l'un à l'autre ne perd pas la clé du premier.
+
+Vous pouvez aussi définir `ANTHROPIC_API_KEY` en variable d'environnement
+au lancement du serveur : elle est alors prioritaire (fournisseur
+Anthropic) sur la configuration enregistrée depuis l'interface.

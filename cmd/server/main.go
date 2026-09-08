@@ -31,15 +31,16 @@ func main() {
 	}
 }
 
-// setupGenerateService détermine la clé API à utiliser au démarrage :
-// ANTHROPIC_API_KEY (variable d'environnement) est prioritaire si
-// présente, sinon la clé précédemment saisie depuis l'écran Paramètres et
-// persistée dans le fichier de configuration local est utilisée. Dans les
-// deux cas, l'utilisateur peut ensuite configurer/changer la clé depuis
-// l'interface, avec effet immédiat.
+// setupGenerateService détermine le fournisseur/la clé à utiliser au
+// démarrage : ANTHROPIC_API_KEY (variable d'environnement) est
+// prioritaire si présente, sinon le fournisseur précédemment configuré
+// depuis l'écran Paramètres (persisté dans le fichier de configuration
+// local) est utilisé. Dans les deux cas, l'utilisateur peut ensuite
+// changer de fournisseur/clé depuis l'interface, avec effet immédiat.
 func setupGenerateService() *service.GenerateService {
-	if llmClient, err := llm.NewClient(); err == nil {
-		return service.NewGenerateService(llmClient, os.Getenv("MMM_LLM_MODEL"))
+	if generator, err := llm.NewClientFromEnv(); err == nil {
+		model := envOr("MMM_LLM_MODEL", llm.ProviderAnthropic.DefaultModel())
+		return service.NewGenerateService(generator, llm.ProviderAnthropic, model)
 	} else if !errors.Is(err, llm.ErrNotConfigured) {
 		log.Fatal(err)
 	}
@@ -49,13 +50,20 @@ func setupGenerateService() *service.GenerateService {
 		log.Printf("lecture de la configuration locale : %v", err)
 		cfg = &config.Config{}
 	}
-	if cfg.AnthropicAPIKey != "" {
-		log.Printf("génération assistée activée depuis la configuration locale")
-		return service.NewGenerateService(llm.NewClientWithKey(cfg.AnthropicAPIKey, cfg.Model), cfg.Model)
+
+	if settings := cfg.Active(); settings.APIKey != "" {
+		provider := llm.Provider(cfg.Provider)
+		generator, err := llm.NewGenerator(provider, settings.APIKey, settings.Model)
+		if err != nil {
+			log.Printf("configuration locale invalide (%v) : génération assistée désactivée", err)
+			return service.NewGenerateService(nil, "", "")
+		}
+		log.Printf("génération assistée activée depuis la configuration locale (fournisseur : %s)", provider)
+		return service.NewGenerateService(generator, provider, settings.Model)
 	}
 
-	log.Printf("génération assistée désactivée : %v (configurez une clé depuis l'écran Paramètres, ou définissez ANTHROPIC_API_KEY)", llm.ErrNotConfigured)
-	return service.NewGenerateService(nil, cfg.Model)
+	log.Printf("génération assistée désactivée : %v (configurez un fournisseur depuis l'écran Paramètres, ou définissez ANTHROPIC_API_KEY)", llm.ErrNotConfigured)
+	return service.NewGenerateService(nil, "", "")
 }
 
 func envOr(key, fallback string) string {

@@ -97,8 +97,11 @@ export interface DraftInteraction {
   information: string
 }
 
+export type Provider = 'anthropic' | 'mistral'
+
 export interface Settings {
   configured: boolean
+  provider: Provider | ''
   model: string
 }
 
