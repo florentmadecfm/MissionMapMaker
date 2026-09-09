@@ -62,6 +62,14 @@ le navigateur (aucun envoi du fichier au serveur) et ne fonctionne que
 pour des PDF texte (créés numériquement) : un PDF scanné (image) n'a pas
 de texte à extraire — l'OCR n'est pas pris en charge pour l'instant.
 
+### Exporter un projet en Excel
+
+Dans l'onglet **Édition**, le bouton **Exporter en Excel** télécharge un
+classeur `.xlsx` avec un onglet par catégorie (Acteurs, Phases,
+Activités, User stories, Interactions, Spécifications, Tests V&V,
+Traçabilité) — toutes les informations du projet, lisibles sans
+l'application. Génération entièrement côté navigateur (voir ADR-035).
+
 ## Empaqueter en binaire autonome
 
 Pour distribuer l'application sans faire dépendre le poste cible de
