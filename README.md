@@ -85,3 +85,19 @@ Ce binaire n'a besoin que d'être copié sur la machine cible — ni Go, ni
 Node/npm, ni accès à un registre de paquets n'y sont nécessaires pour
 l'exécuter (seul le poste qui *construit* le binaire a besoin du
 toolchain complet). Voir ADR-031.
+
+### Récupérer un binaire déjà construit (sans Go ni Node)
+
+Un workflow GitHub Actions (`.github/workflows/release-binaries.yml`)
+construit automatiquement les binaires pour Linux, Windows et macOS
+(Intel et Apple Silicon) et les publie en pièces jointes de la
+[release GitHub](../../releases) correspondante, à chaque tag `v*`
+poussé sur le dépôt (ou manuellement depuis l'onglet **Actions** →
+*Release des binaires autonomes* → **Run workflow**, auquel cas les
+binaires sont alors disponibles en tant qu'artefacts du run plutôt
+qu'attachés à une release). Il n'y a donc rien à installer pour
+récupérer un exécutable prêt à l'emploi : télécharger le fichier
+correspondant à sa plateforme (`missionmapmaker-linux-amd64`,
+`missionmapmaker-windows-amd64.exe`, `missionmapmaker-macos-amd64` ou
+`missionmapmaker-macos-arm64`) et le lancer directement. Voir
+ADR-033.
