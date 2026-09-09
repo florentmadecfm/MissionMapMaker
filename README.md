@@ -11,12 +11,14 @@ inspiré INCOSE et une vue de cohérence par acteur.
 
 ## Développement local
 
-Prérequis : **Go ≥ 1.24** et **Node.js ≥ 22.13** (voir `go.mod` et
-`web/package.json` → `engines`). Une version de Node trop ancienne fait
-échouer `npm run dev`/`npm run build` (Vite 8 / rolldown utilisent des
-API récentes de `node:util`, et `pdfjs-dist` exige explicitement Node ≥
-22.13 ou ≥ 24) ; `npm install` avertit avec des messages `EBADENGINE`
-si ce n'est pas le cas.
+Prérequis : **Go ≥ 1.24** et **Node.js 20.x ou ≥ 22** (voir `go.mod` et
+`web/package.json` → `engines`). Le toolchain frontend (Vite, oxlint,
+`@vitejs/plugin-react`, `pdfjs-dist`) est volontairement fixé à des
+versions exactes compatibles avec Node 20 (y compris d'anciennes
+patch releases comme 20.9) plutôt que les toutes dernières versions,
+qui exigent Node ≥ 20.19/22.12/22.13 selon le paquet — voir ADR-032.
+Node 18 ou antérieur, ou Node 21 (release impaire non-LTS), ne sont pas
+couverts.
 
 Backend (API sur `:8080`, données dans `./data`) :
 
