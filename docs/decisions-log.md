@@ -1352,3 +1352,87 @@ chose avant.
 **Conséquences** : vérifié visuellement (Playwright) — l'ordre affiché
 est désormais "Charger un PDF", "Charger l'exemple restaurant",
 "Générer", conforme au flux attendu.
+
+## ADR-030 — Prérequis de versions Node/Go documentés
+
+**Date** : 2026-09-09
+**Statut** : Retenu
+
+**Contexte** : un second poste (Windows, Node v20.9.0, Go absent du
+PATH) a échoué au premier `npm run dev` après un `git pull` : erreur
+`SyntaxError: The requested module 'node:util' does not provide an
+export named 'styleText'` dans rolldown (dépendance de Vite 8), plus
+des warnings `EBADENGINE` sur `pdfjs-dist` (exige Node ≥ 22.13 ou ≥ 24),
+`oxlint`, `@vitejs/plugin-react` et `vite` (exigent Node ≥ 20.19/22.12).
+Rien dans le repo ne documentait de version minimale de Node ou de Go,
+ni ne signalait l'absence de Go de façon actionnable au-delà du message
+shell générique `go: command not found`.
+
+**Décision** : ajout d'un champ `engines.node` (`>=22.13.0`, le
+plancher le plus strict parmi les dépendances) dans `web/package.json`,
+et d'un paragraphe « Prérequis » en tête de la section « Développement
+local » du README précisant Go ≥ 1.24 et Node ≥ 22.13, avec
+l'explication du symptôme (`EBADENGINE`, erreur `styleText`) pour que le
+diagnostic soit immédiat la prochaine fois.
+
+**Justification** : deux échecs distincts sur deux machines différentes
+pour la même cause (prérequis non documentés) valent la peine d'être
+corrigés une fois pour toutes plutôt que ré-expliqués à chaque nouvelle
+installation.
+
+**Conséquences** : `npm install` affichera un avertissement
+`EBADENGINE` explicite sur le paquet `web` lui-même (pas seulement ses
+dépendances transitives) si la version de Node est insuffisante ; le
+README indique la version minimale de Go et de Node à installer avant
+de commencer.
+
+## ADR-031 — Frontend embarqué dans le binaire Go (`go:embed`)
+
+**Date** : 2026-09-09
+**Statut** : Retenu
+
+**Contexte** : après les frictions liées à l'installation de Node/Go sur
+un second poste (ADR-030), la question a été posée de committer
+`web/node_modules` dans git pour obtenir un « paquet autonome ». Cette
+piste a été écartée : `node_modules` (~210 Mo, et croissant à chaque
+dépendance) contient des binaires natifs spécifiques à l'OS/l'archi
+(Vite/rolldown/oxlint via `optionalDependencies`) — un `node_modules`
+généré sur une machine Linux serait inutilisable sur Windows, donc
+committer l'un des deux ne résout rien pour l'autre poste. Or
+`node_modules` ne sert qu'au *build*, jamais à l'exécution : une fois
+buildé, le frontend n'est que des fichiers statiques (HTML/JS/CSS), et
+le backend Go compile déjà en un binaire statique unique.
+
+**Décision** : embarquer les fichiers statiques du frontend buildé
+(`web/dist/`) directement dans le binaire Go via `//go:embed all:dist`
+(nouveau fichier `web/embed.go`, fonction `DistFS()`), servis par
+`http.FileServerFS` sur toute route non préfixée par `/api` dans
+`internal/api/router.go`. `web/dist` reste un artefact de build
+ignoré par git (`web/.gitignore` : `dist/*` sauf un `.gitkeep`
+placeholder committé, nécessaire pour que `//go:embed` ait toujours au
+moins un fichier à embarquer même sans build frontend préalable — sinon
+`go build`/`go run ./cmd/server` échouerait à la compilation sur un
+clone frais, cassant le flux de dev quotidien qui n'a jamais besoin de
+builder le frontend). Documenté dans le README sous « Empaqueter en
+binaire autonome ».
+
+**Justification** : c'est la vraie réponse au besoin exprimé (un
+artefact à copier sur une machine sans dépendance de toolchain à
+l'exécution) — plus robuste qu'un `node_modules` committé (pas de
+problème multi-plateforme, l'exécutable ne dépend que de sa propre
+architecture de build, gérée par `GOOS`/`GOARCH` comme n'importe quel
+binaire Go), et sans le coût de repo que représenterait `node_modules`
+versionné.
+
+**Conséquences** : `cd web && npm run build && cd .. && go build -o
+bin/missionmapmaker ./cmd/server` produit un exécutable unique (~19 Mo)
+servant l'API et l'interface sur le même port, sans Node/npm ni Go
+nécessaires sur la machine cible. Le flux de dev quotidien
+(`go run ./cmd/server` + `npm run dev` séparément) est inchangé et non
+impacté par ce nouveau chemin de compilation. Vérifié bout en bout :
+build Go avec seulement le placeholder (`go build` réussit, `/`
+répond 404 comme attendu puisque non utilisé en dev), puis avec un
+frontend réellement buildé (binaire lancé isolément sur un port de
+test, `/`, les assets JS et `/api/*` répondent tous correctement,
+test Playwright de bout en bout confirmant l'UI fonctionnelle depuis
+ce seul binaire).

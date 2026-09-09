@@ -11,6 +11,13 @@ inspiré INCOSE et une vue de cohérence par acteur.
 
 ## Développement local
 
+Prérequis : **Go ≥ 1.24** et **Node.js ≥ 22.13** (voir `go.mod` et
+`web/package.json` → `engines`). Une version de Node trop ancienne fait
+échouer `npm run dev`/`npm run build` (Vite 8 / rolldown utilisent des
+API récentes de `node:util`, et `pdfjs-dist` exige explicitement Node ≥
+22.13 ou ≥ 24) ; `npm install` avertit avec des messages `EBADENGINE`
+si ce n'est pas le cas.
+
 Backend (API sur `:8080`, données dans `./data`) :
 
 ```sh
@@ -52,3 +59,27 @@ relire/compléter avant de générer. L'extraction se fait entièrement dans
 le navigateur (aucun envoi du fichier au serveur) et ne fonctionne que
 pour des PDF texte (créés numériquement) : un PDF scanné (image) n'a pas
 de texte à extraire — l'OCR n'est pas pris en charge pour l'instant.
+
+## Empaqueter en binaire autonome
+
+Pour distribuer l'application sans faire dépendre le poste cible de
+Node/npm ni de Go — un seul exécutable, API + interface incluses :
+
+```sh
+cd web && npm install && npm run build && cd ..
+go build -o bin/missionmapmaker ./cmd/server
+```
+
+`bin/missionmapmaker` sert alors le frontend buildé (embarqué dans le
+binaire via `go:embed`, voir `web/embed.go`) en plus de l'API, sur le
+même port (`:8080` par défaut) :
+
+```sh
+./bin/missionmapmaker
+# puis ouvrir http://localhost:8080
+```
+
+Ce binaire n'a besoin que d'être copié sur la machine cible — ni Go, ni
+Node/npm, ni accès à un registre de paquets n'y sont nécessaires pour
+l'exécuter (seul le poste qui *construit* le binaire a besoin du
+toolchain complet). Voir ADR-031.
