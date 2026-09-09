@@ -5,6 +5,13 @@ options envisagées, le choix retenu et pourquoi. Il est complété au fil des
 sessions de planification et de développement (voir aussi
 `docs/architecture.md` pour la synthèse architecturale).
 
+Ce journal ne garde que ce qui concerne vraiment l'architecture et les
+décisions techniques (modèle de données, choix de technologie, protocoles,
+patrons transverses). Les décisions purement visuelles/UX, les corrections
+de bugs ponctuelles sans patron durable, et les notes de process ou de
+dépannage ont été retirées lors d'un nettoyage — la numérotation des ADR
+restants n'est donc pas continue, ce qui est normal et attendu.
+
 ---
 
 ## ADR-001 — Persistance en fichiers JSON via le backend Go
@@ -86,28 +93,6 @@ schéma légère plutôt qu'un modèle figé.
 
 ---
 
-## ADR-004 — Périmètre du MVP : story mapping + diagramme de processus d'abord
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : trois briques à développer (story mapping + diagramme,
-traçabilité specs, vue par acteur) — laquelle prioriser ?
-
-**Décision** : démarrer par le cœur métier — saisie (manuelle puis assistée
-LLM) → story map + diagramme de processus (acteurs/phases/activités/
-interactions). La traçabilité specs et la vue par acteur viennent ensuite.
-
-**Justification** : les deux autres briques dépendent structurellement du
-modèle d'activités (la traçabilité s'accroche aux activités, la vue par
-acteur agrège les activités d'un acteur). Les construire avant risquerait
-de figer un modèle de données pas encore validé par l'usage.
-
-**Conséquences** : voir roadmap par lots dans `docs/architecture.md`
-(Lot 0 → Lot 5).
-
----
-
 ## ADR-005 — React Flow pour le rendu du diagramme de processus
 
 **Date** : 2026-09-08
@@ -127,26 +112,6 @@ les activités comme des cartes riches (nom, stories liées, specs liées).
 **Conséquences** : dépendance externe supplémentaire côté frontend ;
 à réévaluer seulement si des besoins de rendu très spécifiques (ex. export
 print complexe) dépassent ce que la librairie permet.
-
----
-
-## ADR-006 — Packaging final en binaire unique Go via `go:embed`
-
-**Date** : 2026-09-08
-**Statut** : Retenu (prévu pour le Lot 5, non bloquant pour le MVP)
-
-**Contexte** : comment distribuer l'application en usage local ?
-
-**Décision** : embarquer le build React dans le binaire Go via `go:embed`
-pour obtenir un exécutable unique servant à la fois l'UI et l'API.
-
-**Justification** : simplicité de distribution et d'exécution pour un
-usage local mono-utilisateur, pas d'infra (conteneur, serveur web séparé)
-à maintenir.
-
-**Conséquences** : le pipeline de build doit générer le bundle React avant
-la compilation Go ; à revoir si un besoin de déploiement multi-poste/
-serveur partagé émerge plus tard (Docker resterait une option).
 
 ---
 
@@ -185,135 +150,6 @@ environnement de développement (sandbox Claude Code) ; la génération n'a
 donc pas pu être testée avec un vrai appel API — seul le chemin
 "non configurée" (503 + message dans l'UI) a été vérifié bout en bout. À
 tester avec une vraie clé dès qu'elle sera disponible côté utilisateur.
-
----
-
-## ADR-008 — Proposition automatique de SSS par activité/acteur
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : demande explicite de l'utilisateur — l'outil doit "proposer
-directement une liste des SSS au bon format pour chaque activité pour
-chaque acteur", plutôt que de laisser la saisie des spécifications
-entièrement manuelle dans l'onglet Spécifications.
-
-**Décision** : nouveau bouton "Proposer les SSS pour toutes les activités
-(IA)" dans l'onglet Spécifications. Le frontend envoie la liste des
-activités (nom + nom d'acteur) au backend, qui appelle Claude (nouvel outil
-`propose_specifications`, même mécanisme que `extract_process` du Lot 2)
-avec un prompt imposant le format de rédaction d'exigence : phrase unique
-atomique, tournure "Le système doit permettre à [acteur] de [capacité]",
-vérifiable, non ambiguë. Le résultat est fusionné côté frontend
-(`mergeSpecDrafts`) : une spécification `StakeholderNeed` (code `SSS-NNN`)
-est créée par proposition non dupliquée et reliée à l'activité
-correspondante via `traceLinks` ; les propositions dont l'activité/acteur
-ne correspond à rien dans le projet ouvert sont ignorées et signalées à
-l'utilisateur plutôt que silencieusement perdues. Même principe que pour
-la génération de processus : jamais d'écriture automatique, tout reste
-éditable/supprimable avant sauvegarde.
-
-**Justification** : réutilise le mécanisme déjà validé du Lot 2 (tool use,
-relecture avant sauvegarde) plutôt que d'introduire un nouveau paradigme ;
-génère au niveau du projet entier (toutes activités de tous les acteurs en
-un appel) plutôt qu'activité par activité, pour limiter le nombre d'appels
-API et donner une vue d'ensemble cohérente à relire.
-
-**Conséquences** : comme pour l'ADR-007, l'appel réel n'a pas pu être testé
-faute de clé API dans cet environnement — la logique de fusion a été
-vérifiée avec une réponse simulée (mock réseau côté test), y compris le
-cas d'une activité non reconnue. Un bug de numérotation des codes SSS
-(doublon d'incrément lors de la fusion) a été détecté et corrigé pendant
-cette vérification.
-
----
-
-## ADR-009 — Vue dynamique par acteur (Lot 4)
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : dernière brique du périmètre initial — permettre à un
-utilisateur de vérifier la cohérence des activités d'un acteur donné dans
-le processus (objectif d'origine du projet).
-
-**Décision** : nouvel onglet "Vue par acteur". Sélection d'un acteur via
-des chips colorées, puis chronologie de ses activités organisée par
-colonnes de phases (toutes les phases du projet sont affichées, y compris
-celles où l'acteur n'a aucune activité, pour rendre visibles les "trous").
-Chaque carte d'activité affiche : description, interactions entrantes
-(← information, acteur source) et sortantes (→ information, acteur
-cible), spécifications liées (chips avec le texte complet en tooltip). Un
-résumé en tête d'écran compte les activités sans aucune interaction
-("isolées") et sans spécification liée. Vue en lecture seule (pas
-d'édition ici, qui reste dans les onglets Édition/Spécifications).
-
-**Justification** : dériver entièrement la vue du modèle existant
-(activités/interactions/specs) sans nouvel état ni backend, cohérent avec
-l'approche du diagramme de processus (Lot 1). Afficher les phases vides
-plutôt que de les masquer est le choix clé pour la "cohérence" demandée :
-un acteur absent d'une phase où on l'attendrait devient visible d'un coup
-d'œil, de même qu'une activité sans interaction ou sans traçabilité.
-
-**Conséquences** : vérifié bout en bout avec l'exemple restaurant
-(acteur "Plongeur" avec une seule activité isolée dans "Repas" et une
-phase "Arrivée des clients" vide pour lui — les deux avertissements
-s'affichent correctement).
-
-Par ailleurs, correction UX dans l'onglet Spécifications (retour
-utilisateur) : le texte des exigences était tronqué dans un `<input>`
-étroit ; passage à une disposition en carte avec `<textarea>` pleine
-largeur pour le texte et la justification, afin de pouvoir relire et
-éditer le texte complet des SSS proposées.
-
----
-
-## ADR-010 — Refonte visuelle (design system léger)
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : retour utilisateur — "le design est horrible". Diagnostic :
-`web/src/index.css` avait conservé le CSS du template Vite par défaut
-(accent violet inutilisé, `#root` limité à 1126px de large et centré,
-`text-align: center` hérité, grands titres 56px) jamais nettoyé au Lot 0,
-en plus de styles de composants très bruts (boutons/inputs par défaut du
-navigateur, pas de hiérarchie visuelle).
-
-**Décision** : refonte du système visuel plutôt que des ajustements
-ponctuels :
-- `index.css` réécrit comme une base propre : tokens CSS (`--color-*`,
-  `--radius-*`, `--shadow-*`), reset, layout plein écran (suppression de
-  la contrainte 1126px/`text-align:center`), style par défaut des
-  éléments natifs (`button`, `input`, `select`, `textarea`) pour que tout
-  composant non stylé spécifiquement reste cohérent.
-- Palette : neutres slate + accent indigo (`#4f46e5`) plutôt que le bleu
-  générique utilisé jusque-là, jeu de couleurs sémantiques pour
-  succès/erreur/avertissement.
-- `App.css` réécrit intégralement en réutilisant les noms de classes déjà
-  présents dans les composants (aucune classe renommée) : sections en
-  cartes avec ombre légère, liste de projets avec bouton "supprimer"
-  révélé au survol, onglets soulignés, matrice de traçabilité et cartes
-  d'activité harmonisées avec les mêmes tokens que le diagramme de
-  processus (`process-diagram.css` mis à jour en parallèle).
-- Ajout ciblé de la classe `btn-primary` sur les 5 actions principales
-  (Créer, Sauvegarder ×2, Générer, Proposer les SSS) — seul changement de
-  JSX nécessaire, le reste de la refonte est passé par CSS seul.
-
-**Justification** : réutiliser les classes existantes plutôt que
-restructurer les composants limite le risque de régression fonctionnelle
-pour un changement purement visuel, tout en donnant un résultat cohérent
-sur tous les écrans en une seule passe.
-
-**Conséquences** : vérifié visuellement sur les 5 onglets avec l'exemple
-restaurant. Un bug de contraste a été détecté et corrigé pendant cette
-vérification : la règle globale `button:hover` (spécificité CSS plus
-élevée que `.actor-chip.active` seule) faisait passer le texte d'un chip
-d'acteur actif en blanc sur fond quasi blanc au survol — corrigé en
-ajoutant une règle `.actor-chip.active:hover` explicite. À surveiller :
-d'autres combinaisons état-actif + survol pourraient présenter le même
-type de problème de spécificité CSS si de nouveaux composants sont
-ajoutés sans suivre ce pattern.
 
 ---
 
@@ -371,16 +207,16 @@ le cadre de cette itération.
 
 ---
 
-## ADR-012 — Clé API configurable depuis l'interface + sidebar repliable
+## ADR-012 — Clé API configurable depuis l'interface
 
 **Date** : 2026-09-08
 **Statut** : Retenu
 
 **Contexte** : demande explicite utilisateur — pouvoir saisir la clé API
 Anthropic depuis l'interface plutôt que par variable d'environnement
-uniquement, et pouvoir replier/déplier le menu latéral.
+uniquement.
 
-**Décision (clé API)** :
+**Décision** :
 - Nouveau package `internal/config` : lit/écrit un fichier
   `~/.config/missionmapmaker/config.json` (via `os.UserConfigDir()`,
   permissions 0600/répertoire 0700), **séparé du dossier `data/`** des
@@ -400,12 +236,6 @@ uniquement, et pouvoir replier/déplier le menu latéral.
   redémarrage suivant, elle reprend la main — documenté dans l'UI pour
   éviter la confusion.
 
-**Décision (sidebar repliable)** : état `sidebarCollapsed` dans
-`ProjectShell`, persisté en `localStorage` (préférence purement visuelle,
-pas de round-trip serveur nécessaire). Repliée, la sidebar se réduit à
-une bande étroite avec le bouton de bascule et l'accès aux Paramètres
-(icône ⚙) toujours visible.
-
 **Justification** : conserver le fichier de config hors de `data/` évite
 qu'un secret se retrouve dans un export/partage de projet. Ne jamais
 renvoyer la clé en lecture suit la pratique standard pour les secrets
@@ -417,10 +247,9 @@ chemin simple pour l'usage local interactif.
 sauvegarde déclenche un vrai appel sortant vers `api.anthropic.com` (401
 "API key is invalid", confirmant que le câblage clé → génération
 fonctionne réellement), la configuration persiste après un redémarrage
-propre du serveur sans variable d'environnement, et le repli/dépli de la
-sidebar fonctionne avec transition. Reste à faire : tester avec une
-vraie clé pour valider le contenu généré (toujours bloqué par l'absence
-de clé réelle dans l'environnement de développement).
+propre du serveur sans variable d'environnement. Reste à faire : tester
+avec une vraie clé pour valider le contenu généré (toujours bloqué par
+l'absence de clé réelle dans l'environnement de développement).
 
 ---
 
@@ -518,17 +347,17 @@ après les 4 tentatives si le compte est durablement limité — c'est
 attendu, pas un bug.
 
 **Post-scriptum diagnostic** : le 429 a persisté malgré les nouvelles
-tentatives (ADR-014). Diagnostic mené avec l'utilisateur via un `curl`
-direct vers `api.mistral.ai` (en dehors de l'app, sans exposer la clé) :
-la réponse contenait `x-ratelimit-limit-req-minute: 0`, prouvant sans
-ambiguïté que le compte Mistral lui-même n'a aucun quota alloué (aucune
-tentative ne pouvait résoudre ça) — probablement un compte tout juste
-créé sans moyen de paiement enregistré. Pas une action corrective dans
-l'app, mais une méthode de diagnostic à retenir : quand une erreur
-persiste malgré des correctifs raisonnables côté client, un appel `curl`
-direct au fournisseur (sans passer par notre code) isole rapidement si
-le problème est chez nous ou chez le fournisseur, en s'appuyant sur les
-en-têtes de réponse plutôt que sur le seul message d'erreur.
+tentatives. Diagnostic mené avec l'utilisateur via un `curl` direct vers
+`api.mistral.ai` (en dehors de l'app, sans exposer la clé) : la réponse
+contenait `x-ratelimit-limit-req-minute: 0`, prouvant sans ambiguïté que
+le compte Mistral lui-même n'a aucun quota alloué (aucune tentative ne
+pouvait résoudre ça) — probablement un compte tout juste créé sans moyen
+de paiement enregistré. Pas une action corrective dans l'app, mais une
+méthode de diagnostic à retenir : quand une erreur persiste malgré des
+correctifs raisonnables côté client, un appel `curl` direct au
+fournisseur (sans passer par notre code) isole rapidement si le problème
+est chez nous ou chez le fournisseur, en s'appuyant sur les en-têtes de
+réponse plutôt que sur le seul message d'erreur.
 
 ---
 
@@ -542,7 +371,7 @@ d'API (ex. `https://api.mistral.ai/v1/chat/completions`) plutôt que
 d'être limité à l'endpoint public codé en dur. Utile pour un proxy, un
 déploiement régional/entreprise, un service compatible auto-hébergé, ou
 pour diagnostiquer un problème réseau/fournisseur (voir post-scriptum
-ci-dessus).
+ADR-014).
 
 **Décision** :
 - `config.ProviderSettings` gagne un champ `BaseURL` (comme `APIKey` et
@@ -759,89 +588,21 @@ sous-colonne) restent correctement colorées et routées (voir ADR-017).
 
 ---
 
-## ADR-019 — Glisser-déposer une activité pour la réassigner
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : demande explicite utilisateur — pouvoir déplacer une
-carte d'activité à la souris sur le diagramme. Avant ce changement, la
-seule façon de changer l'acteur ou la phase d'une activité était
-l'onglet Édition (deux menus déroulants par activité) : correct mais
-indirect pour un ajustement rapide pendant qu'on regarde le diagramme.
-
-**Décision** :
-- Seules les cartes d'activité deviennent déplaçables (`draggable: true`
-  dans `layout.ts`) ; les en-têtes de ligne/colonne restent fixes.
-- Au relâchement (`onNodeDragStop`), la position de dépose est convertie
-  en cellule (acteur, phase) cible via une nouvelle fonction
-  `computeDropTarget` : elle cherche, parmi les nœuds d'en-tête déjà
-  calculés par `computeLayout`, la ligne d'acteur et la colonne de phase
-  dont la bande contient le centre de la carte lâchée (repli sur la
-  ligne/colonne la plus proche si le dépôt tombe hors de la grille,
-  plutôt que d'ignorer le geste).
-- La carte n'a **pas** de position libre mémorisée : `computeDropTarget`
-  ne fait que déterminer `actorId`/`phaseId` (et un index d'insertion
-  dans la pile de la cellule cible, pour l'ordre relatif si plusieurs
-  activités s'y trouvent déjà). Au rendu suivant, `computeLayout`
-  replace la carte exactement à la position de grille de sa nouvelle
-  cellule — cohérent avec le reste de l'app où la disposition est
-  entièrement dérivée des données, jamais stockée à part.
-- Réassigner une carte à une cellule déjà occupée par d'autres activités
-  déclenche naturellement l'élargissement en sous-colonnes déjà décrit en
-  ADR-018 (aucune logique supplémentaire nécessaire : `computeLayout`
-  recalcule le nombre de sous-colonnes de chaque phase à chaque rendu).
-- Suit le même modèle d'édition que les autres onglets (Édition,
-  Spécifications) : le déplacement ne modifie que l'état React local
-  (`onChange`) ; un bouton « Sauvegarder » dédié (ajouté dans un nouvel
-  en-tête au-dessus du canevas, avec le même statut d'enregistrement que
-  les autres onglets) persiste vers l'API. Pas de sauvegarde automatique
-  à chaque glisser-déposer, pour rester cohérent avec l'app et éviter de
-  multiplier les écritures réseau pendant qu'on ajuste le diagramme.
-- Renumérotation de `order` limitée à la cellule cible (et, implicitement
-  laissée inchangée pour la cellule de départ, dont l'ordre relatif des
-  activités restantes ne change pas quand l'une d'elles part) : `order`
-  n'a d'effet que comparé entre activités partageant le même
-  (`actorId`,`phaseId`) — vérifié qu'aucun autre écran de l'app n'utilise
-  `Activity.order` en dehors de ce calcul d'empilement — donc aucun
-  besoin d'unicité globale des valeurs, ni de renumérotation en cascade
-  du reste du projet.
-
-**Justification** : réutilise les nœuds d'en-tête déjà produits par
-`computeLayout` (positions et largeurs déjà calculées pour l'affichage)
-plutôt que de dupliquer le calcul de grille dans une fonction séparée —
-`computeDropTarget` se contente de les parcourir. Pas de nouveau champ de
-position libre sur `Activity` : le glisser-déposer est une manière plus
-directe d'éditer les mêmes champs (`actorId`, `phaseId`, `order`) que
-l'onglet Édition modifie déjà, pas un mode d'affichage parallèle avec son
-propre état à synchroniser.
-
-**Conséquences** : vérifié bout en bout avec Playwright (glisser-déposer
-réel à la souris, pas une simulation d'événement React) sur deux
-scénarios : (1) déplacer une carte vers un autre acteur dans la même
-phase — `actorId` mis à jour, couleur de la carte et dégradé de la
-flèche entrante recalculés correctement ; (2) déplacer une carte vers une
-autre phase déjà occupée par une activité du même acteur — `phaseId`
-mis à jour et la phase cible s'élargit automatiquement en deuxième
-sous-colonne (ADR-018). Changements confirmés persistés côté serveur
-après clic sur Sauvegarder (relecture directe via l'API).
-
----
-
 ## ADR-020 — Position de colonne explicite pour une activité isolée
 
 **Date** : 2026-09-08
 **Statut** : Retenu
 
-**Contexte** : suite à ADR-019, l'utilisateur signale un cas non couvert
-— une activité seule d'un acteur dans une phase que d'autres acteurs ont
-élargie en plusieurs sous-colonnes (ADR-018) restait toujours coincée
-dans la première sous-colonne, sans moyen de l'aligner sur une autre. En
-cause : la sous-colonne d'une activité était jusqu'ici *dérivée* de son
-rang parmi les activités du même acteur dans cette phase (via `order`,
-triée puis comptée) — pour un acteur qui n'a qu'une seule activité dans
-cette phase, ce rang vaut toujours 0, quelle que soit la position de
-dépose visée : aucune valeur de `order`, seule, ne peut représenter
+**Contexte** : le glisser-déposer d'une activité vers une autre cellule
+(acteur × phase) a révélé un cas non couvert — une activité seule d'un
+acteur dans une phase que d'autres acteurs ont élargie en plusieurs
+sous-colonnes (ADR-018) restait toujours coincée dans la première
+sous-colonne, sans moyen de l'aligner sur une autre. En cause : la
+sous-colonne d'une activité était jusqu'ici *dérivée* de son rang parmi
+les activités du même acteur dans cette phase (via `order`, triée puis
+comptée) — pour un acteur qui n'a qu'une seule activité dans cette
+phase, ce rang vaut toujours 0, quelle que soit la position de dépose
+visée : aucune valeur de `order`, seule, ne peut représenter
 « sous-colonne 2 alors que je suis la seule activité de mon acteur ici ».
 
 **Décision** :
@@ -863,12 +624,13 @@ dépose visée : aucune valeur de `order`, seule, ne peut représenter
 - Glisser-déposer (`ProcessDiagram.handleNodeDragStop`) distingue deux
   cas selon la position de dépose relative à la pile actuelle de
   l'acteur cible dans la phase cible : dépose au sein ou juste après
-  cette pile → réordonnancement par `order` comme avant (ADR-019), et
-  `column` remis à 0 (au cas où l'activité avait une position explicite
-  d'un déplacement précédent — sinon elle resterait figée là après un
-  glisser qui visait, lui, un réordonnancement normal) ; dépose au-delà
-  → nouvelle branche, fixe `column` à la sous-colonne visée sans toucher
-  à `order` ni aux voisins.
+  cette pile → réordonnancement par `order`, comme pour un
+  réordonnancement normal au sein d'une pile, et `column` remis à 0 (au
+  cas où l'activité avait une position explicite d'un déplacement
+  précédent — sinon elle resterait figée là après un glisser qui visait,
+  lui, un réordonnancement normal) ; dépose au-delà → nouvelle branche,
+  fixe `column` à la sous-colonne visée sans toucher à `order` ni aux
+  voisins.
 
 **Justification** : une valeur dérivée (rang parmi les activités du même
 acteur) ne peut structurellement pas représenter une position
@@ -889,8 +651,9 @@ correctif, l'activité du Cuisinier restait bloquée en sous-colonne 0 ;
 glissée sur la 3ᵉ sous-colonne (alignée sous la 3ᵉ activité du Serveur),
 elle s'y positionne et le reste après rechargement (`column: 2` confirmé
 via relecture API après Sauvegarder). Non-régression vérifiée sur les
-deux scénarios d'ADR-019 (réassignation d'acteur/phase, réordonnancement
-au sein d'une même pile) : comportement inchangé.
+scénarios de glisser-déposer déjà couverts (réassignation d'acteur/
+phase, réordonnancement au sein d'une même pile) : comportement
+inchangé.
 
 ---
 
@@ -929,26 +692,6 @@ existantes (y compris saisies manuellement).
   plus fiable qu'un couple (nom d'activité, nom d'acteur) pour ce cas.
   `GenerateService.GenerateTestScenarios` reprend les mêmes garde-fous
   que `GenerateSpecifications` (timeout, taille max de la liste, ADR-016).
-- Frontend : sous-onglet "Tests V&V" dans `SpecificationsPanel` (nav
-  locale, pas un nouvel onglet principal — partage l'en-tête et le
-  bouton Sauvegarder existants). `handleGenerateSss` enchaîne, après la
-  fusion des SSS proposées, un appel `generateTestScenarios` pour
-  uniquement les SSS **qui viennent d'être ajoutées** à cet appel (pas
-  toutes les SSS du projet) puis fusionne le résultat dans le même
-  `onChange` — un échec de cette seconde étape ne fait pas échouer la
-  première (les SSS déjà générées restent acquises, message d'erreur
-  distinct). `TestScenariosPanel` a son propre bouton "Générer... (IA)"
-  filtré aux SSS sans scénario de test lié, pour l'usage à la demande.
-  Suppression d'une spécification (`removeSpec`) cascade désormais vers
-  ses scénarios de test liés, comme elle le fait déjà vers les
-  `traceLinks` des activités.
-- Corrigé au passage : la détection "clé API non configurée" dans
-  `SpecificationsPanel` testait la sous-chaîne `"ANTHROPIC_API_KEY"`,
-  qui n'apparaît dans aucun message d'erreur réel depuis l'introduction
-  du multi-fournisseurs (ADR-013/014) — le message effectif est "clé API
-  non configurée" (`llm.ErrNotConfigured`). Ce chemin ne s'était donc
-  jamais déclenché correctement ; corrigé pour les deux générations (SSS
-  et tests).
 
 **Justification** : structure V&V générique plutôt qu'un export Polarion
 strict, conformément à la clarification utilisateur — évite de figer un
@@ -956,27 +699,22 @@ gabarit d'export avant qu'un besoin précis (import direct dans une
 instance Polarion réelle) ne soit exprimé. Corrélation par code plutôt
 que par nom+texte : le texte d'une SSS peut être long et sujet à de
 petites variations reformulées par le LLM, alors que son code est un
-identifiant stable affiché tel quel dans le projet. Sous-onglet plutôt
-que nouvel onglet principal : les scénarios de test n'ont de sens que
-rapportés à des spécifications déjà là, pas un concept autonome au même
-niveau que Édition/Diagramme/Spécifications.
+identifiant stable affiché tel quel dans le projet.
 
 **Conséquences** : vérifié bout en bout avec Playwright et un faux
 serveur Mistral local répondant aux trois outils (`extract_process`,
 `propose_specifications`, `propose_test_scenarios`) : un seul clic sur
 "Proposer les SSS" produit bien 2 SSS puis 2 scénarios de test liés (un
-par SSS) dans la même action ; le sous-onglet affiche le compte
-("Tests V&V (2)") et chaque scénario avec sa spécification liée, ses
-préconditions et son tableau d'étapes ; le bouton de génération à la
-demande se désactive quand tout est déjà couvert et se réactive après
-l'ajout manuel d'une SSS, puis génère correctement un scénario
-supplémentaire pour cette seule SSS ; la suppression d'une SSS supprime
-bien son scénario de test lié (cascade). Le tout confirmé persisté côté
-serveur après Sauvegarder (relecture directe via l'API).
+par SSS) dans la même action ; le bouton de génération à la demande se
+désactive quand tout est déjà couvert et se réactive après l'ajout
+manuel d'une SSS, puis génère correctement un scénario supplémentaire
+pour cette seule SSS ; la suppression d'une SSS supprime bien son
+scénario de test lié (cascade). Le tout confirmé persisté côté serveur
+après Sauvegarder (relecture directe via l'API).
 
 ---
 
-## ADR-022 — Correctif : crash sur l'onglet Spécifications (projets existants)
+## ADR-022 — Correctif : normalisation des collections au chargement/écriture
 
 **Date** : 2026-09-08
 **Statut** : Retenu
@@ -988,11 +726,10 @@ projet enregistré avant ADR-021 n'a pas la clé `testScenarios`.
 `encoding/json` laisse alors le slice Go correspondant à `nil` plutôt
 qu'à un slice vide, et sérialise un slice `nil` en `null` (jamais `[]`).
 L'API renvoyait donc `"testScenarios": null` pour tout projet antérieur
-à ce champ ; côté frontend, plusieurs endroits (`SpecificationsPanel`,
-`TestScenariosPanel`) appellent `.filter`/`.some`/`.length` dessus en
-supposant toujours un tableau (comme le déclare le type TypeScript
-`Project.testScenarios: TestScenario[]`, non optionnel) — d'où le crash
-à l'appel sur `null`.
+à ce champ ; côté frontend, plusieurs endroits appellent
+`.filter`/`.some`/`.length` dessus en supposant toujours un tableau
+(comme le déclare le type TypeScript `Project.testScenarios:
+TestScenario[]`, non optionnel) — d'où le crash à l'appel sur `null`.
 
 **Décision** :
 - Nouvelle méthode `domain.Project.Normalize()` : force à `[]` tout
@@ -1077,133 +814,6 @@ chaque `git pull`, Vite ne le fait pas à sa place.
 
 ---
 
-## ADR-024 — Matrice de traçabilité en sous-onglet, avec couverture par test
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : demande explicite utilisateur — déplacer la matrice de
-traçabilité (jusqu'ici une section en bas du sous-onglet Spécifications)
-dans son propre sous-onglet, à droite de "Tests V&V", et y ajouter une
-dimension indiquant si chaque spécification est couverte par un
-scénario de test ou non.
-
-**Décision** :
-- `SpecificationsPanel` gagne un troisième sous-onglet `matrix`
-  ("Matrice de traçabilité"), après "Spécifications" et "Tests V&V" —
-  la section `<TraceabilityMatrix>` est sortie du sous-onglet
-  "Spécifications" pour y être déplacée telle quelle.
-- Le libellé du sous-onglet affiche un décompte `(N/M couvertes)`
-  (spécifications ayant au moins un scénario de test lié / total), sur
-  le même patron que "Tests V&V (N)".
-- `TraceabilityMatrix` : chaque en-tête de colonne (une spécification)
-  affiche désormais, sous son code, un badge "✓ testée" ou "✗ sans
-  test" — calculé directement (`project.testScenarios.some(t =>
-  t.specificationId === spec.id)`), sans nouveau champ ni état à
-  synchroniser.
-
-**Justification** : la couverture par un test est une propriété de la
-**spécification** (la colonne), pas de la paire activité↔spécification
-que la matrice édite déjà (les cases à cocher) — d'où un badge sur
-l'en-tête de colonne plutôt qu'une ligne ou une case supplémentaire, qui
-aurait mélangé deux dimensions différentes. Affiché dans l'en-tête
-(toujours visible) plutôt que dans une ligne de pied de tableau, qui
-serait hors champ dès que la liste d'activités s'allonge.
-
-**Conséquences** : vérifié bout en bout avec Playwright — un projet de
-test avec deux SSS (une seule liée à un scénario de test) affiche
-correctement l'ordre des sous-onglets (Spécifications, Tests V&V,
-Matrice de traçabilité), le décompte "1/2 couvertes" dans le libellé, et
-les badges "✓ testée" / "✗ sans test" sur les bonnes colonnes.
-
----
-
-## ADR-025 — Tags des tests liés dans la vue par acteur
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : demande explicite utilisateur — dans la vue par acteur,
-ajouter le tag du/des scénarios de test qui vérifient chaque activité,
-en écho aux puces de spécifications déjà affichées.
-
-**Décision** :
-- Pour chaque activité, calcule les scénarios de test vérifiant l'une de
-  ses spécifications liées (`act.traceLinks` → spécifications → tests
-  dont `specificationId` correspond), dédoublonnés par id (une
-  spécification peut avoir plusieurs scénarios).
-- Affiche ces tests sous forme de puces vertes (`.test-chip`, écho
-  visuel du badge "✓ testée" d'ADR-024), juste sous les puces de
-  spécification existantes (`.spec-chip`, bleues) — seulement quand
-  l'activité a au moins une spécification (sinon le message "Aucune
-  spécification liée" déjà affiché suffit, un second message "Aucun
-  test lié" serait redondant).
-- Étend le compteur de synthèse en tête de vue (déjà "X sans
-  interaction · Y sans spécification liée") d'un "Z sans test lié" :
-  une activité qui a une spécification mais dont aucune n'est vérifiée
-  par un test.
-
-**Justification** : réutilise directement les données déjà chargées
-(`project.testScenarios`, liées par `specificationId`) sans recalcul
-côté serveur ni nouveau champ — cohérent avec le reste de la vue par
-acteur, qui est un simple regroupement/filtrage de l'état déjà présent
-dans `project`. Puces vertes plutôt que bleues comme les specs : reprend
-le code couleur déjà établi pour "couvert par un test" (ADR-024).
-
-**Conséquences** : vérifié bout en bout avec un acteur ayant trois
-activités aux profils différents — une entièrement couverte (2
-spécifications, 2 tests, les deux puces vertes affichées), une
-spécifiée mais non testée (le message "Aucun test lié" apparaît), une
-sans aucune spécification (seul "Aucune spécification liée" s'affiche,
-pas de message redondant sur les tests). Le compteur de synthèse reflète
-correctement "1 sans spécification liée · 1 sans test lié".
-
----
-
-## ADR-026 — Pastille d'alerte sur Paramètres tant qu'aucun LLM n'est configuré
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : demande explicite utilisateur — tant qu'aucune
-information de connexion à un fournisseur LLM n'est renseignée, afficher
-une pastille rouge sur le bouton Paramètres de la barre latérale, pour
-que l'absence de configuration soit visible sans avoir à ouvrir la
-modale.
-
-**Décision** :
-- `ProjectShell` charge désormais `api.getSettings()` au montage (comme
-  il le fait déjà pour la liste des projets) et garde
-  `llmConfigured: boolean | null` en état — `null` tant que la réponse
-  n'est pas arrivée, pour ne pas afficher brièvement la pastille à
-  chaque démarrage avant de savoir si un fournisseur est réellement
-  configuré.
-- `SettingsModal` reçoit un callback optionnel `onSettingsChange` qu'il
-  appelle à chaque fois que son propre état `configured` change
-  (chargement initial de la modale, après enregistrement, après retrait
-  de la clé) — `ProjectShell` le branche sur `setLlmConfigured` pour que
-  la pastille réagisse immédiatement, sans réinterroger l'API une
-  seconde fois ni attendre la fermeture de la modale.
-- Pastille (`.settings-alert-dot`, un simple point rouge) affichée
-  uniquement quand `llmConfigured === false`, à côté du texte "⚙
-  Paramètres" en barre latérale dépliée, ou en surimpression sur
-  l'icône seule en barre repliée.
-
-**Justification** : plutôt que de dupliquer l'appel `getSettings` dans
-les deux composants sans les synchroniser, le callback fait de
-`SettingsModal` la source de vérité pour tout changement pendant qu'il
-est ouvert, tandis que `ProjectShell` ne fait le chargement initial
-qu'une fois — évite un état incohérent où la pastille resterait affichée
-après un enregistrement réussi tant que la modale n'a pas été refermée.
-
-**Conséquences** : vérifié bout en bout avec Playwright — pastille
-visible dès le chargement initial (sidebar dépliée et repliée), disparaît
-immédiatement après l'enregistrement d'une clé (avant même la fermeture
-de la modale), reste absente une fois la modale fermée, puis réapparaît
-après le retrait de la clé.
-
----
-
 ## ADR-027 — Extraction du processus : méthode backbone + correction d'un bug d'homonymes
 
 **Date** : 2026-09-08
@@ -1225,10 +835,7 @@ d'extraction (`processSystemPrompt`).
   métier reconnaissable (ni trop larges/vagues, ni découpées en
   micro-étapes techniques) ; (4) interactions capturées dès qu'un
   échange est perceptible dans le texte, pas seulement quand il est
-  formulé explicitement. Le garde-fou anti-invention (ADR déjà en place
-  implicitement) est conservé et reformulé : inférer ce qui découle
-  logiquement du texte est admis, inventer un acteur/une phase/une
-  activité sans appui dans le texte ne l'est pas.
+  formulé explicitement.
 - **Bug corrigé au passage** (découvert en concevant le point 4) :
   `DraftInteraction` n'identifiait une activité que par son **nom seul**
   (`fromActivityName`/`toActivityName`), sans son acteur. Deux acteurs
@@ -1267,9 +874,7 @@ l'interaction s'est reliée à la bonne paire.
 **Statut** : Retenu
 
 **Contexte** : question utilisateur — est-il possible de charger un PDF
-en entrée de la génération de processus ? Clarifié avant implémentation :
-la structure V&V/Polarion attendue est générique (déjà en place, hors
-sujet ici) et, pour ce chantier PDF, la décision retenue est de traiter
+en entrée de la génération de processus ? Décision retenue : traiter
 uniquement les PDF texte pour l'instant — pas d'OCR (trop lourd et peu
 fiable pour un premier passage).
 
@@ -1280,14 +885,12 @@ fiable pour un premier passage).
 - Extraction **côté client**, jamais envoyée au serveur : pas de nouvel
   endpoint, pas de nouvelle dépendance Go, le fichier ne quitte pas le
   navigateur.
-- Dans `NlInput`, un bouton "Charger un PDF" (déclenchant un `<input
-  type="file" hidden>`) extrait le texte et **préremplit le textarea**
-  existant — l'utilisateur relit/édite avant de cliquer "Générer",
-  exactement le même flux que la saisie manuelle ou "Charger l'exemple
-  restaurant" (cohérent avec ADR-002 : toujours relire avant de
-  committer). Le texte extrait est tronqué à `MAX_TEXT_LENGTH` (20000,
-  aligné sur la limite serveur déjà en place) si besoin, avec un message
-  explicite.
+- Dans `NlInput`, un bouton "Charger un PDF" extrait le texte et
+  **préremplit le textarea** existant — l'utilisateur relit/édite avant
+  de cliquer "Générer", exactement le même flux que la saisie manuelle
+  (cohérent avec ADR-002 : toujours relire avant de committer). Le texte
+  extrait est tronqué à `MAX_TEXT_LENGTH` (20000, aligné sur la limite
+  serveur déjà en place, ADR-016) si besoin, avec un message explicite.
 - Si aucun texte n'est extrait (PDF scanné/image), message clair
   indiquant que l'OCR n'est pas pris en charge — pas de génération
   lancée sur un texte vide.
@@ -1299,10 +902,6 @@ fiable pour un premier passage).
   bibliothèque. Avec l'import dynamique, le bundle principal reste
   inchangé et `pdfjs-dist` (+ son worker, ~1,3 Mo) ne se charge qu'à la
   demande.
-- Corrigé au passage : `NlInput.tsx` avait le même bug de détection
-  "clé API non configurée" que celui déjà corrigé dans
-  `SpecificationsPanel.tsx` (ADR-021) — teste toujours la sous-chaîne
-  obsolète `ANTHROPIC_API_KEY`.
 
 **Justification** : extraction côté client plutôt que serveur, pour
 rester dans l'esprit "aucune donnée projet ne quitte la machine sans
@@ -1322,77 +921,13 @@ l'import dynamique (regression testée via une mesure avant/après).
 
 ---
 
-## ADR-029 — Ordre des boutons de l'onglet Générer
-
-**Date** : 2026-09-08
-**Statut** : Retenu
-
-**Contexte** : demande explicite utilisateur — revoir l'ordre des
-boutons de l'onglet Générer pour qu'il soit logique du point de vue UX.
-Depuis l'ajout du chargement de PDF (ADR-028), l'ordre était "Générer",
-"Charger l'exemple restaurant", "Charger un PDF" : l'action finale
-(lancer la génération) apparaissait en premier, avant même les actions
-qui remplissent la zone de texte dont elle dépend.
-
-**Décision** : réordonné en "Charger un PDF", "Charger l'exemple
-restaurant", "Générer" — les deux actions qui alimentent le textarea
-d'abord (dans l'ordre où elles ont été ajoutées au fil des sessions),
-puis l'action de génération en dernier. Le bouton "Générer" garde son
-style `btn-primary` (mise en avant visuelle) malgré sa position en fin
-de ligne : la hiérarchie visuelle (couleur) et l'ordre de lecture
-(position) restent deux signaux distincts et cohérents avec le patron
-habituel "remplir un formulaire puis valider".
-
-**Justification** : l'ordre gauche-à-droite d'une barre d'actions se lit
-naturellement comme une séquence chronologique. Un bouton d'action
-finale placé avant ses prérequis est trompeur, même désactivé — l'œil le
-voit et le lit en premier avant de comprendre qu'il faut faire autre
-chose avant.
-
-**Conséquences** : vérifié visuellement (Playwright) — l'ordre affiché
-est désormais "Charger un PDF", "Charger l'exemple restaurant",
-"Générer", conforme au flux attendu.
-
-## ADR-030 — Prérequis de versions Node/Go documentés
-
-**Date** : 2026-09-09
-**Statut** : Retenu
-
-**Contexte** : un second poste (Windows, Node v20.9.0, Go absent du
-PATH) a échoué au premier `npm run dev` après un `git pull` : erreur
-`SyntaxError: The requested module 'node:util' does not provide an
-export named 'styleText'` dans rolldown (dépendance de Vite 8), plus
-des warnings `EBADENGINE` sur `pdfjs-dist` (exige Node ≥ 22.13 ou ≥ 24),
-`oxlint`, `@vitejs/plugin-react` et `vite` (exigent Node ≥ 20.19/22.12).
-Rien dans le repo ne documentait de version minimale de Node ou de Go,
-ni ne signalait l'absence de Go de façon actionnable au-delà du message
-shell générique `go: command not found`.
-
-**Décision** : ajout d'un champ `engines.node` (`>=22.13.0`, le
-plancher le plus strict parmi les dépendances) dans `web/package.json`,
-et d'un paragraphe « Prérequis » en tête de la section « Développement
-local » du README précisant Go ≥ 1.24 et Node ≥ 22.13, avec
-l'explication du symptôme (`EBADENGINE`, erreur `styleText`) pour que le
-diagnostic soit immédiat la prochaine fois.
-
-**Justification** : deux échecs distincts sur deux machines différentes
-pour la même cause (prérequis non documentés) valent la peine d'être
-corrigés une fois pour toutes plutôt que ré-expliqués à chaque nouvelle
-installation.
-
-**Conséquences** : `npm install` affichera un avertissement
-`EBADENGINE` explicite sur le paquet `web` lui-même (pas seulement ses
-dépendances transitives) si la version de Node est insuffisante ; le
-README indique la version minimale de Go et de Node à installer avant
-de commencer.
-
 ## ADR-031 — Frontend embarqué dans le binaire Go (`go:embed`)
 
 **Date** : 2026-09-09
 **Statut** : Retenu
 
-**Contexte** : après les frictions liées à l'installation de Node/Go sur
-un second poste (ADR-030), la question a été posée de committer
+**Contexte** : après des frictions répétées liées à l'installation de
+Node/Go sur un second poste, la question a été posée de committer
 `web/node_modules` dans git pour obtenir un « paquet autonome ». Cette
 piste a été écartée : `node_modules` (~210 Mo, et croissant à chaque
 dépendance) contient des binaires natifs spécifiques à l'OS/l'archi
@@ -1413,8 +948,7 @@ placeholder committé, nécessaire pour que `//go:embed` ait toujours au
 moins un fichier à embarquer même sans build frontend préalable — sinon
 `go build`/`go run ./cmd/server` échouerait à la compilation sur un
 clone frais, cassant le flux de dev quotidien qui n'a jamais besoin de
-builder le frontend). Documenté dans le README sous « Empaqueter en
-binaire autonome ».
+builder le frontend).
 
 **Justification** : c'est la vraie réponse au besoin exprimé (un
 artefact à copier sur une machine sans dépendance de toolchain à
@@ -1437,21 +971,24 @@ test, `/`, les assets JS et `/api/*` répondent tous correctement,
 test Playwright de bout en bout confirmant l'UI fonctionnelle depuis
 ce seul binaire).
 
+---
+
 ## ADR-032 — Toolchain frontend rabaissé pour compatibilité Node 20.9
 
 **Date** : 2026-09-09
 **Statut** : Retenu
 
-**Contexte** : après ADR-030 (documentation du prérequis Node ≥ 22.13),
-le second poste (Node v20.9.0, Windows) reste bloqué : le fait de
-mettre à jour Node n'est pas immédiat pour cet utilisateur (dépendance
-à un mirroir Artifactory interne, accès non résolu). Demande explicite :
-rendre l'application compatible avec la configuration existante plutôt
-que d'attendre une mise à jour de poste. Or les dernières versions de
-Vite (8.x, et déjà 7.x indépendamment de son bundler rolldown),
-`@vitejs/plugin-react` (6.x) et oxlint (≥1.17) exigent toutes Node
-≥ 20.19/22.12 ; `pdfjs-dist` (≥6.0, et même 5.2+) exige Node ≥ 20.16
-ou ≥ 22.3/22.13. Aucune de ces versions ne fonctionne sous Node 20.9.
+**Contexte** : malgré la documentation du prérequis Node ≥ 22.13 dans le
+README, le second poste (Node v20.9.0, Windows) reste bloqué : le fait
+de mettre à jour Node n'est pas immédiat pour cet utilisateur
+(dépendance à un mirroir Artifactory interne, accès non résolu).
+Demande explicite : rendre l'application compatible avec la
+configuration existante plutôt que d'attendre une mise à jour de poste.
+Or les dernières versions de Vite (8.x, et déjà 7.x indépendamment de
+son bundler rolldown), `@vitejs/plugin-react` (6.x) et oxlint (≥1.17)
+exigent toutes Node ≥ 20.19/22.12 ; `pdfjs-dist` (≥6.0, et même 5.2+)
+exige Node ≥ 20.16 ou ≥ 22.3/22.13. Aucune de ces versions ne fonctionne
+sous Node 20.9.
 
 **Décision** : rabaisser le toolchain frontend à la dernière version de
 chaque paquet encore compatible avec Node 20.9, épinglée en version
@@ -1492,6 +1029,8 @@ pour confirmer qu'aucune régression n'est introduite pour les postes
 déjà à jour. Le binaire Go autonome (ADR-031) reconstruit avec ce
 nouveau frontend fonctionne sans changement.
 
+---
+
 ## ADR-033 — Publication automatisée des binaires (GitHub Actions)
 
 **Date** : 2026-09-09
@@ -1527,7 +1066,9 @@ localement pour produire ces binaires.
 mêmes commandes que le workflow pour vérifier qu'elles réussissent
 toutes avant de pousser (`GOOS`/`GOARCH` cross-compilation, binaires de
 18-19 Mo chacun). Le fichier YAML est validé syntaxiquement
-(`yaml.safe_load`). Le comportement réel du workflow sur GitHub
-(création de release, upload des assets) n'a pas pu être exécuté
-depuis cette session — à vérifier au premier tag `v*` poussé ou premier
-déclenchement manuel.
+(`yaml.safe_load`). Déclenché manuellement une première fois après
+coup (`workflow_dispatch` sur `main`) pour vérifier le comportement réel
+sur GitHub : les 5 jobs (build frontend + 4 cibles) ont réussi en
+~1 minute, les 4 binaires bien produits comme artefacts du run — seule
+la publication en pièce jointe de release (chemin déclenché par un tag
+`v*`) reste à vérifier au premier tag effectivement poussé.

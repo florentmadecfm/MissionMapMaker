@@ -144,6 +144,10 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
 
       <section>
         <h2>Acteurs</h2>
+        <div className="col-headers">
+          <span className="col-color">Couleur</span>
+          <span className="col-name">Nom</span>
+        </div>
         <ul>
           {project.actors.map((a) => (
             <li key={a.id}>
@@ -162,6 +166,9 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
 
       <section>
         <h2>Phases</h2>
+        <div className="col-headers">
+          <span className="col-name">Nom</span>
+        </div>
         <ul>
           {project.phases.map((p) => (
             <li key={p.id}>
@@ -179,6 +186,11 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
 
       <section>
         <h2>Activités</h2>
+        <div className="col-headers">
+          <span className="col-name">Nom</span>
+          <span className="col-select">Acteur</span>
+          <span className="col-select">Phase</span>
+        </div>
         <ul>
           {project.activities.map((act) => (
             <li key={act.id}>
@@ -210,6 +222,12 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
 
       <section>
         <h2>Interactions</h2>
+        <div className="col-headers">
+          <span className="col-select">Depuis</span>
+          <span className="col-arrow-spacer" aria-hidden="true" />
+          <span className="col-select">Vers</span>
+          <span className="col-name">Information échangée</span>
+        </div>
         <ul>
           {project.interactions.map((i) => (
             <li key={i.id}>
@@ -220,7 +238,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
                   </option>
                 ))}
               </select>
-              →
+              <span className="col-arrow-spacer">→</span>
               <select value={i.toActivityId} onChange={(e) => updateInteraction(i.id, { toActivityId: e.target.value })}>
                 {project.activities.map((a) => (
                   <option key={a.id} value={a.id}>
