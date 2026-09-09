@@ -1352,3 +1352,36 @@ chose avant.
 **Conséquences** : vérifié visuellement (Playwright) — l'ordre affiché
 est désormais "Charger un PDF", "Charger l'exemple restaurant",
 "Générer", conforme au flux attendu.
+
+## ADR-030 — Prérequis de versions Node/Go documentés
+
+**Date** : 2026-09-09
+**Statut** : Retenu
+
+**Contexte** : un second poste (Windows, Node v20.9.0, Go absent du
+PATH) a échoué au premier `npm run dev` après un `git pull` : erreur
+`SyntaxError: The requested module 'node:util' does not provide an
+export named 'styleText'` dans rolldown (dépendance de Vite 8), plus
+des warnings `EBADENGINE` sur `pdfjs-dist` (exige Node ≥ 22.13 ou ≥ 24),
+`oxlint`, `@vitejs/plugin-react` et `vite` (exigent Node ≥ 20.19/22.12).
+Rien dans le repo ne documentait de version minimale de Node ou de Go,
+ni ne signalait l'absence de Go de façon actionnable au-delà du message
+shell générique `go: command not found`.
+
+**Décision** : ajout d'un champ `engines.node` (`>=22.13.0`, le
+plancher le plus strict parmi les dépendances) dans `web/package.json`,
+et d'un paragraphe « Prérequis » en tête de la section « Développement
+local » du README précisant Go ≥ 1.24 et Node ≥ 22.13, avec
+l'explication du symptôme (`EBADENGINE`, erreur `styleText`) pour que le
+diagnostic soit immédiat la prochaine fois.
+
+**Justification** : deux échecs distincts sur deux machines différentes
+pour la même cause (prérequis non documentés) valent la peine d'être
+corrigés une fois pour toutes plutôt que ré-expliqués à chaque nouvelle
+installation.
+
+**Conséquences** : `npm install` affichera un avertissement
+`EBADENGINE` explicite sur le paquet `web` lui-même (pas seulement ses
+dépendances transitives) si la version de Node est insuffisante ; le
+README indique la version minimale de Go et de Node à installer avant
+de commencer.
