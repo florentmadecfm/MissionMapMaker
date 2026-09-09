@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=22.13.0"
+    "node": "^20.0.0 || >=22.0.0"
   },
   "scripts": {
     "dev": "vite",
@@ -14,17 +14,17 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.11.6",
-    "pdfjs-dist": "^6.3.289",
+    "pdfjs-dist": "5.1.91",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
+    "@types/node": "^20.19.43",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.1.0",
-    "oxlint": "^1.79.0",
+    "@vitejs/plugin-react": "4.3.4",
+    "oxlint": "1.16.0",
     "typescript": "~6.0.2",
-    "vite": "^8.2.2"
+    "vite": "6.4.3"
   }
 }

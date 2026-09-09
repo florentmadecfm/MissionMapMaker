@@ -1436,3 +1436,58 @@ frontend réellement buildé (binaire lancé isolément sur un port de
 test, `/`, les assets JS et `/api/*` répondent tous correctement,
 test Playwright de bout en bout confirmant l'UI fonctionnelle depuis
 ce seul binaire).
+
+## ADR-032 — Toolchain frontend rabaissé pour compatibilité Node 20.9
+
+**Date** : 2026-09-09
+**Statut** : Retenu
+
+**Contexte** : après ADR-030 (documentation du prérequis Node ≥ 22.13),
+le second poste (Node v20.9.0, Windows) reste bloqué : le fait de
+mettre à jour Node n'est pas immédiat pour cet utilisateur (dépendance
+à un mirroir Artifactory interne, accès non résolu). Demande explicite :
+rendre l'application compatible avec la configuration existante plutôt
+que d'attendre une mise à jour de poste. Or les dernières versions de
+Vite (8.x, et déjà 7.x indépendamment de son bundler rolldown),
+`@vitejs/plugin-react` (6.x) et oxlint (≥1.17) exigent toutes Node
+≥ 20.19/22.12 ; `pdfjs-dist` (≥6.0, et même 5.2+) exige Node ≥ 20.16
+ou ≥ 22.3/22.13. Aucune de ces versions ne fonctionne sous Node 20.9.
+
+**Décision** : rabaisser le toolchain frontend à la dernière version de
+chaque paquet encore compatible avec Node 20.9, épinglée en version
+exacte (pas de `^`) pour empêcher toute dérive lors d'un futur
+`npm install` sans lockfile :
+- `vite` : 8.2.2 → **6.4.3** (Vite 6 = dernière branche majeure encore
+  sur Rollup, engines `^18.0.0 || ^20.0.0 || >=22.0.0`)
+- `@vitejs/plugin-react` : 6.1.0 → **4.3.4** (dernière version avec
+  engines large `^14.18.0 || >=16.0.0`, compatible peer avec Vite 6)
+- `oxlint` : 1.79.0 → **1.16.0** (dernière version avant le
+  durcissement à `^20.19.0 || >=22.12.0` introduit en 1.17.0)
+- `pdfjs-dist` : 6.3.289 → **5.1.91** (dernière version avec engines
+  `>=20` avant le durcissement à `>=20.16.0||>=22.3.0` en 5.2.0, puis
+  `>=22.13.0||>=24` à partir de 6.0.0)
+
+`web/package.json` → `engines.node` mis à jour en
+`"^20.0.0 || >=22.0.0"` (couvre Node 20.x, y compris d'anciennes patch
+releases comme 20.9, et Node ≥ 22 ; exclut Node < 20 et Node 21, une
+release impaire non-LTS jamais ciblée par ce projet).
+
+**Justification** : versions exactes plutôt que des plages `^`,
+délibérément, car la même mésaventure (résolution vers une version plus
+récente et plus stricte lors d'un `npm install` sans lockfile — le
+correctif suggéré aux deux postes lors des incidents précédents) aurait
+sinon pu se reproduire silencieusement à la première réinstallation
+propre. C'est un compromis assumé : ce projet reste ainsi sur des
+versions plus anciennes du toolchain frontend tant que Node < 20.19
+doit être supporté, au bénéfice de tourner sans changement de poste.
+
+**Conséquences** : testé bout en bout sous Node v20.9.0 exact (installé
+via nvm pour reproduire fidèlement la configuration signalée) —
+`npm install` sans avertissement `EBADENGINE`, `npm run build` (tsc +
+vite build) et `npm run lint` (oxlint) réussissent, `npm run dev` sert
+l'application, et un test Playwright confirme que le chargement de PDF
+(`pdfjs-dist`) fonctionne toujours correctement (extraction de texte
+inchangée). Revérifié également sous Node 22 (build, lint identiques)
+pour confirmer qu'aucune régression n'est introduite pour les postes
+déjà à jour. Le binaire Go autonome (ADR-031) reconstruit avec ce
+nouveau frontend fonctionne sans changement.
