@@ -100,4 +100,4 @@ récupérer un exécutable prêt à l'emploi : télécharger le fichier
 correspondant à sa plateforme (`missionmapmaker-linux-amd64`,
 `missionmapmaker-windows-amd64.exe`, `missionmapmaker-macos-amd64` ou
 `missionmapmaker-macos-arm64`) et le lancer directement. Voir
-ADR-033.
+ADR-033. Ouvrir http://localhost:8080/.
