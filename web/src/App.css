@@ -349,14 +349,20 @@
 }
 
 .editor li select {
-  width: 9.5rem;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Labels de colonnes au-dessus des champs, alignés sur les mêmes
    largeurs que les inputs/select des lignes en dessous (gap et
-   largeurs fixes partagées) pour que les colonnes se lisent
-   d'un coup d'œil sans avoir à survoler chaque ligne. */
+   ratios de largeur partagés) pour que les colonnes se lisent
+   d'un coup d'œil sans avoir à survoler chaque ligne. Les colonnes de
+   texte (nom, select) se partagent l'espace à parts égales (flex: 1
+   chacune) plutôt qu'une largeur fixe pour les select : avec des
+   libellés réalistes (noms d'acteur/phase longs), une largeur figée
+   les tronquait illisiblement pendant que le champ Nom, seul en
+   flex: 1, accaparait tout le reste de la ligne.
+   */
 .col-headers {
   display: flex;
   align-items: center;
@@ -378,13 +384,9 @@
   flex-shrink: 0;
 }
 
-.col-headers .col-name {
-  flex: 1;
-}
-
+.col-headers .col-name,
 .col-headers .col-select {
-  width: 9.5rem;
-  flex-shrink: 0;
+  flex: 1;
 }
 
 .col-arrow-spacer {
