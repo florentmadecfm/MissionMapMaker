@@ -341,6 +341,58 @@
   flex: 1;
 }
 
+.editor li input[type='color'] {
+  width: 2.4rem;
+  height: 1.8rem;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.editor li select {
+  width: 9.5rem;
+  flex-shrink: 0;
+}
+
+/* Labels de colonnes au-dessus des champs, alignés sur les mêmes
+   largeurs que les inputs/select des lignes en dessous (gap et
+   largeurs fixes partagées) pour que les colonnes se lisent
+   d'un coup d'œil sans avoir à survoler chaque ligne. */
+.col-headers {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.3rem 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+}
+
+.col-headers span {
+  min-width: 0;
+}
+
+.col-headers .col-color {
+  width: 4.4rem;
+  flex-shrink: 0;
+}
+
+.col-headers .col-name {
+  flex: 1;
+}
+
+.col-headers .col-select {
+  width: 9.5rem;
+  flex-shrink: 0;
+}
+
+.col-arrow-spacer {
+  width: 1.2rem;
+  flex-shrink: 0;
+  text-align: center;
+}
+
 .danger {
   color: var(--color-danger);
   background: var(--color-danger-bg);

@@ -1531,3 +1531,38 @@ toutes avant de pousser (`GOOS`/`GOARCH` cross-compilation, binaires de
 (création de release, upload des assets) n'a pas pu être exécuté
 depuis cette session — à vérifier au premier tag `v*` poussé ou premier
 déclenchement manuel.
+
+## ADR-034 — Labels de colonnes dans l'onglet Édition
+
+**Date** : 2026-09-09
+**Statut** : Retenu
+
+**Contexte** : demande explicite : les listes de champs (Acteurs,
+Phases, Activités, Interactions) de l'onglet Édition n'avaient aucun
+en-tête de colonne — un utilisateur découvrant l'écran devait deviner
+le sens de chaque champ (ex. lequel des deux `<select>` d'une activité
+est l'acteur et lequel est la phase) uniquement par sa position ou son
+contenu.
+
+**Décision** : ajout d'une ligne d'en-têtes (`.col-headers`, style
+repris de `.test-steps th` déjà utilisé ailleurs dans l'appli : petites
+majuscules grises) au-dessus de chaque liste, avec un label par colonne
+signifiante (Couleur/Nom pour Acteurs, Nom pour Phases, Nom/Acteur/Phase
+pour Activités, Depuis/Vers/Information échangée pour Interactions) —
+pas de label pour la colonne "supprimer", son bouton étant
+auto-explicite. Pour que les en-têtes s'alignent avec les champs en
+dessous, les `<select>` et `<input type="color">` des lignes ont reçu
+une largeur fixe (au lieu de s'ajuster au contenu), reprise à
+l'identique pour les colonnes correspondantes de l'en-tête.
+
+**Justification** : un en-tête de colonne est la solution la plus
+directe et la moins intrusive pour ce besoin (pas de changement de
+comportement, juste du contexte visuel) ; réutiliser le style
+d'en-tête déjà présent ailleurs dans l'appli évite d'introduire une
+nouvelle convention visuelle.
+
+**Conséquences** : vérifié visuellement (Playwright, capture d'écran
+avec des données de test dans les 4 sections) — colonnes alignées,
+aucune régression de layout. Premier essai avec une colonne "Couleur"
+trop étroite (4.4rem finalement, vs largeur du swatch 2.4rem) —
+corrigé après une capture montrant le chevauchement avec "Nom".
