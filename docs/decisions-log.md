@@ -1491,3 +1491,43 @@ inchangée). Revérifié également sous Node 22 (build, lint identiques)
 pour confirmer qu'aucune régression n'est introduite pour les postes
 déjà à jour. Le binaire Go autonome (ADR-031) reconstruit avec ce
 nouveau frontend fonctionne sans changement.
+
+## ADR-033 — Publication automatisée des binaires (GitHub Actions)
+
+**Date** : 2026-09-09
+**Statut** : Retenu
+
+**Contexte** : le binaire autonome (ADR-031) répond au besoin d'un
+poste sans Go/Node, mais nécessite malgré tout que *quelqu'un* le
+construise. Pour débloquer immédiatement le second poste (celui
+concerné par ADR-032), le binaire Windows a été construit
+ponctuellement dans cette session et transmis directement — solution
+à usage unique, non reproductible sans repasser par une session
+Claude Code à chaque nouvelle version.
+
+**Décision** : ajout d'un workflow GitHub Actions
+(`.github/workflows/release-binaries.yml`) qui construit le frontend
+une fois (`npm ci && npm run build`), puis compile en parallèle
+(matrice) le binaire Go autonome pour 4 cibles — `linux/amd64`,
+`windows/amd64`, `darwin/amd64`, `darwin/arm64` (`CGO_ENABLED=0`,
+cross-compilation standard de Go, sans dépendance native puisque
+`go:embed` n'embarque que des fichiers statiques). Déclenchement : tag
+`v*` poussé sur le dépôt → binaires publiés en pièces jointes de la
+release GitHub correspondante (via `softprops/action-gh-release`) ;
+déclenchement manuel (`workflow_dispatch`, onglet Actions) → binaires
+disponibles comme artefacts du run, pour tester sans créer de tag.
+
+**Justification** : rend la distribution de binaires autonomes
+reproductible et auto-service — n'importe qui avec un accès au dépôt
+peut récupérer un exécutable à jour sans repasser par une session
+interactive, et sans que quiconque ait besoin d'installer Go
+localement pour produire ces binaires.
+
+**Conséquences** : les 4 cibles ont été compilées localement avec les
+mêmes commandes que le workflow pour vérifier qu'elles réussissent
+toutes avant de pousser (`GOOS`/`GOARCH` cross-compilation, binaires de
+18-19 Mo chacun). Le fichier YAML est validé syntaxiquement
+(`yaml.safe_load`). Le comportement réel du workflow sur GitHub
+(création de release, upload des assets) n'a pas pu être exécuté
+depuis cette session — à vérifier au premier tag `v*` poussé ou premier
+déclenchement manuel.
