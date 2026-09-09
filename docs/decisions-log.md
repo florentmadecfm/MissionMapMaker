@@ -1072,3 +1072,55 @@ sur GitHub : les 5 jobs (build frontend + 4 cibles) ont réussi en
 ~1 minute, les 4 binaires bien produits comme artefacts du run — seule
 la publication en pièce jointe de release (chemin déclenché par un tag
 `v*`) reste à vérifier au premier tag effectivement poussé.
+
+---
+
+## ADR-035 — Export Excel multi-onglets, côté client (`exceljs`)
+
+**Date** : 2026-09-09
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir exporter toutes
+les informations d'un projet. Clarifié via question : Excel (un onglet
+par catégorie), plutôt qu'un export JSON brut ou les deux — plus lisible
+sans l'application, partageable avec des non-techniques.
+
+**Décision** :
+- Nouveau module `web/src/features/project-shell/exportExcel.ts` :
+  construit un classeur avec un onglet par catégorie (Acteurs, Phases,
+  Activités, User stories, Interactions, Spécifications, Tests V&V,
+  Traçabilité), en résolvant les identifiants internes (`actorId`,
+  `phaseId`, `traceLinks`, `specificationId`) vers des libellés lisibles
+  (noms, codes) plutôt que d'exporter les IDs bruts.
+- Génération **côté client**, comme l'extraction de PDF (voir
+  historique du projet) : aucune dépendance serveur nouvelle, le fichier
+  se construit et se télécharge entièrement dans le navigateur.
+- Bibliothèque `exceljs` retenue plutôt que `xlsx` (SheetJS), pourtant
+  plus connue pour ce cas d'usage : `xlsx` porte une vulnérabilité haute
+  sévérité non corrigée sur le registre npm (prototype pollution,
+  ReDoS — `npm audit`), tandis qu'`exceljs` n'a qu'un avisory modéré
+  transitif (via `uuid`, sur un chemin de code non atteint par notre
+  usage). `exceljs` est importé **dynamiquement** (`import('exceljs')`)
+  dans `exportProjectToExcel`, pas en haut de fichier : la bibliothèque
+  pèse ~940 Ko et ne doit se charger que pour les utilisateurs cliquant
+  effectivement "Exporter en Excel", pas alourdir le bundle initial de
+  toute l'application (même principe et même risque déjà rencontré avec
+  `pdfjs-dist`).
+
+**Justification** : écarter une bibliothèque avec une vulnérabilité
+connue et non corrigée quand une alternative maintenue existe et
+couvre le besoin, plutôt que d'accepter le risque au nom de la
+popularité du paquet. Onglet par catégorie (plutôt qu'une reproduction
+exacte de chaque écran, ex. la matrice de traçabilité visuelle) : reste
+simple à générer et à lire dans un tableur, la feuille "Traçabilité"
+(liste plate activité↔spécification, avec couverture par test) porte
+la même information sans les contraintes de mise en page d'une vraie
+matrice.
+
+**Conséquences** : vérifié bout en bout avec Playwright — export réel
+déclenché depuis l'onglet Édition, fichier `.xlsx` téléchargé confirmé
+valide (`Microsoft Excel 2007+`) et contenant les 8 onglets attendus
+avec les bonnes données (acteurs, activités avec noms d'acteur/phase
+résolus, etc.). Bundle principal confirmé quasi inchangé après le
+passage à l'import dynamique (432 Ko avant/après, contre un chunk
+`exceljs` séparé de 940 Ko chargé à la demande).

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
 import type { Activity, Actor, Interaction, Phase, Project } from '../../api/types'
+import { exportProjectToExcel } from './exportExcel'
 
 function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
@@ -16,6 +17,20 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  async function handleExport() {
+    setExporting(true)
+    setExportError(null)
+    try {
+      await exportProjectToExcel(project)
+    } catch (e) {
+      setExportError(String(e))
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -135,11 +150,15 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           value={project.name}
           onChange={(e) => onChange({ ...project, name: e.target.value })}
         />
+        <button type="button" onClick={handleExport} disabled={exporting}>
+          {exporting ? 'Export…' : 'Exporter en Excel'}
+        </button>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Sauvegarde…' : 'Sauvegarder'}
         </button>
         {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
         {saveError && <span className="error">{saveError}</span>}
+        {exportError && <span className="error">Export Excel : {exportError}</span>}
       </header>
 
       <section>
