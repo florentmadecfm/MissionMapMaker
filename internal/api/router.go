@@ -15,6 +15,7 @@ import (
 	"missionmapmaker/internal/llm"
 	"missionmapmaker/internal/service"
 	"missionmapmaker/internal/storage"
+	"missionmapmaker/web"
 )
 
 type Handler struct {
@@ -38,6 +39,12 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("PUT /api/settings", h.saveSettings)
 	mux.HandleFunc("DELETE /api/settings", h.deleteSettings)
 	mux.HandleFunc("GET /api/health", h.health)
+
+	// Sert le frontend buildé (web/dist, embarqué dans le binaire) pour
+	// tout chemin non préfixé par /api — n'a d'effet qu'une fois "npm
+	// run build" exécuté (binaire packagé) ; en dev quotidien, le
+	// frontend est servi séparément par "npm run dev" sur :5173.
+	mux.Handle("/", http.FileServerFS(web.DistFS()))
 
 	return withCORS(mux)
 }
