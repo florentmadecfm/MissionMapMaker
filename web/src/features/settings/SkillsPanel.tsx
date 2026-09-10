@@ -29,6 +29,7 @@ const SKILLS: { key: keyof PromptSettings; title: string; description: string }[
 ]
 
 export function SkillsPanel() {
+  const [activeSkill, setActiveSkill] = useState<keyof PromptSettings>('process')
   const [data, setData] = useState<PromptSettingsResponse | null>(null)
   const [values, setValues] = useState<PromptSettings | null>(null)
   const [savingKey, setSavingKey] = useState<string | null>(null)
@@ -78,6 +79,8 @@ export function SkillsPanel() {
     return <p>{error ? <span className="error">{error}</span> : 'Chargement…'}</p>
   }
 
+  const skill = SKILLS.find((s) => s.key === activeSkill) ?? SKILLS[0]
+
   return (
     <div className="skills-panel">
       <p className="nl-hint">
@@ -86,41 +89,57 @@ export function SkillsPanel() {
         incrémentale du diagramme de fonctionner correctement (voir ADR-040).
       </p>
 
-      {SKILLS.map((skill) => (
-        <div key={skill.key} className="skill-card">
-          <div className="skill-card-header">
-            <h3>{skill.title}</h3>
-            {data.customized[skill.key] ? (
-              <span className="status-badge status-ok">Personnalisé</span>
-            ) : (
-              <span className="status-badge status-off">Par défaut</span>
-            )}
-          </div>
-          <p className="skill-card-description">{skill.description}</p>
-          <textarea
-            rows={10}
-            value={values[skill.key]}
-            onChange={(e) => setValues({ ...values, [skill.key]: e.target.value })}
-          />
-          <div className="nl-actions">
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => handleSave(skill.key)}
-              disabled={savingKey === skill.key}
-            >
-              {savingKey === skill.key ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleReset(skill.key)}
-              disabled={savingKey === skill.key || !data.customized[skill.key]}
-            >
-              Réinitialiser
-            </button>
-          </div>
+      {/* Sous-onglets : un par skill, plutôt que les 3 empilées — chaque
+          consigne fait plusieurs paragraphes, les empiler rendait le
+          défilement de la modale peu lisible dès qu'on voulait comparer ou
+          éditer une seule des trois. */}
+      <nav className="tabs sub-tabs">
+        {SKILLS.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            className={activeSkill === s.key ? 'active' : ''}
+            onClick={() => setActiveSkill(s.key)}
+          >
+            {s.title}
+            {data.customized[s.key] && <span className="tab-customized-dot" aria-label="Personnalisé" />}
+          </button>
+        ))}
+      </nav>
+
+      <div className="skill-card">
+        <div className="skill-card-header">
+          <h3>{skill.title}</h3>
+          {data.customized[skill.key] ? (
+            <span className="status-badge status-ok">Personnalisé</span>
+          ) : (
+            <span className="status-badge status-off">Par défaut</span>
+          )}
         </div>
-      ))}
+        <p className="skill-card-description">{skill.description}</p>
+        <textarea
+          rows={16}
+          value={values[skill.key]}
+          onChange={(e) => setValues({ ...values, [skill.key]: e.target.value })}
+        />
+        <div className="nl-actions">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => handleSave(skill.key)}
+            disabled={savingKey === skill.key}
+          >
+            {savingKey === skill.key ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleReset(skill.key)}
+            disabled={savingKey === skill.key || !data.customized[skill.key]}
+          >
+            Réinitialiser
+          </button>
+        </div>
+      </div>
 
       {info && <p className="generate-info">{info}</p>}
       {error && <p className="error">{error}</p>}
