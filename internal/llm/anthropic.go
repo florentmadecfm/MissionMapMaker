@@ -51,7 +51,11 @@ func toAnthropicTool(spec ToolSpec) anthropic.ToolUnionParam {
 	tool := anthropic.ToolParam{
 		Name:        spec.Name,
 		Description: anthropic.String(spec.Description),
-		InputSchema: anthropic.ToolInputSchemaParam{Properties: spec.Properties},
+		// spec.Required était jusqu'ici perdu (seul toMistralTool le
+		// transmettait) : le schéma envoyé à Claude ne rendait donc aucun
+		// champ racine obligatoire, y compris "specifications"/"scenarios"
+		// pourtant déclarés requis côté ToolSpec — voir ADR-047.
+		InputSchema: anthropic.ToolInputSchemaParam{Properties: spec.Properties, Required: spec.Required},
 	}
 	return anthropic.ToolUnionParam{OfTool: &tool}
 }
@@ -79,6 +83,7 @@ func (c *anthropicClient) GenerateProcess(ctx context.Context, text, systemPromp
 			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &draft); err != nil {
 				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
 			}
+			draft.normalize()
 			return &draft, nil
 		}
 	}
@@ -116,6 +121,9 @@ func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities
 			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &result); err != nil {
 				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
 			}
+			if result.Specifications == nil {
+				result.Specifications = []DraftSpecification{}
+			}
 			return result.Specifications, nil
 		}
 	}
@@ -152,6 +160,9 @@ func (c *anthropicClient) GenerateTestScenarios(ctx context.Context, specificati
 			}
 			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &result); err != nil {
 				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
+			}
+			if result.Scenarios == nil {
+				result.Scenarios = []DraftTestScenario{}
 			}
 			return result.Scenarios, nil
 		}

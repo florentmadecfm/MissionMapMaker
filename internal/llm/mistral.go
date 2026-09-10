@@ -235,6 +235,7 @@ func (c *mistralClient) GenerateProcess(ctx context.Context, text, systemPrompt 
 	if err := json.Unmarshal(raw, &draft); err != nil {
 		return nil, fmt.Errorf("parsing des arguments de l'outil : %w", err)
 	}
+	draft.normalize()
 	return &draft, nil
 }
 
@@ -255,6 +256,9 @@ func (c *mistralClient) GenerateSpecifications(ctx context.Context, activities [
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return nil, fmt.Errorf("parsing des arguments de l'outil : %w", err)
 	}
+	if result.Specifications == nil {
+		result.Specifications = []DraftSpecification{}
+	}
 	return result.Specifications, nil
 }
 
@@ -274,6 +278,9 @@ func (c *mistralClient) GenerateTestScenarios(ctx context.Context, specification
 	}
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return nil, fmt.Errorf("parsing des arguments de l'outil : %w", err)
+	}
+	if result.Scenarios == nil {
+		result.Scenarios = []DraftTestScenario{}
 	}
 	return result.Scenarios, nil
 }

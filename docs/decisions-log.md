@@ -1885,3 +1885,75 @@ depuis les 5 onglets d'un projet ouvert (pas seulement Édition) ; un
 acteur ajouté puis sauvegardé dans l'onglet Édition apparaît
 immédiatement dans l'écran Acteurs au premier accès, sans bouton
 "Actualiser" (confirmé absent, 0 occurrence) ; aucune erreur console.
+
+## ADR-047 — Tableaux racine omis par le LLM désérialisés en `null`, crash frontend ("X is not iterable")
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : rapport utilisateur — demander en langage naturel d'ajouter
+une activité pour un acteur déjà existant ("pour le Client, ajouter une
+activité de manger après que le plat soit servi par le serveur, avec les
+interactions associées") faisait planter la génération avec `TypeError:
+a.actors is not iterable` côté frontend (`mergeDraft.ts`, minifié — `a` =
+`draft`).
+
+**Cause racine, deux bugs indépendants qui se cumulent** :
+1. `extractProcessToolSpec()` (`internal/llm/schemas.go`) ne déclarait
+   aucun champ racine `required` — contrairement à
+   `proposeSpecificationsToolSpec`/`proposeTestScenariosToolSpec`, qui
+   déclarent respectivement `specifications`/`scenarios` requis. Rien
+   n'empêchait donc le LLM d'omettre entièrement "actors" (ou "phases"/
+   "activities") d'une réponse ne portant que sur une interaction entre
+   deux activités déjà existantes — exactement le cas encouragé par
+   DefaultProcessPrompt depuis ADR-044 ("un appel qui ne renseigne QUE
+   interactions est parfaitement valide").
+2. `toAnthropicTool` (`internal/llm/anthropic.go`) ignorait complètement
+   `ToolSpec.Required` en construisant `anthropic.ToolInputSchemaParam` —
+   seul `toMistralTool` le transmettait. Même en corrigeant (1), le schéma
+   envoyé à Claude ne rendait donc **aucun** champ racine obligatoire, y
+   compris pour les deux autres capacités (`specifications`/`scenarios`),
+   déclarées requises depuis le début mais silencieusement non
+   transmises — un appel Anthropic ciblé pouvait donc produire les mêmes
+   symptômes sur la génération de SSS et de tests V&V, pas seulement sur
+   le diagramme.
+
+Un champ JSON omis désérialise en tranche Go `nil` (`json.Unmarshal` ne
+touche pas au zero-value), qui se sérialise à son tour en JSON `null`
+(`encoding/json` ne distingue pas "tranche vide" de "tranche nil" sauf
+`omitempty`, qui aurait de toute façon supprimé la clé plutôt que la
+vider) — le frontend, qui fait `for (const x of draft.actors)` sans
+garde, ne peut pas itérer `null`.
+
+**Décision** :
+- Corriger `toAnthropicTool` pour transmettre `spec.Required` (bug
+  générique, corrige aussi les 2 autres capacités).
+- Déclarer `actors`/`phases`/`activities`/`interactions` requis dans
+  `extractProcessToolSpec` (`activityChanges` reste optionnel, cohérent
+  avec son `omitempty` côté Go).
+- Filet de sécurité en plus du schéma (un "required" JSON Schema n'est
+  pas forcément validé strictement par tous les fournisseurs/modèles) :
+  `DraftProcess.normalize()` force les 4 tableaux de base à une tranche
+  vide plutôt que `nil` après désérialisation, appelé dans
+  `anthropic.go` et `mistral.go`. Même traitement en ligne pour
+  `Specifications`/`Scenarios` dans les 4 fonctions `Generate*` des deux
+  clients (pas de struct partagée à normaliser, un seul champ chacune).
+
+**Alternative écartée** : uniquement durcir le frontend (`?? []` à la
+lecture de `draft.actors` dans `mergeDraft.ts`). Aurait fait disparaître
+le crash mais laissé les deux bugs racine en l'état — en particulier (2),
+qui prive silencieusement Claude de toute contrainte "required" sur ses
+3 outils, un risque de qualité plus large que ce seul incident.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...` verts, dont deux
+nouveaux tests reproduisant exactement le scénario rapporté :
+`TestMistralGenerateProcess_NormalizesOmittedArrays` (réponse JSON brute
+ne portant que "interactions", comme un modèle le ferait réellement — pas
+un marshal Go qui aurait de toute façon inclus les autres champs) et
+`TestToAnthropicTool_ForwardsRequired` (schéma Anthropic transmis avec le
+bon `Required`). `tsc -b`, `npm run lint`, `npm run build` verts (aucun
+changement frontend, le fix est entièrement backend). Pas de vérification
+Playwright bout en bout possible dans cet environnement : aucune clé API
+Anthropic/Mistral n'y est configurée pour déclencher un vrai appel LLM ;
+les tests Go ci-dessus couvrent la régression au niveau où elle se
+produit réellement (parsing de la réponse du fournisseur).
