@@ -227,6 +227,33 @@
 
 /* ---------- Tabs ---------- */
 
+/* Barre d'onglets d'un projet ouvert + menu export/import (voir
+   ExportImportMenu.tsx) : le menu est au niveau de la barre d'onglets,
+   pas dans l'en-tête d'un seul onglet, pour rester disponible quel que
+   soit l'onglet actif (ADR-046). .tabs garde sa largeur de contenu
+   propre (flex-start) partout ailleurs (Paramètres...) ; ici, flex: 1
+   l'étire pour que le menu se cale à droite via .tabs-bar. */
+.tabs-bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tabs-bar .tabs {
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.export-import-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding-bottom: 0.4rem;
+}
+
 .tabs {
   display: flex;
   gap: 0.25rem;
@@ -864,23 +891,10 @@
 
 /* ---------- Écran transverse "Acteurs" (toutes missions) ---------- */
 
-.actor-missions-screen-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  height: calc(100vh - 160px);
-}
-
-.actor-missions-hint button {
-  font-size: 0.78rem;
-  padding: 0.15rem 0.5rem;
-}
-
 .actor-missions-screen {
   display: flex;
   gap: 1.5rem;
-  flex: 1;
-  min-height: 0;
+  height: calc(100vh - 160px);
 }
 
 .actor-missions-list {

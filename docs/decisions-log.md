@@ -1831,3 +1831,57 @@ pastille sur "Personnalisé" SANS toucher au skill correspondant (vérifié
 `customized.process` reste `false` alors que `customized.processContext`
 passe à `true`) — confirmant l'indépendance des deux couches ; Réinitialiser
 revient au texte par défaut.
+
+---
+
+## ADR-046 — Menu export/import au niveau des onglets, écran Acteurs toujours à jour
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : deux demandes explicites utilisateur.
+1. Le menu burger export/import Excel (ADR-042) vivait dans l'en-tête de
+   l'onglet Édition (`ProjectEditor.tsx`) : invisible et inutilisable
+   depuis les autres onglets (Générer, Diagramme, Spécifications, Vue par
+   acteur) d'un même projet ouvert.
+2. L'écran Acteurs (toutes missions, ADR-041) ne se rafraîchissait qu'à
+   l'ouverture de l'écran ou sur clic du bouton manuel "↻ Actualiser"
+   (ajouté en ADR-043) — l'utilisateur veut que la mise à jour d'un
+   diagramme se reflète automatiquement, sans action explicite.
+
+**Décision** :
+- Le menu export/import est extrait dans un nouveau composant
+  `ExportImportMenu.tsx` (même logique qu'avant, juste déplacée hors de
+  `ProjectEditor.tsx`), rendu par `ProjectShell.tsx` au niveau de la barre
+  d'onglets (`<div className="tabs-bar">`, sibling de `<nav
+  className="tabs">`) plutôt que dans l'en-tête d'un onglet précis —
+  disponible quel que soit l'onglet actif du projet ouvert.
+- L'index acteur → missions (`ActorSummary[]`, `GET /api/actors`) est
+  remonté au niveau de `ProjectShell.tsx` (`refreshActors`), chargé au
+  montage ET rafraîchi après CHAQUE sauvegarde de projet (`handleSaved`,
+  passé comme `onSaved` aux onglets Édition/Diagramme/Spécifications) et
+  après suppression d'un projet — plutôt que chargé paresseusement par
+  `ActorMissionsScreen` à sa propre ouverture. `ActorMissionsScreen`
+  reçoit désormais `actors`/`error` en props ; le bandeau explicatif et
+  le bouton manuel "Actualiser" (ADR-043) sont retirés, leur raison
+  d'être (données non fraîches sans action) étant résolue à la racine.
+
+**Justification** : rafraîchir au niveau du shell à chaque sauvegarde,
+plutôt que compter sur le remontage du composant à la navigation (qui
+aurait déjà couvert le cas d'usage principal — ouvrir Acteurs après avoir
+sauvegardé), rend la fraîcheur des données garantie par construction
+plutôt que par un effet de bord de la structure des composants : plus
+simple à raisonner, et couvre aussi les cas où l'utilisateur reste sur
+l'écran Acteurs pendant qu'une donnée change ailleurs (ex. plusieurs
+onglets navigateur). Extraire `ExportImportMenu.tsx` plutôt que dupliquer
+la logique dans chaque onglet garde un seul endroit pour cette
+fonctionnalité, cohérente avec le patron déjà suivi pour `PromptEditor.tsx`
+(ADR-045).
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...` (aucun changement backend), `tsc -b`, `npm run lint`, `npm run
+build`. Playwright : le bouton "☰" est confirmé visible et fonctionnel
+depuis les 5 onglets d'un projet ouvert (pas seulement Édition) ; un
+acteur ajouté puis sauvegardé dans l'onglet Édition apparaît
+immédiatement dans l'écran Acteurs au premier accès, sans bouton
+"Actualiser" (confirmé absent, 0 occurrence) ; aucune erreur console.
