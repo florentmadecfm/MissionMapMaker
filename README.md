@@ -76,7 +76,10 @@ projet, à l'onglet Vue par acteur, avec l'acteur déjà présélectionné.
 
 Le rapprochement se fait par nom (insensible à la casse) : deux acteurs
 de projets différents doivent porter exactement le même nom pour être
-regroupés — voir ADR-041.
+regroupés — voir ADR-041. Les données affichées sont toujours celles
+déjà **sauvegardées** de chaque mission (pas besoin de rafraîchir
+manuellement : rechargées automatiquement après chaque sauvegarde d'un
+projet — voir ADR-046).
 
 ### Paramètres
 
@@ -125,7 +128,8 @@ de texte à extraire — l'OCR n'est pas pris en charge pour l'instant.
 
 ### Exporter/importer un projet en Excel
 
-Dans l'onglet **Édition**, le menu **☰** (à côté de "Sauvegarder") donne
+Le menu **☰**, au niveau de la barre d'onglets d'un projet ouvert
+(disponible depuis n'importe quel onglet, pas seulement Édition), donne
 accès à :
 
 - **Exporter en Excel** : télécharge un classeur `.xlsx` avec un onglet

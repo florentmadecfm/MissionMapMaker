@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
-import type { Project, ProjectSummary } from '../../api/types'
+import type { ActorSummary, Project, ProjectSummary } from '../../api/types'
 import { ActorView } from '../actor-view/ActorView'
 import { ActorMissionsScreen } from '../actor-missions/ActorMissionsScreen'
 import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { SettingsModal } from '../settings/SettingsModal'
 import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
+import { ExportImportMenu } from './ExportImportMenu'
 import { ProjectEditor } from './ProjectEditor'
 
 type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
@@ -28,6 +29,8 @@ function loadSidebarCollapsed(): boolean {
 
 export function ProjectShell() {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([])
+  const [actors, setActors] = useState<ActorSummary[] | null>(null)
+  const [actorsError, setActorsError] = useState<string | null>(null)
   const [project, setProject] = useState<Project | null>(null)
   const [newName, setNewName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -57,11 +60,32 @@ export function ProjectShell() {
   }
 
   const refreshList = () => api.listProjects().then(setSummaries)
+  // Index transverse acteur -> missions (écran Acteurs), tenu à jour au
+  // niveau du shell plutôt que chargé paresseusement par
+  // ActorMissionsScreen : rafraîchi à chaque sauvegarde de projet
+  // (handleSaved ci-dessous), pour que l'écran Acteurs reflète toujours
+  // les dernières données sauvegardées sans action manuelle (ADR-046).
+  const refreshActors = () =>
+    api
+      .listActors()
+      .then((list) => {
+        setActors(list)
+        setActorsError(null)
+      })
+      .catch((e) => setActorsError(String(e)))
+  // Après toute sauvegarde d'un projet (Édition, Diagramme,
+  // Spécifications) : la liste de projets ET l'index d'acteurs peuvent
+  // tous deux avoir changé (nom de projet, acteurs ajoutés/renommés...).
+  const handleSaved = () => {
+    refreshList()
+    refreshActors()
+  }
 
   useEffect(() => {
     refreshList()
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
+    refreshActors()
   }, [])
 
   useEffect(() => {
@@ -115,6 +139,7 @@ export function ProjectShell() {
       await api.deleteProject(id)
       if (project?.id === id) setProject(null)
       await refreshList()
+      refreshActors()
     } catch (e) {
       setError(String(e))
     }
@@ -196,41 +221,49 @@ export function ProjectShell() {
 
       <main className="shell-main">
         {view === 'actors' ? (
-          <ActorMissionsScreen onOpenProject={handleOpenFromActorMissions} />
+          <ActorMissionsScreen actors={actors} error={actorsError} onOpenProject={handleOpenFromActorMissions} />
         ) : project ? (
           <>
-            <nav className="tabs">
-              <button type="button" className={tab === 'generer' ? 'active' : ''} onClick={() => setTab('generer')}>
-                Générer (langage naturel)
-              </button>
-              <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
-                Édition
-              </button>
-              <button type="button" className={tab === 'diagramme' ? 'active' : ''} onClick={() => setTab('diagramme')}>
-                Diagramme de processus
-              </button>
-              <button
-                type="button"
-                className={tab === 'specifications' ? 'active' : ''}
-                onClick={() => setTab('specifications')}
-              >
-                Spécifications
-              </button>
-              <button type="button" className={tab === 'acteur' ? 'active' : ''} onClick={() => setTab('acteur')}>
-                Vue par acteur
-              </button>
-            </nav>
+            <div className="tabs-bar">
+              <nav className="tabs">
+                <button type="button" className={tab === 'generer' ? 'active' : ''} onClick={() => setTab('generer')}>
+                  Générer (langage naturel)
+                </button>
+                <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
+                  Édition
+                </button>
+                <button
+                  type="button"
+                  className={tab === 'diagramme' ? 'active' : ''}
+                  onClick={() => setTab('diagramme')}
+                >
+                  Diagramme de processus
+                </button>
+                <button
+                  type="button"
+                  className={tab === 'specifications' ? 'active' : ''}
+                  onClick={() => setTab('specifications')}
+                >
+                  Spécifications
+                </button>
+                <button type="button" className={tab === 'acteur' ? 'active' : ''} onClick={() => setTab('acteur')}>
+                  Vue par acteur
+                </button>
+              </nav>
+              {/* Menu export/import au niveau de la barre d'onglets (pas
+                  dans l'en-tête d'un seul onglet) : disponible depuis
+                  n'importe quel onglet du projet ouvert (ADR-046). */}
+              <ExportImportMenu project={project} onChange={setProject} />
+            </div>
             {tab === 'generer' && (
               <NlInput project={project} onChange={setProject} onGenerated={() => setTab('edition')} />
             )}
-            {tab === 'edition' && (
-              <ProjectEditor project={project} onChange={setProject} onSaved={() => refreshList()} />
-            )}
+            {tab === 'edition' && <ProjectEditor project={project} onChange={setProject} onSaved={handleSaved} />}
             {tab === 'diagramme' && (
-              <ProcessDiagram project={project} onChange={setProject} onSaved={() => refreshList()} />
+              <ProcessDiagram project={project} onChange={setProject} onSaved={handleSaved} />
             )}
             {tab === 'specifications' && (
-              <SpecificationsPanel project={project} onChange={setProject} onSaved={() => refreshList()} />
+              <SpecificationsPanel project={project} onChange={setProject} onSaved={handleSaved} />
             )}
             {tab === 'acteur' && <ActorView project={project} initialActorId={initialActorId} />}
           </>
