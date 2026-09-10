@@ -36,6 +36,28 @@ npm run dev
 
 Ouvrir http://localhost:5173.
 
+### Diagramme de processus interactif
+
+L'onglet **Diagramme de processus** ne se contente pas d'afficher le
+diagramme, il permet de le modifier directement :
+
+- **Glisser-déposer** une carte d'activité la réassigne à l'acteur/la
+  phase visés (une ombre en pointillés prévisualise l'emplacement de
+  dépose).
+- **Glisser depuis le bord d'une carte vers une autre** crée une
+  interaction entre les deux activités.
+- **Cliquer sur une carte** ouvre la consultation de ses spécifications
+  et tests V&V liés (une fois générés).
+- Les boutons **"+"** après la dernière phase ajoutent une phase ou une
+  activité pour un acteur donné, sans repasser par l'onglet Édition.
+- Le petit **"+"** en coin d'un en-tête de phase ou d'acteur réserve
+  une colonne (phase) ou une ligne (acteur) supplémentaire — utile pour
+  faire de la place à une seconde ligne d'activités concurrentes avant
+  même d'y avoir déposé quoi que ce soit.
+- Une zone de texte en langage naturel, en haut de l'onglet, permet de
+  décrire des ajouts ou modifications sans changer d'écran (même
+  génération assistée que l'onglet "Générer").
+
 ### Clé API (génération assistée par LLM)
 
 Pas besoin de variable d'environnement : ouvrez **⚙ Paramètres** en bas de

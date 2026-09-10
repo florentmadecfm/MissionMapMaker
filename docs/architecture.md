@@ -96,12 +96,12 @@ spécifications.
   "updatedAt": "2026-09-08T09:00:00Z",
 
   "actors": [
-    { "id": "act_po", "name": "Product Owner", "color": "#2563eb", "description": "" }
+    { "id": "act_po", "name": "Product Owner", "color": "#2563eb", "description": "", "subLanes": 0 }
   ],
 
   "phases": [
-    { "id": "ph_cadrage", "name": "Cadrage", "order": 1 },
-    { "id": "ph_execution", "name": "Exécution", "order": 2 }
+    { "id": "ph_cadrage", "name": "Cadrage", "order": 1, "subColumns": 0 },
+    { "id": "ph_execution", "name": "Exécution", "order": 2, "subColumns": 0 }
   ],
 
   "activities": [
@@ -111,6 +111,8 @@ spécifications.
       "actorId": "act_po",
       "phaseId": "ph_cadrage",
       "order": 1,
+      "column": 0,
+      "subRow": 0,
       "description": "",
       "sourceText": "texte en langage naturel d'origine, si généré par LLM",
       "userStories": [
@@ -157,6 +159,14 @@ Notes de modélisation :
   chaque activité — modèle Jeff Patton).
 - `interactions` relie deux activités et nomme l'information échangée : ce
   sont les arêtes du diagramme de processus.
+- `activities[].column` / `phases[].subColumns` : sous-colonne explicite
+  d'une activité au sein de sa cellule (acteur, phase) et réservation
+  manuelle d'une sous-colonne supplémentaire pour une phase, avant même
+  d'y avoir une activité (voir ADR-018/020/039).
+- `activities[].subRow` / `actors[].subLanes` : équivalent sur l'axe
+  vertical — sous-ligne explicite d'une activité au sein de la ligne de
+  son acteur, et réservation manuelle d'une seconde ligne pour un acteur
+  (voir ADR-039).
 - `traceLinks` est porté par l'activité pour simplifier la vue "par
   acteur" (une activité connaît directement ses specs), avec un miroir
   possible côté `specifications[].linkedActivityIds` si besoin de requêtes
