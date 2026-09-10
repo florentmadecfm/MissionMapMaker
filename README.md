@@ -117,13 +117,21 @@ le navigateur (aucun envoi du fichier au serveur) et ne fonctionne que
 pour des PDF texte (créés numériquement) : un PDF scanné (image) n'a pas
 de texte à extraire — l'OCR n'est pas pris en charge pour l'instant.
 
-### Exporter un projet en Excel
+### Exporter/importer un projet en Excel
 
-Dans l'onglet **Édition**, le bouton **Exporter en Excel** télécharge un
-classeur `.xlsx` avec un onglet par catégorie (Acteurs, Phases,
-Activités, User stories, Interactions, Spécifications, Tests V&V,
-Traçabilité) — toutes les informations du projet, lisibles sans
-l'application. Génération entièrement côté navigateur (voir ADR-035).
+Dans l'onglet **Édition**, le menu **☰** (à côté de "Sauvegarder") donne
+accès à :
+
+- **Exporter en Excel** : télécharge un classeur `.xlsx` avec un onglet
+  par catégorie (Acteurs, Phases, Activités, User stories, Interactions,
+  Spécifications, Tests V&V, Traçabilité) — toutes les informations du
+  projet, lisibles sans l'application. Génération entièrement côté
+  navigateur (voir ADR-035).
+- **Importer depuis Excel** : recharge un classeur exporté par l'app (le
+  même format, éventuellement retouché à la main) — remplace les
+  acteurs/phases/activités/interactions/spécifications/tests du projet
+  ouvert par le contenu du fichier, à relire et **Sauvegarder** pour
+  confirmer (rien n'est écrit tant que ce n'est pas fait). Voir ADR-042.
 
 ## Empaqueter en binaire autonome
 

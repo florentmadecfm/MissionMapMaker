@@ -7,14 +7,23 @@ fichiers `.json` sur disque) qui permet de :
 
 1. Construire une **story map** et un **diagramme de processus**
    (acteurs × phases × activités × interactions/informations échangées) à
-   partir de langage naturel, assisté par un LLM (API Claude).
+   partir de langage naturel, assisté par un LLM — le diagramme est
+   directement interactif (glisser-déposer, création de lien, sous-lignes/
+   sous-colonnes, mise à jour incrémentale en langage naturel).
 2. Tracer chaque **activité** vers un **référentiel de spécifications**
-   structuré façon INCOSE (SSS, exigences système/sous-système).
+   structuré façon INCOSE (SSS, exigences système/sous-système) et vers des
+   **scénarios de test V&V** (format Polarion) vérifiant ces spécifications.
 3. Offrir une **vue dynamique par acteur** pour vérifier la cohérence de ses
-   activités dans le processus (chronologie, entrées/sorties, trous, doublons).
+   activités dans le processus (chronologie, entrées/sorties, trous,
+   doublons), et une **vue transverse** du même acteur à travers plusieurs
+   missions (projets) différentes.
 
 Utilisateur cible v1 : un seul utilisateur local (PO / architecte / ingénieur
-systèmes), pas de multi-utilisateur temps réel dans ce périmètre.
+systèmes), pas de multi-utilisateur temps réel dans ce périmètre. La
+génération assistée par LLM supporte plusieurs fournisseurs (Anthropic,
+Mistral AI), configurables depuis l'interface ; les consignes ("skills")
+envoyées au LLM pour chacune des 3 capacités de génération sont elles-mêmes
+personnalisables depuis l'écran Paramètres.
 
 ## Contexte et contraintes
 
@@ -63,21 +72,27 @@ systèmes), pas de multi-utilisateur temps réel dans ce périmètre.
 - **Stockage** : chaque projet = un dossier `data/<project-id>/` contenant
   `project.json` (état courant) + `backups/` (versions horodatées).
   Écriture atomique (fichier temporaire + rename) pour éviter la corruption.
-- **LLM** : le backend appelle l'API Claude côté serveur (la clé API ne
-  transite jamais côté navigateur). Le résultat d'extraction est toujours
-  renvoyé au frontend **pour relecture/édition avant sauvegarde** — jamais
-  d'écriture automatique sans validation utilisateur.
-- **Packaging** : à terme, le build React est embarqué dans le binaire Go
-  via `go:embed` → un seul exécutable à distribuer, qui sert l'UI et l'API.
+- **LLM** : le backend appelle l'API du fournisseur configuré (Anthropic ou
+  Mistral AI) côté serveur (la clé API ne transite jamais côté navigateur).
+  Le résultat d'extraction est toujours renvoyé au frontend **pour
+  relecture/édition avant sauvegarde** — jamais d'écriture automatique sans
+  validation utilisateur, y compris pour les mises à jour incrémentales du
+  diagramme (le contexte du projet déjà existant est fourni au LLM pour
+  qu'il puisse cibler une modification plutôt que de dupliquer).
+- **Packaging** : le build React est embarqué dans le binaire Go via
+  `go:embed` → un seul exécutable à distribuer, qui sert l'UI et l'API ;
+  un workflow GitHub Actions construit ces binaires pour Linux/Windows/
+  macOS (Intel et Apple Silicon) à chaque release.
 
 ### Vue technique
 
-- Backend : Go ≥ 1.22, stdlib `net/http` + `chi` (routing léger), pas de
-  framework lourd.
-- Frontend : React + TypeScript, Vite, état serveur via `react-query`
-  (ou équivalent), rendu du diagramme via **React Flow** (nœuds/arêtes,
-  pan/zoom, nœuds custom pour les swimlanes acteur × phase) plutôt qu'un
-  moteur de diagramme maison.
+- Backend : Go ≥ 1.24, stdlib `net/http` uniquement (routage par patterns
+  natifs depuis Go 1.22), pas de framework/routeur tiers.
+- Frontend : React + TypeScript, Vite ; état applicatif en `useState`/props
+  (pas de store global ni de couche de cache réseau dédiée — la taille de
+  l'app ne le justifie pas), rendu du diagramme via **React Flow**
+  (nœuds/arêtes custom, pan/zoom, swimlanes acteur × phase avec
+  sous-colonnes/sous-lignes).
 - Déploiement : exécutable unique local (pas de conteneur nécessaire pour
   le v1) ; Docker optionnel plus tard si besoin de partage d'équipe.
 
@@ -149,6 +164,18 @@ spécifications.
       "status": "draft",
       "priority": "must"
     }
+  ],
+
+  "testScenarios": [
+    {
+      "id": "test_001",
+      "code": "TEST-001",
+      "title": "Vérifier la formalisation de la vision produit",
+      "specificationId": "spec_sss_003",
+      "preconditions": "",
+      "steps": [{ "action": "Saisir la vision produit", "expectedResult": "La vision est enregistrée" }],
+      "status": "draft"
+    }
   ]
 }
 ```
@@ -181,22 +208,23 @@ Notes de modélisation :
 cmd/server/main.go          — point d'entrée, wiring, config
 internal/domain/            — entités (Project, Actor, Activity, Spec...), règles de validation
 internal/storage/           — repository fichiers JSON (lecture/écriture atomique, backups)
-internal/llm/                — client API Claude, prompts d'extraction NL → modèle
-internal/service/           — orchestration (use cases : créer activité, générer depuis NL, tracer spec...)
+internal/llm/                — clients multi-fournisseurs (Anthropic, Mistral), prompts/skills par défaut
+internal/config/             — configuration locale persistée (fournisseur/clé API, skills personnalisés)
+internal/service/           — orchestration (use cases : CRUD projet, génération assistée, index acteurs...)
 internal/api/                — handlers HTTP, DTOs, routing
-internal/incose/             — règles/validation spécifiques au modèle de specs
 ```
 
 ## Découpage des composants React
 
 ```
-src/features/nl-input/        — capture de texte libre, appel LLM, écran de relecture/édition avant commit
-src/features/process-diagram/ — diagramme swimlane acteur × phase (React Flow)
-src/features/story-map/       — backbone + stories (drag & drop priorité/release)
-src/features/specifications/  — arbre INCOSE + matrice de traçabilité activité ↔ spec
-src/features/actor-view/      — vue dynamique par acteur (chronologie, E/S, incohérences)
-src/api/                       — client REST vers le backend Go
-src/state/                     — store applicatif (projet courant, cache)
+src/features/nl-input/         — capture de texte libre, appel LLM, écran de relecture/édition avant commit
+src/features/process-diagram/  — diagramme swimlane acteur × phase, interactif (React Flow)
+src/features/project-shell/    — coquille applicative (liste de projets, onglets, édition CRUD, export/import)
+src/features/specifications/   — arbre INCOSE + matrice de traçabilité activité ↔ spec ↔ test V&V
+src/features/actor-view/       — vue dynamique par acteur au sein d'un projet (chronologie, E/S, incohérences)
+src/features/actor-missions/   — vue transverse d'un acteur à travers plusieurs projets
+src/features/settings/         — connexion au LLM (fournisseur/clé/URL) et personnalisation des skills
+src/api/                        — client REST vers le backend Go
 ```
 
 ## Décisions d'architecture (synthèse — détail dans `docs/decisions-log.md`)
@@ -236,9 +264,14 @@ src/state/                     — store applicatif (projet courant, cache)
 - **Lot 4 — Vue dynamique par acteur** : chronologie des activités d'un
   acteur, entrées/sorties consommées/produites, détection d'incohérences
   (trous, activités orphelines, boucles).
-- **Lot 5 — Durcissement** : backups automatiques, export/import,
-  tests (Go + composants React), packaging binaire unique (`go:embed`).
+- **Lot 5 — Durcissement** : backups automatiques (horodatés, à chaque
+  écriture) ; export/import Excel multi-onglets (voir ADR-035) ; tests Go
+  (`internal/*`) ; packaging binaire unique (`go:embed`) distribué via
+  GitHub Actions.
 
-## Prochaine étape
-
-Valider ce dossier (ou demander des ajustements), puis démarrer le **Lot 0**.
+Au-delà de ce plan initial, plusieurs capacités ont été ajoutées après le
+MVP : diagramme interactif (glisser-déposer, création de lien, sous-lignes/
+sous-colonnes), mise à jour du diagramme en langage naturel avec contexte
+du projet existant, multi-fournisseurs LLM avec skills personnalisables,
+vue transverse d'un acteur sur plusieurs missions — voir le détail de
+chaque décision dans `docs/decisions-log.md`.

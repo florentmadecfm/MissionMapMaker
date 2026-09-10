@@ -1550,3 +1550,71 @@ cette mission" bascule bien sur le bon projet, à l'onglet Vue par
 acteur, avec l'acteur déjà présélectionné. Aucune régression sur
 `ActorView` (comportement identique, vérifié par la même extraction
 sans changement de rendu).
+
+---
+
+## ADR-042 — Import Excel (round-trip complet de l'export), export enrichi, menu burger
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — un bouton d'import capable
+de recharger "toutes les infos" d'un fichier Excel déjà exporté par
+l'app (ADR-035), l'export lui-même mis à jour avec les champs ajoutés
+depuis (`column`/`subRow`/`subColumns`/`subLanes`, ADR-018/020/039), et le
+bouton d'export déplacé dans un menu burger de l'en-tête plutôt qu'un
+bouton isolé — pour ne pas accumuler les boutons d'action fichier côte à
+côte à mesure que l'import s'y ajoute.
+
+**Décision** :
+- **Export enrichi** (`exportExcel.ts`) : nouvelles colonnes "Sous-lignes"
+  (feuille Acteurs), "Sous-colonnes" (Phases), "Sous-colonne"/"Sous-ligne"
+  (Activités).
+- **Import** (`importExcel.ts`, nouveau) : `importProjectFromExcel(file,
+  base)` relit le classeur **par nom d'en-tête** (ligne 1), pas par index
+  ni par les clés de colonne posées à l'écriture — exceljs ne les
+  conserve pas au rechargement d'un fichier réel, seul le texte affiché
+  survit. Reconstruit les 6 collections avec de nouveaux ids, en
+  résolvant les références qui, dans l'export, sont des noms/codes
+  lisibles plutôt que des ids internes : acteur/phase par nom, activité
+  par (nom, acteur) — même clé de désambiguïsation que `mergeDraft.ts` —,
+  spécification par code (les parents sont résolus en 2 passes, l'export
+  ne garantit pas un ordre topologique), scénario de test par code de
+  spécification. Remplace entièrement les collections du projet
+  actuellement **ouvert** (id/name/createdAt/updatedAt conservés, le
+  classeur ne les porte pas) — un remplacement plutôt qu'une fusion
+  additive comme `mergeDraft`, car l'intention exprimée ("importer toutes
+  les infos du fichier") est de reconstruire fidèlement le contenu du
+  fichier, pas de le mélanger avec l'existant ; une confirmation
+  (`window.confirm`) prévient l'utilisateur avant de remplacer, et comme
+  toute autre action de cet écran rien n'est persisté tant que
+  "Sauvegarder" n'est pas cliqué.
+- **Menu burger** (`HeaderMenu.tsx`, nouveau, générique) : regroupe
+  "Exporter en Excel" et "Importer depuis Excel" derrière un bouton "☰"
+  dans l'en-tête de l'onglet Édition, remplaçant le bouton "Exporter en
+  Excel" qui y était seul depuis ADR-035.
+
+**Justification** : le rapprochement par nom/code (plutôt que par un
+identifiant stable qu'il faudrait ajouter à chaque feuille exportée)
+réutilise directement les colonnes déjà lisibles de l'export existant —
+cohérent avec le choix déjà fait pour la fusion des ébauches LLM
+(ADR-002 et suivants), et évite d'alourdir l'export de colonnes d'id
+purement techniques que l'utilisateur n'a pas besoin de voir/éditer. Le
+remplacement complet (plutôt qu'une fusion additive à la `mergeDraft`)
+correspond à l'usage attendu d'un import Excel — repartir du fichier tel
+quel, y compris pour des lignes supprimées entre-temps dans le fichier —
+alors qu'une fusion aurait laissé traîner des éléments que l'utilisateur
+a justement retirés du classeur avant de le réimporter.
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...` (aucun changement backend), `tsc -b`, `npm run lint`, `npm run
+build`. Round-trip réel testé avec Playwright : projet source riche
+(2 acteurs avec subLanes, 2 phases avec subColumns, 2 activités avec
+column/subRow/description/texte source/user story/traceLink, 1
+interaction avec description, 2 spécifications avec hiérarchie
+parent-enfant, 1 scénario de test à 2 étapes) exporté via le menu
+burger (téléchargement réel intercepté), puis importé dans un second
+projet vide via le même menu — relecture API après sauvegarde : tous
+les champs, y compris les nouveaux (subLanes/subColumns/column/subRow)
+et les relations (acteur/phase/hiérarchie de specs/spécification testée)
+sont fidèlement reconstruits, aucune erreur console.
