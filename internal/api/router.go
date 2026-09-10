@@ -28,6 +28,7 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/projects", h.listProjects)
+	mux.HandleFunc("GET /api/actors", h.listActors)
 	mux.HandleFunc("POST /api/projects", h.createProject)
 	mux.HandleFunc("GET /api/projects/{id}", h.getProject)
 	mux.HandleFunc("PUT /api/projects/{id}", h.updateProject)
@@ -62,6 +63,18 @@ func (h *Handler) listProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, summaries)
+}
+
+// listActors renvoie l'index transverse acteur -> missions (voir
+// ProjectService.ListActors), consommé par le nouvel écran "Acteurs"
+// (indépendant de tout projet ouvert).
+func (h *Handler) listActors(w http.ResponseWriter, r *http.Request) {
+	actors, err := h.projects.ListActors()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, actors)
 }
 
 func (h *Handler) createProject(w http.ResponseWriter, r *http.Request) {

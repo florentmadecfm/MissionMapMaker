@@ -1,5 +1,6 @@
 import type {
   ActivityRef,
+  ActorSummary,
   DraftProcess,
   DraftSpecification,
   DraftTestScenario,
@@ -50,6 +51,7 @@ function normalizeProject(project: Project): Project {
 
 export const api = {
   listProjects: () => request<ProjectSummary[]>('/projects'),
+  listActors: () => request<ActorSummary[]>('/actors'),
   createProject: (name: string) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name }) }).then(normalizeProject),
   getProject: (id: string) => request<Project>(`/projects/${id}`).then(normalizeProject),

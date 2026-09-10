@@ -108,6 +108,28 @@ export interface ProjectSummary {
   updatedAt: string
 }
 
+// ActorProjectRef identifie une mission (projet) où un acteur d'un nom
+// donné apparaît (voir ActorSummary) — couleur/description propres à
+// cette mission, un même nom d'acteur pouvant être décrit différemment
+// d'une mission à l'autre.
+export interface ActorProjectRef {
+  projectId: string
+  projectName: string
+  actorId: string
+  color: string
+  description: string
+  updatedAt: string
+}
+
+// ActorSummary regroupe par NOM (insensible à la casse) les acteurs de
+// toutes les missions — voir ADR-041. Pas d'identifiant partagé : deux
+// acteurs de projets différents portant le même nom sont donc considérés
+// comme "le même acteur" pour cette vue transverse.
+export interface ActorSummary {
+  name: string
+  projects: ActorProjectRef[]
+}
+
 export interface DraftActor {
   name: string
   description?: string

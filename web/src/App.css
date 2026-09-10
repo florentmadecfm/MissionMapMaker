@@ -77,6 +77,7 @@
   border-top: 1px solid var(--color-border);
 }
 
+.sidebar-actors,
 .sidebar-settings {
   position: relative;
   width: 100%;
@@ -87,11 +88,23 @@
   font-size: 0.85rem;
 }
 
+.sidebar-actors {
+  margin-bottom: 0.2rem;
+}
+
+.sidebar-actors:hover,
 .sidebar-settings:hover {
   background: var(--color-surface-muted);
   color: var(--color-text);
 }
 
+.sidebar-actors.active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.shell-sidebar.collapsed .sidebar-actors,
 .shell-sidebar.collapsed .sidebar-settings {
   text-align: center;
   padding: 0.45rem 0;
@@ -805,6 +818,97 @@
   padding: 0.12rem 0.45rem;
   font-size: 0.72rem;
   font-weight: 500;
+}
+
+/* ---------- Écran transverse "Acteurs" (toutes missions) ---------- */
+
+.actor-missions-screen {
+  display: flex;
+  gap: 1.5rem;
+  height: calc(100vh - 160px);
+}
+
+.actor-missions-list {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow-y: auto;
+}
+
+.actor-missions-list-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.6rem;
+}
+
+.actor-missions-list-item:hover {
+  background: var(--color-surface-muted);
+}
+
+.actor-missions-list-item.active {
+  background: var(--color-primary-bg);
+}
+
+.actor-missions-list-name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.actor-missions-list-item.active .actor-missions-list-name {
+  color: var(--color-primary);
+}
+
+.actor-missions-list-count {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.actor-missions-detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.actor-mission-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.actor-mission-header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.actor-mission-header h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.actor-mission-description {
+  margin: -0.4rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
 }
 
 /* ---------- Modale Paramètres ---------- */

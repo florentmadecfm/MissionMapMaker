@@ -62,6 +62,22 @@ diagramme, il permet de le modifier directement :
   description précisée, changement d'acteur/de phase) plutôt que se
   limiter à des ajouts.
 
+### Acteurs (toutes missions)
+
+Le bouton **🧑 Acteurs (toutes missions)** de la barre latérale (au-dessus
+de Paramètres) ouvre un écran indépendant de tout projet ouvert : les
+acteurs de toutes les missions sont regroupés par nom (ex. "Serveur"
+apparaissant à la fois dans un projet "Restaurant" et un projet "Hôtel de
+luxe"), et pour l'acteur sélectionné, chaque mission où il apparaît est
+rappelée côte à côte (mêmes informations que l'onglet Vue par acteur —
+activités par phase, interactions, spécifications et tests liés). Le
+bouton **Ouvrir cette mission** d'une section bascule directement sur ce
+projet, à l'onglet Vue par acteur, avec l'acteur déjà présélectionné.
+
+Le rapprochement se fait par nom (insensible à la casse) : deux acteurs
+de projets différents doivent porter exactement le même nom pour être
+regroupés — voir ADR-041.
+
 ### Paramètres
 
 L'écran **⚙ Paramètres** (bas de la barre latérale) a deux onglets :
