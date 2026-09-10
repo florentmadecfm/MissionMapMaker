@@ -1124,3 +1124,79 @@ avec les bonnes données (acteurs, activités avec noms d'acteur/phase
 résolus, etc.). Bundle principal confirmé quasi inchangé après le
 passage à l'import dynamique (432 Ko avant/après, contre un chunk
 `exceljs` séparé de 940 Ko chargé à la demande).
+
+---
+
+## ADR-036 — Interactions diagramme : glisser-lien, aperçu de dépose, consultation
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : trois demandes explicites sur le diagramme de processus :
+(1) voir où une activité glissée atterrirait avant de la lâcher (une
+« ombre » sous la carte) ; (2) créer une interaction directement sur le
+diagramme, sans repasser par l'onglet Édition ; (3) consulter les
+spécifications et tests V&V déjà liés à une activité en cliquant
+dessus.
+
+**Décision** :
+- **Aperçu de dépose** : nouvelle fonction `cellTopLeft` (layout.ts) qui
+  retrouve, à partir d'un `DropTarget` (déjà calculé par
+  `computeDropTarget`, voir historique du glisser-déposer) et des
+  en-têtes déjà positionnés par `computeLayout`, le coin de la cellule
+  visée. Rendu comme un **calque superposé** (`DropTargetPreview`,
+  position CSS absolue convertie via `useViewport()` de React Flow) et
+  non comme un nœud ajouté au tableau `nodes` — premier essai écarté
+  après l'avoir vu geler visuellement la carte déplacée : React Flow
+  resynchronise la position affichée sur le tableau `nodes` contrôlé
+  reçu en prop à chaque rendu, or la position de la carte dans ce
+  tableau (dérivée de `computeLayout(project)`) ne change jamais
+  pendant un glisser, donc un simple changement de state ailleurs
+  (même sans toucher `nodes`) republie ce tableau et fige l'affichage
+  à la position statique. Le calque superposé n'a pas ce problème
+  puisqu'il ne touche jamais au tableau `nodes`.
+- **Créer un lien sur le diagramme** : `nodesConnectable` passe à
+  `true` (poignées déjà présentes sur chaque carte, voir ADR historique
+  sur les poignées multiples) ; `onConnect` crée directement une
+  `Interaction` (texte par défaut "Information échangée", identique au
+  bouton "+ Ajouter une interaction" de l'onglet Édition — à relire/
+  préciser ensuite, cohérent avec le principe déjà établi de ne jamais
+  supposer un texte final). Les poignées de départ/arrivée réellement
+  utilisées lors du geste ne sont pas mémorisées : `computeLayout`
+  choisit le routage (haut/bas ou gauche/droite) depuis la topologie à
+  chaque rendu, comme pour toute autre interaction du projet.
+- **Consultation au clic** : nouveau composant `ActivityDetailModal`,
+  lecture seule (pas de champs éditables — l'édition reste dans l'onglet
+  Spécifications), dérivé entièrement de l'état du projet déjà chargé
+  (spécifications via `traceLinks`, tests V&V via
+  `specificationId`, dédoublonnés par id comme dans la vue par acteur).
+
+**Justification** : calque superposé plutôt que nœud React Flow pour
+l'aperçu de dépose — la seule option qui n'entre pas en conflit avec le
+mécanisme de glisser-déposer de carte déjà en place, sans devoir le
+réécrire. Réutilisation du mécanisme de poignées déjà en place pour la
+création de lien plutôt qu'un geste dédié : les poignées existent déjà
+sur chaque carte (pour le rendu des flèches), il ne manquait que
+`nodesConnectable` et un gestionnaire `onConnect`. Modale en lecture
+seule plutôt qu'éditable : consulter et éditer sont deux besoins
+différents, l'édition a déjà sa place dédiée (onglet Spécifications) —
+dupliquer les champs éditables dans une modale ouverte depuis le
+diagramme aurait été une synchronisation d'état supplémentaire à
+maintenir pour un gain incertain.
+
+**Conséquences** : vérifié bout en bout avec Playwright — (1) l'aperçu
+de dépose apparaît à la bonne cellule pendant le glisser et disparaît
+au lâcher, sans geler l'affichage (régression détectée puis corrigée
+pendant cette vérification, voir Décision) ; (2) glisser d'une poignée
+de sortie à une poignée d'entrée crée bien une nouvelle interaction,
+persistée et affichée avec le routage/dégradé attendus ; (3) le clic
+sur une activité avec spécification et test liés affiche les deux
+correctement, et sur une activité sans lien affiche le message vide
+approprié. Limite connue, non couverte par ce correctif : le
+glisser-déposer de repositionnement d'une carte reste correctement
+fonctionnel de bout en bout (position finale toujours exacte après
+dépôt, vérifié via relecture API), mais son suivi visuel pendant le
+geste n'a pas pu être confirmé de façon concluante dans l'environnement
+de test automatisé (Playwright/CDP) — sans lien avec ce correctif,
+reproductible aussi avec le glisser-déposer existant avant ces
+changements.

@@ -1,9 +1,18 @@
 import { useMemo, useState } from 'react'
-import { ReactFlow, Background, Controls, MarkerType, type Edge, type Node } from '@xyflow/react'
+import { ReactFlow, Background, Controls, MarkerType, useViewport, type Connection, type Edge, type Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
-import type { Project } from '../../api/types'
-import { computeDropTarget, computeLayout, type LayoutEdge } from './layout'
+import type { Interaction, Project } from '../../api/types'
+import { ActivityDetailModal } from './ActivityDetailModal'
+import {
+  CARD_HEIGHT_ESTIMATE,
+  CARD_WIDTH,
+  cellTopLeft,
+  computeDropTarget,
+  computeLayout,
+  type DropTarget,
+  type LayoutEdge,
+} from './layout'
 import { nodeTypes } from './nodes'
 import './process-diagram.css'
 
@@ -11,6 +20,35 @@ interface Props {
   project: Project
   onChange: (project: Project) => void
   onSaved: () => void
+}
+
+function newId(prefix: string) {
+  return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
+}
+
+// Aperçu de dépose ("ombre") pendant le glisser d'une carte. Rendu en
+// calque superposé (position CSS absolue, converti coordonnées du
+// canevas -> écran via useViewport), plutôt que comme un nœud parmi
+// `nodes` : passer un tableau `nodes` qui change à chaque frame du
+// glisser cassait le rendu — React Flow resynchronise sa position interne
+// sur le tableau contrôlé reçu en prop à chaque rendu, ce qui figeait la
+// carte déplacée à sa position statique (calculée par computeLayout, donc
+// indépendante du glisser en cours) au lieu de suivre le curseur.
+function DropTargetPreview({ cellPosition }: { cellPosition: { x: number; y: number } | null }) {
+  const viewport = useViewport()
+  if (!cellPosition) return null
+  return (
+    <div
+      className="drop-shadow-card"
+      style={{
+        position: 'absolute',
+        left: viewport.x + cellPosition.x * viewport.zoom,
+        top: viewport.y + cellPosition.y * viewport.zoom,
+        width: CARD_WIDTH * viewport.zoom,
+        height: CARD_HEIGHT_ESTIMATE * viewport.zoom,
+      }}
+    />
+  )
 }
 
 // Id DOM-safe pour un marqueur de départ partagé par toutes les flèches
@@ -54,8 +92,18 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  // Cellule (acteur, phase) visée par le glisser en cours, recalculée à
+  // chaque déplacement (onNodeDrag) : sert à afficher un aperçu ("ombre")
+  // de l'endroit où la carte atterrirait si on la lâchait maintenant.
+  const [dragTarget, setDragTarget] = useState<DropTarget | null>(null)
+  const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
 
   const startColors = useMemo(() => [...new Set(edges.map((e) => e.sourceColor))], [edges])
+
+  const dragTargetPosition = useMemo(
+    () => (dragTarget ? cellTopLeft(nodes, dragTarget) : null),
+    [dragTarget, nodes],
+  )
 
   async function handleSave() {
     setSaving(true)
@@ -72,6 +120,15 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     }
   }
 
+  // Pendant le glisser (avant le lâcher), recalcule en continu la cellule
+  // visée pour y afficher un aperçu — voir dropShadowNode ci-dessus et
+  // .drop-shadow-card en CSS.
+  function handleNodeDrag(_event: unknown, node: Node) {
+    const activity = project.activities.find((a) => a.id === node.id)
+    if (!activity) return
+    setDragTarget(computeDropTarget(project, nodes, node.position))
+  }
+
   // Glisser-déposer une carte d'activité la réassigne à l'acteur/la phase
   // de la cellule où elle a été lâchée (et à la position voulue au sein
   // de la pile de cette cellule, si plusieurs activités s'y trouvent déjà
@@ -81,6 +138,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   // au prochain rendu, computeLayout la replace exactement à la position
   // de grille de sa nouvelle cellule.
   function handleNodeDragStop(_event: unknown, node: Node) {
+    setDragTarget(null)
     const activity = project.activities.find((a) => a.id === node.id)
     if (!activity) return // pas une carte d'activité (les en-têtes ne sont pas déplaçables)
 
@@ -131,6 +189,36 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     })
   }
 
+  // Glisser depuis la poignée d'une carte vers celle d'une autre crée
+  // directement une interaction entre les deux activités, sans repasser
+  // par l'onglet Édition. Le texte "Information échangée" (même valeur
+  // par défaut que le bouton "+ Ajouter une interaction" de l'onglet
+  // Édition) reste à relire/préciser ensuite — cohérent avec le reste de
+  // l'app, qui ne suppose jamais un texte final généré automatiquement.
+  // Les poignées de départ/arrivée réellement utilisées ne sont pas
+  // mémorisées : computeLayout choisit le routage (haut/bas ou
+  // gauche/droite) à partir de la topologie à chaque rendu, comme pour
+  // toute autre interaction du projet.
+  function handleConnect(connection: Connection) {
+    const { source, target } = connection
+    if (!source || !target || source === target) return
+    const interaction: Interaction = {
+      id: newId('int'),
+      fromActivityId: source,
+      toActivityId: target,
+      information: 'Information échangée',
+    }
+    onChange({ ...project, interactions: [...project.interactions, interaction] })
+  }
+
+  // Clic sur une carte d'activité : ouvre la consultation de ses
+  // spécifications et tests V&V liés (voir ActivityDetailModal). Ignoré
+  // pour les en-têtes de ligne/colonne, qui n'ont pas ce détail.
+  function handleNodeClick(_event: unknown, node: Node) {
+    if (node.type !== 'activity') return
+    setSelectedActivityId(node.id)
+  }
+
   if (project.actors.length === 0 || project.phases.length === 0) {
     return <p className="placeholder">Ajoutez au moins un acteur et une phase pour voir le diagramme.</p>
   }
@@ -139,7 +227,8 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     <div className="process-diagram-page">
       <header className="editor-header">
         <p className="nl-hint" style={{ flex: 1 }}>
-          Glissez-déposez une carte pour la réassigner à un autre acteur ou une autre phase.
+          Glissez-déposez une carte pour la réassigner, glissez depuis le bord d'une carte vers une autre pour créer
+          une interaction, ou cliquez sur une carte pour consulter ses spécifications et tests liés.
         </p>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Sauvegarde…' : 'Sauvegarder'}
@@ -187,16 +276,27 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           edges={edges.map(toFlowEdge)}
           nodeTypes={nodeTypes}
           fitView
-          nodesConnectable={false}
+          nodesConnectable
           elementsSelectable
           panOnScroll
           zoomOnScroll
+          onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
+          onConnect={handleConnect}
+          onNodeClick={handleNodeClick}
         >
           <Background gap={24} />
           <Controls showInteractive={false} />
+          <DropTargetPreview cellPosition={dragTargetPosition} />
         </ReactFlow>
       </div>
+      {selectedActivityId && (
+        <ActivityDetailModal
+          project={project}
+          activityId={selectedActivityId}
+          onClose={() => setSelectedActivityId(null)}
+        />
+      )}
     </div>
   )
 }
