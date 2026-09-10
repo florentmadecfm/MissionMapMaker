@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { ReactFlow, Background, Controls, MarkerType, useViewport, type Connection, type Edge, type Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
-import type { Interaction, Project } from '../../api/types'
+import type { Activity, Interaction, Phase, Project } from '../../api/types'
+import { mergeDraft } from '../nl-input/mergeDraft'
 import { ActivityDetailModal } from './ActivityDetailModal'
 import {
   CARD_HEIGHT_ESTIMATE,
@@ -21,6 +22,11 @@ interface Props {
   onChange: (project: Project) => void
   onSaved: () => void
 }
+
+// Doit rester cohérent avec maxTextLength côté serveur
+// (internal/service/generate_service.go) et avec la même constante de
+// NlInput.tsx : au-delà, la génération est de toute façon rejetée.
+const MAX_TEXT_LENGTH = 20000
 
 function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
@@ -97,6 +103,10 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   // de l'endroit où la carte atterrirait si on la lâchait maintenant.
   const [dragTarget, setDragTarget] = useState<DropTarget | null>(null)
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
+  const [updateText, setUpdateText] = useState('')
+  const [updating, setUpdating] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
+  const [updateNotConfigured, setUpdateNotConfigured] = useState(false)
 
   const startColors = useMemo(() => [...new Set(edges.map((e) => e.sourceColor))], [edges])
 
@@ -117,6 +127,33 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       setSaveError(String(e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Décrire des ajouts/modifications en langage naturel sans quitter le
+  // diagramme : même pipeline que l'onglet "Générer" (génération LLM +
+  // mergeDraft), qui fusionne déjà de façon additive dans le projet
+  // existant (acteurs/phases/activités déjà présents, par nom, jamais
+  // dupliqués) — pas de logique de fusion à réécrire pour ce second point
+  // d'entrée.
+  async function handleGenerateUpdate() {
+    if (!updateText.trim()) return
+    setUpdating(true)
+    setUpdateError(null)
+    setUpdateNotConfigured(false)
+    try {
+      const draft = await api.generateFromText(updateText)
+      onChange(mergeDraft(project, draft))
+      setUpdateText('')
+    } catch (e) {
+      const message = String(e)
+      if (message.includes('clé API non configurée')) {
+        setUpdateNotConfigured(true)
+      } else {
+        setUpdateError(message)
+      }
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -145,17 +182,26 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     const target = computeDropTarget(project, nodes, node.position)
     if (!target) return
 
+    const targetSubRow = Math.max(target.subRowIndex, 0)
     const siblings = project.activities
-      .filter((a) => a.id !== activity.id && a.actorId === target.actorId && a.phaseId === target.phaseId)
+      .filter(
+        (a) =>
+          a.id !== activity.id &&
+          a.actorId === target.actorId &&
+          a.phaseId === target.phaseId &&
+          Math.max(a.subRow, 0) === targetSubRow,
+      )
       .sort((a, b) => a.order - b.order)
     const rawIndex = Math.max(target.subColumnIndex, 0)
 
     if (rawIndex <= siblings.length) {
       // Dépose au sein (ou juste après) de la pile actuelle des activités
-      // de cet acteur dans cette phase : réordonne par `order`, comme
-      // avant l'ajout des colonnes explicites. `column` est remis à 0 pour
-      // repasser en empilement automatique, au cas où cette carte avait
-      // une position explicite d'un déplacement précédent.
+      // de cet acteur dans cette phase (et cette sous-ligne) : réordonne
+      // par `order`, comme avant l'ajout des colonnes explicites. `column`
+      // est remis à 0 pour repasser en empilement automatique, au cas où
+      // cette carte avait une position explicite d'un déplacement
+      // précédent. `subRow` est fixé à la sous-ligne visée (0 = ligne
+      // principale de l'acteur).
       const sequence = [
         ...siblings.slice(0, rawIndex).map((a) => a.id),
         activity.id,
@@ -167,7 +213,14 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
         ...project,
         activities: project.activities.map((a) => {
           if (a.id === activity.id) {
-            return { ...a, actorId: target.actorId, phaseId: target.phaseId, column: 0, order: orderById.get(a.id) ?? a.order }
+            return {
+              ...a,
+              actorId: target.actorId,
+              phaseId: target.phaseId,
+              column: 0,
+              subRow: targetSubRow,
+              order: orderById.get(a.id) ?? a.order,
+            }
           }
           return orderById.has(a.id) ? { ...a, order: orderById.get(a.id) ?? a.order } : a
         }),
@@ -176,15 +229,17 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     }
 
     // Dépose au-delà de ce que l'empilement automatique de cet acteur
-    // occuperait dans cette phase : l'intention est de s'aligner sur une
-    // sous-colonne précise qu'un AUTRE acteur a fait apparaître dans cette
-    // phase (voir ADR-020). On fixe une position explicite plutôt que
-    // d'insérer dans la pile de cet acteur, qui n'irait de toute façon pas
-    // jusque-là.
+    // occuperait dans cette phase (et cette sous-ligne) : l'intention est
+    // de s'aligner sur une sous-colonne précise qu'un AUTRE acteur a fait
+    // apparaître dans cette phase (voir ADR-020). On fixe une position
+    // explicite plutôt que d'insérer dans la pile de cet acteur, qui
+    // n'irait de toute façon pas jusque-là.
     onChange({
       ...project,
       activities: project.activities.map((a) =>
-        a.id === activity.id ? { ...a, actorId: target.actorId, phaseId: target.phaseId, column: rawIndex } : a,
+        a.id === activity.id
+          ? { ...a, actorId: target.actorId, phaseId: target.phaseId, column: rawIndex, subRow: targetSubRow }
+          : a,
       ),
     })
   }
@@ -211,12 +266,78 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     onChange({ ...project, interactions: [...project.interactions, interaction] })
   }
 
+  // Bouton "+ Phase" de la colonne ajoutée après la dernière phase : même
+  // logique que "+ Ajouter une phase" de l'onglet Édition (nom par
+  // défaut à préciser ensuite), pour construire le diagramme sans y
+  // aller et venir.
+  function addPhase() {
+    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0 }
+    onChange({ ...project, phases: [...project.phases, phase] })
+  }
+
+  // Bouton "+" en coin de l'en-tête de phase : réserve une sous-colonne
+  // supplémentaire pour CETTE phase (voir Phase.subColumns), avant même
+  // qu'une activité y soit déposée — sans quoi il n'y aurait nulle part où
+  // glisser-déposer une activité pour la faire apparaître.
+  function addSubColumnForPhase(phaseId: string) {
+    onChange({
+      ...project,
+      phases: project.phases.map((p) => (p.id === phaseId ? { ...p, subColumns: Math.max(p.subColumns, 1) + 1 } : p)),
+    })
+  }
+
+  // Symétrique de addSubColumnForPhase, sur l'axe vertical (voir
+  // Actor.subLanes).
+  function addSubLaneForActor(actorId: string) {
+    onChange({
+      ...project,
+      actors: project.actors.map((a) => (a.id === actorId ? { ...a, subLanes: Math.max(a.subLanes, 1) + 1 } : a)),
+    })
+  }
+
+  // Bouton "+ Activité" de la cellule d'un acteur, même colonne : ajoute
+  // une activité pour CET acteur (contrairement à l'onglet Édition, qui
+  // prend toujours le premier acteur/la première phase par défaut —
+  // ici l'acteur est déjà connu du contexte). Placée dans la première
+  // phase par défaut ; à repositionner ensuite par glisser-déposer ou
+  // depuis l'onglet Édition, comme toute activité.
+  function addActivityForActor(actorId: string) {
+    if (project.phases.length === 0) return
+    const activity: Activity = {
+      id: newId('a'),
+      name: 'Nouvelle activité',
+      actorId,
+      phaseId: project.phases[0].id,
+      order: project.activities.length + 1,
+      column: 0,
+      subRow: 0,
+      description: '',
+      userStories: [],
+      traceLinks: [],
+    }
+    onChange({ ...project, activities: [...project.activities, activity] })
+  }
+
   // Clic sur une carte d'activité : ouvre la consultation de ses
-  // spécifications et tests V&V liés (voir ActivityDetailModal). Ignoré
-  // pour les en-têtes de ligne/colonne, qui n'ont pas ce détail.
-  function handleNodeClick(_event: unknown, node: Node) {
-    if (node.type !== 'activity') return
-    setSelectedActivityId(node.id)
+  // spécifications et tests V&V liés (voir ActivityDetailModal). Clic sur
+  // un bouton "+" de la colonne d'ajout : crée la phase/l'activité
+  // correspondante. Clic sur le bouton "+" en coin d'un en-tête de
+  // phase/acteur (voir nodes.tsx) : réserve une sous-colonne/sous-ligne
+  // supplémentaire — distingué du reste de l'en-tête (qui n'a pas
+  // d'action au clic) via event.target, React Flow ne remontant pas
+  // d'identifiant de sous-élément cliqué.
+  function handleNodeClick(event: React.MouseEvent, node: Node) {
+    if (node.type === 'activity') {
+      setSelectedActivityId(node.id)
+    } else if (node.type === 'addPhase') {
+      addPhase()
+    } else if (node.type === 'addActivity') {
+      addActivityForActor(node.data.actorId as string)
+    } else if (node.type === 'phaseHeader' && (event.target as HTMLElement).closest('.add-subcolumn-button')) {
+      addSubColumnForPhase(node.data.phaseId as string)
+    } else if (node.type === 'actorHeader' && (event.target as HTMLElement).closest('.add-sublane-button')) {
+      addSubLaneForActor(node.data.actorId as string)
+    }
   }
 
   if (project.actors.length === 0 || project.phases.length === 0) {
@@ -228,7 +349,9 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       <header className="editor-header">
         <p className="nl-hint" style={{ flex: 1 }}>
           Glissez-déposez une carte pour la réassigner, glissez depuis le bord d'une carte vers une autre pour créer
-          une interaction, ou cliquez sur une carte pour consulter ses spécifications et tests liés.
+          une interaction, cliquez sur une carte pour consulter ses spécifications et tests liés, utilisez les
+          boutons "+" après la dernière phase pour ajouter une phase ou une activité, ou le petit "+" en coin d'un
+          en-tête pour ajouter une colonne (phase) ou une ligne (acteur) supplémentaire.
         </p>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Sauvegarde…' : 'Sauvegarder'}
@@ -236,6 +359,25 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
         {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
         {saveError && <span className="error">{saveError}</span>}
       </header>
+      <div className="diagram-nl-update">
+        <textarea
+          rows={2}
+          maxLength={MAX_TEXT_LENGTH}
+          placeholder="Décrivez des ajouts ou modifications en langage naturel (ex. « le support escalade aussi les tickets urgents au responsable »)…"
+          value={updateText}
+          onChange={(e) => setUpdateText(e.target.value)}
+        />
+        <button type="button" onClick={handleGenerateUpdate} disabled={updating || !updateText.trim()}>
+          {updating ? 'Mise à jour…' : 'Mettre à jour le diagramme'}
+        </button>
+      </div>
+      {updateNotConfigured && (
+        <div className="nl-warning">
+          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas de
+          la barre latérale pour en saisir une, ou utilisez l'édition manuelle.
+        </div>
+      )}
+      {updateError && <p className="error">{updateError}</p>}
       <div className="process-diagram">
         {/* Défini une fois, référencé par les styles/markers des flèches
             ci-dessus : dégradé par flèche (couleur départ -> arrivée) et un

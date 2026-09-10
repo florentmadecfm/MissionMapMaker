@@ -12,6 +12,30 @@
   flex-shrink: 0;
 }
 
+/* Zone de mise à jour en langage naturel, sans quitter le diagramme :
+   même pipeline génération + fusion additive que l'onglet "Générer"
+   (voir ProcessDiagram.tsx, handleGenerateUpdate). Barre compacte (2
+   lignes) plutôt que la grande zone de texte de l'onglet Générer, pour
+   ne pas trop rogner l'espace du canevas, qui reste la priorité visuelle
+   de cet écran. */
+.diagram-nl-update {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+}
+
+.diagram-nl-update textarea {
+  flex: 1;
+  min-height: 0;
+  resize: vertical;
+}
+
+.diagram-nl-update button {
+  flex-shrink: 0;
+}
+
 .process-diagram {
   width: 100%;
   flex: 1;
@@ -31,6 +55,7 @@
 }
 
 .phase-header {
+  position: relative;
   justify-content: center;
   background: var(--color-surface-muted);
   border-radius: var(--radius-sm);
@@ -41,11 +66,68 @@
 }
 
 .actor-header {
+  position: relative;
   padding-left: 0.85rem;
   border-left: 5px solid var(--color-primary);
   background: var(--color-surface-muted);
   border-radius: var(--radius-sm);
   color: var(--color-text);
+}
+
+/* Boutons "+" en coin des en-têtes de phase/acteur : réservent
+   manuellement une sous-colonne/sous-ligne supplémentaire (voir
+   Phase.subColumns / Actor.subLanes) avant même qu'une activité y soit
+   placée. Petits et discrets (coin de l'en-tête) pour ne pas concurrencer
+   visuellement les boutons "+ Phase"/"+ Activité" de la colonne dédiée. */
+.add-subcolumn-button,
+.add-sublane-button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  line-height: 14px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 0.1s,
+    border-color 0.1s,
+    color 0.1s;
+}
+
+.add-subcolumn-button:hover,
+.add-sublane-button:hover {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Boutons "+" de la colonne ajoutée après la dernière phase (ajouter une
+   phase, ajouter une activité pour l'acteur de la ligne) : contour
+   pointillé plutôt qu'un fond plein, pour rester visuellement distincts
+   des en-têtes/cartes réels — ce sont des actions, pas du contenu. */
+.add-lane-button {
+  justify-content: center;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.1s,
+    border-color 0.1s,
+    color 0.1s;
+}
+
+.add-lane-button:hover {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .activity-card {

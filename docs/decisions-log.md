@@ -1200,3 +1200,174 @@ geste n'a pas pu être confirmé de façon concluante dans l'environnement
 de test automatisé (Playwright/CDP) — sans lien avec ce correctif,
 reproductible aussi avec le glisser-déposer existant avant ces
 changements.
+
+---
+
+## ADR-037 — Ajouter une phase/une activité directement depuis le diagramme
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir ajouter
+manuellement une colonne de phase et une activité pour un acteur donné
+directement depuis le diagramme, sans repasser par l'onglet Édition
+(dans la continuité d'ADR-036, qui a déjà rapproché la création de lien
+du diagramme).
+
+**Décision** : `computeLayout` ajoute une colonne supplémentaire après
+la dernière phase — deux nouveaux types de nœuds React Flow, non
+déplaçables/non sélectionnables comme les autres en-têtes :
+- `addPhase` (`AddPhaseNode`) : une cellule en tête de colonne, même
+  hauteur que les en-têtes de phase. Au clic, ajoute une phase (même
+  logique que le bouton "+ Ajouter une phase" de l'onglet Édition).
+- `addActivity` (`AddActivityNode`) : une cellule par ligne d'acteur,
+  portant `data.actorId`. Au clic, ajoute une activité pour **cet**
+  acteur précisément (contrairement au bouton équivalent de l'onglet
+  Édition, qui prend toujours le premier acteur du projet par défaut —
+  ici l'acteur est déjà connu du contexte du clic), dans la première
+  phase du projet par défaut, à repositionner ensuite par
+  glisser-déposer si besoin.
+
+Le clic est géré de façon centralisée dans `onNodeClick`
+(`ProcessDiagram.tsx`, déjà utilisé pour ouvrir la consultation d'une
+activité — ADR-036), pas par un gestionnaire propre à chaque composant
+de nœud : cohérent avec le reste des nœuds d'en-tête, qui restent de
+purs composants de rendu.
+
+**Justification** : réutilise le patron déjà en place (une colonne
+supplémentaire dans la grille, comme les sous-colonnes d'une phase
+chargée) plutôt que d'introduire un mécanisme d'ajout séparé (bouton
+flottant, menu contextuel...). Pré-remplir l'acteur pour "+ Activité"
+depuis le contexte du clic (plutôt que le premier acteur du projet,
+comme le fait l'onglet Édition) évite une étape de correction
+immédiate qui serait sinon systématique dès que l'acteur voulu n'est
+pas le premier de la liste.
+
+**Conséquences** : vérifié bout en bout avec Playwright — le clic sur
+"+ Phase" ajoute bien une phase (confirmée via relecture API après
+Sauvegarder), le clic sur "+ Activité" de la ligne d'un acteur donné
+crée bien une activité assignée à **cet** acteur (pas le premier acteur
+du projet), affichée immédiatement dans sa ligne sur le diagramme.
+
+---
+
+## ADR-038 — Mise à jour du diagramme en langage naturel sans changer d'onglet
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir mettre à jour le
+diagramme depuis une zone de texte en langage naturel, directement dans
+l'onglet Diagramme, plutôt que de devoir retourner sur l'onglet
+"Générer" pour décrire des ajouts.
+
+**Décision** : nouvelle barre compacte (`<textarea rows={2}>` + bouton
+"Mettre à jour le diagramme") entre l'en-tête et le canevas de
+`ProcessDiagram.tsx`, câblée sur exactement le même pipeline que
+l'onglet "Générer" (`api.generateFromText` puis `mergeDraft`) — aucune
+nouvelle logique de fusion nécessaire, puisque `mergeDraft` fusionne
+déjà de façon additive dans le projet ouvert (acteurs/phases/activités
+déjà présents, comparés par nom, jamais dupliqués ni écrasés ; seuls
+les éléments réellement nouveaux du texte décrit sont ajoutés). Gestion
+d'erreur identique à `NlInput.tsx` (détection de "clé API non
+configurée" pour afficher le même message d'action `.nl-warning`).
+Barre compacte (2 lignes) plutôt que la grande zone de texte de l'onglet
+Générer, pour ne pas trop rogner l'espace du canevas, qui reste la
+priorité visuelle de cet écran.
+
+**Justification** : réutiliser le pipeline existant tel quel, plutôt
+que d'en écrire un nouveau propre au diagramme — `mergeDraft` a été
+conçu dès l'origine comme une fusion additive dans un projet déjà
+ouvert (pas seulement une génération initiale), donc l'ajouter comme
+second point d'entrée ne demande aucun changement de logique métier,
+seulement un second endroit dans l'UI pour la déclencher.
+
+**Conséquences** : vérifié bout en bout avec Playwright — la barre
+s'affiche correctement sans réduire excessivement l'espace du canevas ;
+chemin "clé API non configurée" confirmé (message d'action affiché,
+cohérent avec celui de l'onglet Générer). Le chemin de génération réelle
+(avec une vraie clé API) n'a pas pu être testé dans cet environnement de
+développement, comme pour les autres fonctionnalités de génération
+assistée par LLM du projet.
+
+---
+
+## ADR-039 — Sous-lignes d'acteur et sous-colonnes de phase réservées manuellement
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — "il faut pour un acteur
+donné qui a une ligne, pouvoir ajouter une seconde ligne. Idem pour une
+phase." ADR-018/020 avaient déjà introduit des sous-colonnes
+automatiques (`Activity.Column`) quand plusieurs activités concurrentes
+d'un même acteur se trouvent dans une même phase, mais uniquement par
+empilement automatique — impossible de réserver une seconde ligne/
+colonne *avant* d'y avoir une activité, ce qui posait un problème
+d'œuf-et-poule pour le glisser-déposer (on ne peut pas déposer une
+carte dans un emplacement qui n'existe pas encore visuellement).
+
+**Décision** : mécanisme symétrique sur les deux axes de la grille,
+chacun avec une réservation manuelle persistante en plus de la
+répartition automatique existante :
+- Axe horizontal (déjà partiellement là) : `Phase.SubColumns` (nouveau
+  champ, 0/1 = une seule colonne) réserve un nombre minimum de
+  sous-colonnes pour cette phase, fusionné avec le nombre déjà déduit
+  des activités (`Math.max`).
+- Axe vertical (nouveau) : `Actor.SubLanes` (0/1 = une seule ligne)
+  réserve un nombre minimum de sous-lignes pour cet acteur, et
+  `Activity.SubRow` (0 = ligne principale) place explicitement une
+  activité sur une sous-ligne donnée — glisser-déposer uniquement,
+  **pas** d'empilement automatique par `Order` sur cet axe (contrairement
+  à `Column`) : les activités de phases différentes ne se chevauchent
+  jamais visuellement sur une même ligne, donc rien ne force
+  automatiquement une activité vers une sous-ligne suivante.
+
+Chaque en-tête (phase et acteur) porte désormais un petit bouton "+" en
+coin (`.add-subcolumn-button` / `.add-sublane-button`), distingué du
+reste de l'en-tête au clic via `event.target.closest(...)` dans le
+`onNodeClick` centralisé (même patron qu'ADR-036/037) : incrémente
+`subColumns`/`subLanes` (`Math.max(valeur actuelle, 1) + 1`).
+
+`computeLayout` calcule `actorHeights`/`actorOffsets` (hauteur de
+chaque ligne d'acteur, cumulée) exactement comme `phaseWidths`/
+`phaseOffsets` existaient déjà pour les colonnes — `ROW_HEIGHT` est
+renommé `SUBLANE_HEIGHT` pour marquer cette symétrie. `resolveColumns`
+groupe désormais par `actorId:phaseId:subRow` (une sous-ligne empile
+ses propres sous-colonnes indépendamment des autres). Le routage des
+flèches, qui comparait auparavant deux activités par index d'acteur
+(une seule position Y possible par acteur), compare maintenant leur
+position Y réelle en pixels (`activityCenters`) : nécessaire pour
+distinguer deux activités du **même** acteur sur des sous-lignes
+différentes, ce qu'un simple index d'acteur ne permettait pas.
+
+**Justification** : la réservation manuelle persistante (plutôt que de
+se limiter à l'empilement automatique) résout directement le problème
+d'œuf-et-poule du glisser-déposer, déjà identifié et résolu de la même
+façon côté colonnes (ADR-020) — étendre exactement le même patron à
+l'axe vertical garde le modèle de données et l'algorithme de mise en
+page cohérents entre les deux axes plutôt que d'introduire un mécanisme
+différent. Pas d'empilement automatique par `Order` sur l'axe vertical
+(contrairement à `Column`) car rien ne le justifie : à la différence de
+deux activités concurrentes dans la même cellule (acteur, phase), qui
+se chevauchent visuellement si elles restent sur une seule colonne,
+deux activités d'un même acteur dans des phases différentes ne se
+chevauchent jamais (colonnes différentes) — l'empilement automatique
+n'aurait été qu'une complexité sans bénéfice visuel.
+
+**Conséquences** : vérifié bout en bout avec Playwright (build Go,
+`tsc -b`, lint, puis scénario réel) — clic sur le "+" d'un en-tête
+d'acteur ajoute bien une seconde ligne visible (hauteur de la ligne
+doublée) confirmée par relecture API après Sauvegarder
+(`actors[0].subLanes === 2`), idem pour le "+" d'un en-tête de phase
+(`phases[0].subColumns === 2`) ; glisser-déposer une carte vers la
+sous-ligne ajoutée confirme `activities[0].subRow === 1` après
+Sauvegarder, avec un rendu visuel correct (carte positionnée dans la
+seconde moitié de la ligne, plus haute, de l'acteur). Un serveur Go
+obsolète (`go run` précédent d'une session antérieure, toujours lié sur
+le port 8080) a d'abord faussé un premier essai de vérification en
+servant une ancienne version du binaire sans les nouveaux champs —
+identifié via le message "address already in use" dans les logs du
+nouveau `go run`, corrigé en arrêtant l'ancien processus avant de
+relancer un binaire recompilé ; sans lien avec le code de cette
+fonctionnalité.

@@ -24,12 +24,27 @@ type Actor struct {
 	Name        string `json:"name"`
 	Color       string `json:"color"`
 	Description string `json:"description"`
+	// SubLanes réserve manuellement un nombre de sous-lignes pour cet
+	// acteur (une "ligne" empilée par sous-ligne, partagée par toutes les
+	// phases) — 0 ou 1 (la valeur par défaut, y compris pour les projets
+	// enregistrés avant l'introduction de ce champ) signifie une seule
+	// ligne. Permet de réserver une seconde ligne avant même d'y avoir
+	// une activité (bouton "+" sur l'en-tête d'acteur du diagramme),
+	// symétrique de Phase.SubColumns sur l'axe vertical.
+	SubLanes int `json:"subLanes"`
 }
 
 type Phase struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Order int    `json:"order"`
+	// SubColumns réserve manuellement un nombre de sous-colonnes pour
+	// cette phase (partagées par tous les acteurs) — 0 ou 1 (valeur par
+	// défaut) signifie une seule colonne. Complémentaire à la répartition
+	// automatique déjà portée par Activity.Column : permet de réserver une
+	// seconde colonne avant même d'y avoir une activité (bouton "+" sur
+	// l'en-tête de phase du diagramme).
+	SubColumns int `json:"subColumns"`
 }
 
 type Activity struct {
@@ -48,7 +63,16 @@ type Activity struct {
 	// position même si l'acteur n'a pas d'autre activité dans cette
 	// phase — utile pour aligner une activité isolée sur une des
 	// sous-colonnes qu'une autre acteur a fait apparaître dans la phase.
-	Column      int    `json:"column"`
+	Column int `json:"column"`
+	// SubRow indique, pour les activités de cet acteur, une sous-ligne
+	// explicitement choisie (glisser-déposer sur le diagramme) — 0 (la
+	// valeur par défaut) est la ligne principale de l'acteur. Contrairement
+	// à Column, il n'y a pas de répartition automatique par empilement :
+	// une activité reste sur la ligne principale tant qu'elle n'a pas été
+	// explicitement déplacée sur une autre ligne, symétrique de Column
+	// mais sur l'axe vertical (partagée par toutes les phases pour cet
+	// acteur, comme Actor.SubLanes).
+	SubRow      int    `json:"subRow"`
 	Description string `json:"description"`
 	SourceText  string `json:"sourceText,omitempty"`
 

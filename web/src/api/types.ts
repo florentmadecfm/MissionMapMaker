@@ -3,12 +3,20 @@ export interface Actor {
   name: string
   color: string
   description: string
+  // Nombre de sous-lignes réservées pour cet acteur (0/1 = une seule
+  // ligne). Voir layout.ts (computeLayout) pour l'algorithme de
+  // placement ; symétrique de Phase.subColumns sur l'axe vertical.
+  subLanes: number
 }
 
 export interface Phase {
   id: string
   name: string
   order: number
+  // Nombre de sous-colonnes réservées pour cette phase (0/1 = une seule
+  // colonne), en plus de la répartition automatique portée par
+  // Activity.column. Voir layout.ts (computeLayout).
+  subColumns: number
 }
 
 export interface UserStory {
@@ -30,6 +38,11 @@ export interface Activity {
   // choix explicite, empilement automatique par `order` comme avant.
   // Voir layout.ts (computeLayout) pour l'algorithme de placement.
   column: number
+  // Sous-ligne explicitement choisie (glisser-déposer sur le diagramme)
+  // au sein de la ligne de cet acteur ; 0 = ligne principale. Symétrique
+  // de `column` mais sur l'axe vertical, partagée par toutes les phases
+  // de cet acteur (voir Actor.subLanes).
+  subRow: number
   description: string
   sourceText?: string
   userStories: UserStory[]
