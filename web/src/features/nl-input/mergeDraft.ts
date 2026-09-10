@@ -62,6 +62,33 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
     })
   }
 
+  // Applique les modifications d'activités déjà existantes (renommage,
+  // nouvelle description, réaffectation acteur/phase) décrites par
+  // draft.activityChanges — jamais de suppression, et seulement si
+  // l'activité ciblée (nom, acteur ACTUELS) est retrouvée telle quelle
+  // dans le projet : une cible non résolue est ignorée plutôt que de
+  // risquer de modifier la mauvaise activité. Appliqué avant la
+  // résolution des interactions ci-dessous pour que celles-ci puissent
+  // référencer le nom déjà à jour d'une activité renommée dans la même
+  // réponse.
+  for (const change of draft.activityChanges ?? []) {
+    const targetActorId = findActorId(change.actorName)
+    const idx = activities.findIndex(
+      (a) => sameName(a.name, change.activityName) && (!targetActorId || a.actorId === targetActorId),
+    )
+    if (idx === -1) continue
+    const current = activities[idx]
+    const newActorId = change.newActorName ? findActorId(change.newActorName) ?? current.actorId : current.actorId
+    const newPhaseId = change.newPhaseName ? findPhaseId(change.newPhaseName) ?? current.phaseId : current.phaseId
+    activities[idx] = {
+      ...current,
+      name: change.newName?.trim() || current.name,
+      description: change.newDescription?.trim() || current.description,
+      actorId: newActorId,
+      phaseId: newPhaseId,
+    }
+  }
+
   const findActivityId = (name: string, actorName: string) => {
     const actorId = findActorId(actorName)
     return activities.find((a) => sameName(a.name, name) && a.actorId === actorId)?.id

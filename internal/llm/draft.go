@@ -13,6 +13,29 @@ type DraftProcess struct {
 	Phases       []DraftPhase       `json:"phases"`
 	Activities   []DraftActivity    `json:"activities"`
 	Interactions []DraftInteraction `json:"interactions"`
+	// ActivityChanges décrit des modifications d'activités DÉJÀ existantes
+	// (renommage, nouvelle description, réaffectation d'acteur/de phase),
+	// utilisé quand le texte d'entrée fournissait le processus déjà
+	// existant en contexte (voir DefaultProcessPrompt) — jamais rempli lors
+	// d'une génération initiale sur un projet vide, puisqu'il n'y a alors
+	// rien d'existant à modifier.
+	ActivityChanges []DraftActivityChange `json:"activityChanges,omitempty"`
+}
+
+// DraftActivityChange cible une activité déjà existante par son nom et son
+// acteur ACTUELS (ActivityName/ActorName), puis ne porte que les champs
+// NewXxx qui changent réellement (les autres restent vides). Comme
+// DraftActivity, c'est une proposition à relire avant sauvegarde (ADR-002) —
+// la fusion côté frontend (mergeDraft.ts) n'applique un changement que si
+// l'activité ciblée est retrouvée telle quelle dans le projet, jamais de
+// suppression.
+type DraftActivityChange struct {
+	ActivityName   string `json:"activityName"`
+	ActorName      string `json:"actorName"`
+	NewName        string `json:"newName,omitempty"`
+	NewDescription string `json:"newDescription,omitempty"`
+	NewActorName   string `json:"newActorName,omitempty"`
+	NewPhaseName   string `json:"newPhaseName,omitempty"`
 }
 
 type DraftActor struct {

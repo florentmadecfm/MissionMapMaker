@@ -25,6 +25,19 @@ type ProviderSettings struct {
 	BaseURL string `json:"baseUrl,omitempty"`
 }
 
+// PromptSettings surcharge le texte des consignes ("skills") données au LLM
+// pour chacune des 3 capacités de génération assistée — un champ vide
+// signifie "texte par défaut" (voir internal/llm/prompts.go). Personnaliser
+// un skill est un réglage avancé exposé depuis l'écran Paramètres : aucune
+// validation ne garantit qu'un texte modifié reste cohérent (peut dégrader
+// la qualité des propositions, voire casser la détection des modifications
+// lors d'une mise à jour incrémentale du diagramme).
+type PromptSettings struct {
+	Process       string `json:"process,omitempty"`
+	Specification string `json:"specification,omitempty"`
+	TestScenario  string `json:"testScenario,omitempty"`
+}
+
 type Config struct {
 	// Provider est le fournisseur actif ("anthropic" | "mistral").
 	// Vide = aucun fournisseur configuré.
@@ -32,6 +45,8 @@ type Config struct {
 
 	Anthropic ProviderSettings `json:"anthropic,omitempty"`
 	Mistral   ProviderSettings `json:"mistral,omitempty"`
+
+	Prompts PromptSettings `json:"prompts,omitempty"`
 }
 
 // Active renvoie les réglages du fournisseur actif, ou un ProviderSettings

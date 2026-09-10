@@ -142,11 +142,40 @@ export interface Settings {
   baseUrl: string
 }
 
+// Les 3 "skills" de génération assistée, identifiés par la capacité qu'ils
+// pilotent (voir SkillsPanel.tsx / internal/llm/prompts.go côté serveur).
+export interface PromptSettings {
+  process: string
+  specification: string
+  testScenario: string
+}
+
+export interface PromptSettingsResponse extends PromptSettings {
+  customized: { process: boolean; specification: boolean; testScenario: boolean }
+  defaults: PromptSettings
+}
+
+// DraftActivityChange cible une activité déjà existante par son nom et son
+// acteur ACTUELS (activityName/actorName), pour lui appliquer une
+// modification (renommage, nouvelle description, réaffectation d'acteur/de
+// phase) plutôt que d'en créer une nouvelle — utilisé quand le texte envoyé
+// au LLM contenait le processus déjà existant en contexte (mise à jour
+// incrémentale, voir mergeDraft.ts).
+export interface DraftActivityChange {
+  activityName: string
+  actorName: string
+  newName?: string
+  newDescription?: string
+  newActorName?: string
+  newPhaseName?: string
+}
+
 export interface DraftProcess {
   actors: DraftActor[]
   phases: DraftPhase[]
   activities: DraftActivity[]
   interactions: DraftInteraction[]
+  activityChanges?: DraftActivityChange[]
 }
 
 export interface ActivityRef {

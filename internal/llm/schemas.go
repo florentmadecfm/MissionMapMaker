@@ -51,15 +51,28 @@ func extractProcessToolSpec() ToolSpec {
 		},
 		"required": []string{"fromActivityName", "fromActorName", "toActivityName", "toActorName", "information"},
 	}
+	activityChangeSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"activityName":   stringProp,
+			"actorName":      stringProp,
+			"newName":        stringProp,
+			"newDescription": stringProp,
+			"newActorName":   stringProp,
+			"newPhaseName":   stringProp,
+		},
+		"required": []string{"activityName", "actorName"},
+	}
 
 	return ToolSpec{
 		Name:        "extract_process",
-		Description: "Enregistre les acteurs, phases, activités et interactions extraits de la description du processus.",
+		Description: "Enregistre les acteurs, phases, activités et interactions extraits de la description du processus, ainsi que les modifications d'activités déjà existantes (mise à jour incrémentale d'un processus déjà présent).",
 		Properties: map[string]any{
-			"actors":       map[string]any{"type": "array", "items": actorSchema},
-			"phases":       map[string]any{"type": "array", "items": phaseSchema},
-			"activities":   map[string]any{"type": "array", "items": activitySchema},
-			"interactions": map[string]any{"type": "array", "items": interactionSchema},
+			"actors":          map[string]any{"type": "array", "items": actorSchema},
+			"phases":          map[string]any{"type": "array", "items": phaseSchema},
+			"activities":      map[string]any{"type": "array", "items": activitySchema},
+			"interactions":    map[string]any{"type": "array", "items": interactionSchema},
+			"activityChanges": map[string]any{"type": "array", "items": activityChangeSchema},
 		},
 	}
 }

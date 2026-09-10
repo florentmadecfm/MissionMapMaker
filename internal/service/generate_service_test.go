@@ -12,15 +12,15 @@ import (
 // dépendre d'un fournisseur réel.
 type stubGenerator struct{}
 
-func (stubGenerator) GenerateProcess(ctx context.Context, text string) (*llm.DraftProcess, error) {
+func (stubGenerator) GenerateProcess(ctx context.Context, text, systemPrompt string) (*llm.DraftProcess, error) {
 	return &llm.DraftProcess{}, nil
 }
 
-func (stubGenerator) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef) ([]llm.DraftSpecification, error) {
+func (stubGenerator) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef, systemPrompt string) ([]llm.DraftSpecification, error) {
 	return nil, nil
 }
 
-func (stubGenerator) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef) ([]llm.DraftTestScenario, error) {
+func (stubGenerator) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef, systemPrompt string) ([]llm.DraftTestScenario, error) {
 	return nil, nil
 }
 

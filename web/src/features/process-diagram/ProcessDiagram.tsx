@@ -3,7 +3,7 @@ import { ReactFlow, Background, Controls, MarkerType, useViewport, type Connecti
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
-import { mergeDraft } from '../nl-input/mergeDraft'
+import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActivityDetailModal } from './ActivityDetailModal'
 import {
   CARD_HEIGHT_ESTIMATE,
@@ -131,19 +131,20 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   }
 
   // Décrire des ajouts/modifications en langage naturel sans quitter le
-  // diagramme : même pipeline que l'onglet "Générer" (génération LLM +
-  // mergeDraft), qui fusionne déjà de façon additive dans le projet
-  // existant (acteurs/phases/activités déjà présents, par nom, jamais
-  // dupliqués) — pas de logique de fusion à réécrire pour ce second point
-  // d'entrée.
+  // diagramme : même pipeline que l'onglet "Générer" (generateAndMerge,
+  // partagé avec NlInput.tsx — voir generateUpdate.ts), qui fournit au LLM
+  // le processus déjà existant en contexte pour qu'il puisse à la fois
+  // éviter les doublons ET exprimer de vraies modifications d'activités
+  // déjà présentes (renommage, description précisée, changement
+  // d'acteur/de phase) plutôt que de rester sans effet faute de savoir ce
+  // qui existe déjà (ADR-040).
   async function handleGenerateUpdate() {
     if (!updateText.trim()) return
     setUpdating(true)
     setUpdateError(null)
     setUpdateNotConfigured(false)
     try {
-      const draft = await api.generateFromText(updateText)
-      onChange(mergeDraft(project, draft))
+      onChange(await generateAndMerge(project, updateText))
       setUpdateText('')
     } catch (e) {
       const message = String(e)

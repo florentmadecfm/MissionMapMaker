@@ -5,6 +5,8 @@ import type {
   DraftTestScenario,
   Project,
   ProjectSummary,
+  PromptSettings,
+  PromptSettingsResponse,
   Provider,
   Settings,
   SpecRef,
@@ -70,4 +72,7 @@ export const api = {
   saveApiKey: (provider: Provider, apiKey: string, model?: string, baseUrl?: string) =>
     request<Settings>('/settings', { method: 'PUT', body: JSON.stringify({ provider, apiKey, model, baseUrl }) }),
   clearApiKey: () => request<void>('/settings', { method: 'DELETE' }),
+  getPrompts: () => request<PromptSettingsResponse>('/settings/prompts'),
+  savePrompts: (prompts: PromptSettings) =>
+    request<PromptSettingsResponse>('/settings/prompts', { method: 'PUT', body: JSON.stringify(prompts) }),
 }

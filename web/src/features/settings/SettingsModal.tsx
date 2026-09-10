@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Provider, Settings } from '../../api/types'
+import { SkillsPanel } from './SkillsPanel'
 
 interface Props {
   onClose: () => void
@@ -31,7 +32,10 @@ const PROVIDER_DEFAULT_BASE_URL: Record<Provider, string> = {
   mistral: 'https://api.mistral.ai/v1/chat/completions',
 }
 
+type SettingsTab = 'connexion' | 'skills'
+
 export function SettingsModal({ onClose, onSettingsChange }: Props) {
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('connexion')
   const [settings, setSettings] = useState<Settings | null>(null)
   const [provider, setProvider] = useState<Provider>('anthropic')
   const [apiKey, setApiKey] = useState('')
@@ -102,7 +106,7 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal settings-page" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
           <h2>Paramètres</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Fermer">
@@ -110,7 +114,26 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
           </button>
         </header>
 
-        {loading ? (
+        <nav className="tabs">
+          <button
+            type="button"
+            className={settingsTab === 'connexion' ? 'active' : ''}
+            onClick={() => setSettingsTab('connexion')}
+          >
+            Connexion au modèle
+          </button>
+          <button
+            type="button"
+            className={settingsTab === 'skills' ? 'active' : ''}
+            onClick={() => setSettingsTab('skills')}
+          >
+            Skills
+          </button>
+        </nav>
+
+        {settingsTab === 'skills' ? (
+          <SkillsPanel />
+        ) : loading ? (
           <p>Chargement…</p>
         ) : (
           <>

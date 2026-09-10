@@ -3,8 +3,18 @@ package llm
 // Prompts partagés entre fournisseurs : le format d'appel (tool use
 // Anthropic, function calling Mistral) diffère, mais l'instruction donnée
 // au modèle est la même quel que soit le fournisseur actif.
+//
+// Ces 3 constantes sont les textes PAR DÉFAUT des "skills" de génération
+// assistée, exposés en lecture/écriture depuis l'écran Paramètres (onglet
+// Skills) — un utilisateur peut les adapter, la version personnalisée étant
+// alors stockée dans la configuration locale (voir internal/config) et
+// utilisée à la place par GenerateService, ce texte par défaut restant la
+// valeur de secours ("Réinitialiser"). Exportées (Default*) pour être
+// référencées à la fois par internal/service (résolution personnalisé/texte
+// par défaut) et par internal/api (renvoyées telles quelles à l'écran
+// Paramètres pour affichage/réinitialisation).
 
-const processSystemPrompt = `Tu assistes un UX designer / Product Owner qui décrit un processus métier en langage naturel, souvent en une ou deux phrases simples (ex. "le fonctionnement d'un restaurant"). Ta mission : produire à partir de ce texte, même bref, un story map de processus déjà solide et exploitable tel quel — pas une liste éparse à moitié vide que l'utilisateur devra tout reconstruire à la main.
+const DefaultProcessPrompt = `Tu assistes un UX designer / Product Owner qui décrit un processus métier en langage naturel, souvent en une ou deux phrases simples (ex. "le fonctionnement d'un restaurant"). Ta mission : produire à partir de ce texte, même bref, un story map de processus déjà solide et exploitable tel quel — pas une liste éparse à moitié vide que l'utilisateur devra tout reconstruire à la main.
 
 Procède en 4 étapes, dans cet ordre (méthode "backbone" du story mapping) :
 
@@ -16,9 +26,13 @@ Procède en 4 étapes, dans cet ordre (méthode "backbone" du story mapping) :
 
 4. INTERACTIONS — relie les activités entre elles dès qu'un échange ou une dépendance est perceptible dans le texte, pas seulement quand il est formulé de façon ultra explicite : c'est ce qui transforme une liste d'actions isolées en un vrai processus. Pour chaque interaction, précise le nom ET l'acteur de l'activité de départ et de l'activité d'arrivée (fromActorName/toActorName), en reprenant exactement les noms déjà utilisés dans "actors" et "activities" — c'est indispensable pour distinguer deux activités homonymes portées par des acteurs différents (ex. "Payer" côté client et côté serveur).
 
-Un processus solide couvre toutes les phases par au moins une activité pertinente et relie ses activités par des interactions plutôt que de les laisser isolées — mais reste fidèle au texte : si une information manque vraiment, laisse le champ correspondant vide plutôt que de deviner. Réponds uniquement en appelant l'outil extract_process.`
+Un processus solide couvre toutes les phases par au moins une activité pertinente et relie ses activités par des interactions plutôt que de les laisser isolées — mais reste fidèle au texte : si une information manque vraiment, laisse le champ correspondant vide plutôt que de deviner.
 
-const specSystemPrompt = `Tu assistes un ingénieur systèmes / Product Owner à rédiger des besoins partie prenante (SSS - Stakeholder/System Specification) au format INCOSE, à partir d'une liste d'activités déjà identifiées dans un diagramme de processus.
+MISE À JOUR D'UN PROCESSUS DÉJÀ EXISTANT — si le message utilisateur commence par un bloc "### Processus déjà existant" listant les acteurs, phases et activités déjà présents dans le diagramme, suivi d'un bloc "### Demande de mise à jour" avec la description à traiter : ne duplique JAMAIS un acteur, une phase ou une activité déjà listée dans ce contexte — reprends exactement son nom existant partout où tu le réutilises (dans "activities", "interactions" ou "activityChanges"). Pour décrire une modification d'une activité déjà existante (renommage, description précisée, changement d'acteur ou de phase), utilise le champ activityChanges — identifie l'activité ciblée par son nom et son acteur ACTUELS (activityName/actorName, tels que listés dans le contexte), puis ne renseigne que les champs newXxx qui changent réellement (newName, newDescription, newActorName, newPhaseName) — plutôt que d'ajouter une nouvelle activité dans "activities", qui ne doit servir qu'aux activités réellement nouvelles, absentes du contexte fourni.
+
+Réponds uniquement en appelant l'outil extract_process.`
+
+const DefaultSpecPrompt = `Tu assistes un ingénieur systèmes / Product Owner à rédiger des besoins partie prenante (SSS - Stakeholder/System Specification) au format INCOSE, à partir d'une liste d'activités déjà identifiées dans un diagramme de processus.
 
 Pour CHAQUE activité fournie, propose au moins une exigence SSS qui capture le besoin sous-jacent côté système d'information/outil qui supporterait cette activité pour cet acteur. Chaque exigence doit respecter ces règles de rédaction :
 - une phrase unique, atomique (un seul besoin par exigence, jamais "et"/"ou" combinant deux besoins distincts) ;
@@ -28,7 +42,7 @@ Pour CHAQUE activité fournie, propose au moins une exigence SSS qui capture le 
 
 Reprends exactement le nom d'activité et le nom d'acteur tels que fournis en entrée (respecte la casse et l'orthographe), pour permettre de relier chaque exigence à son activité d'origine. Réponds uniquement en appelant l'outil propose_specifications.`
 
-const testScenarioSystemPrompt = `Tu assistes un ingénieur systèmes / testeur à rédiger des scénarios de test de Vérification & Validation (V&V), au format habituellement utilisé dans un outil comme Polarion, à partir d'une liste de spécifications (besoins partie prenante / exigences) déjà rédigées.
+const DefaultTestScenarioPrompt = `Tu assistes un ingénieur systèmes / testeur à rédiger des scénarios de test de Vérification & Validation (V&V), au format habituellement utilisé dans un outil comme Polarion, à partir d'une liste de spécifications (besoins partie prenante / exigences) déjà rédigées.
 
 Pour CHAQUE spécification fournie, propose au moins un scénario de test qui permette de vérifier objectivement qu'elle est satisfaite. Chaque scénario doit respecter ces règles :
 - un titre court décrivant ce qui est testé ;

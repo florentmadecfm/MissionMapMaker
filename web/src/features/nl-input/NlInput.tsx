@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
-import { api } from '../../api/client'
 import type { Project } from '../../api/types'
-import { mergeDraft } from './mergeDraft'
+import { generateAndMerge } from './generateUpdate'
 import { extractPdfText } from './pdfText'
 
 interface Props {
@@ -48,8 +47,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
     setError(null)
     setNotConfigured(false)
     try {
-      const draft = await api.generateFromText(text)
-      onChange(mergeDraft(project, draft))
+      onChange(await generateAndMerge(project, text))
       onGenerated()
     } catch (e) {
       const message = String(e)
