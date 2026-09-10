@@ -1,10 +1,13 @@
 import type {
   ActivityRef,
+  ActorSummary,
   DraftProcess,
   DraftSpecification,
   DraftTestScenario,
   Project,
   ProjectSummary,
+  PromptSettings,
+  PromptSettingsResponse,
   Provider,
   Settings,
   SpecRef,
@@ -48,6 +51,7 @@ function normalizeProject(project: Project): Project {
 
 export const api = {
   listProjects: () => request<ProjectSummary[]>('/projects'),
+  listActors: () => request<ActorSummary[]>('/actors'),
   createProject: (name: string) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify({ name }) }).then(normalizeProject),
   getProject: (id: string) => request<Project>(`/projects/${id}`).then(normalizeProject),
@@ -70,4 +74,7 @@ export const api = {
   saveApiKey: (provider: Provider, apiKey: string, model?: string, baseUrl?: string) =>
     request<Settings>('/settings', { method: 'PUT', body: JSON.stringify({ provider, apiKey, model, baseUrl }) }),
   clearApiKey: () => request<void>('/settings', { method: 'DELETE' }),
+  getPrompts: () => request<PromptSettingsResponse>('/settings/prompts'),
+  savePrompts: (prompts: PromptSettings) =>
+    request<PromptSettingsResponse>('/settings/prompts', { method: 'PUT', body: JSON.stringify(prompts) }),
 }

@@ -29,15 +29,39 @@ const (
 
 // GenerateService encapsule le générateur LLM utilisé pour la génération
 // assistée. Il est mutable (protégé par un mutex) car le fournisseur, la
-// clé API et l'URL de base peuvent être configurés après le démarrage du
-// serveur, depuis l'écran Paramètres de l'interface (voir internal/api et
-// internal/config).
+// clé API, l'URL de base et les prompts ("skills") peuvent être configurés
+// après le démarrage du serveur, depuis l'écran Paramètres de l'interface
+// (voir internal/api et internal/config).
 type GenerateService struct {
 	mu        sync.RWMutex
 	generator llm.Generator // nil si aucun fournisseur n'est configuré
 	provider  llm.Provider
 	model     string
 	baseURL   string
+
+	// promptProcess/promptSpec/promptTestScenario surchargent le texte des
+	// 3 skills par défaut (llm.Default*Prompt) — vide = texte par défaut.
+	// Ni le modèle ni le fournisseur ne les mettent à zéro : contrairement
+	// à la clé API, ce ne sont pas des secrets propres à une session, ils
+	// restent actifs quel que soit le fournisseur choisi.
+	promptProcess      string
+	promptSpec         string
+	promptTestScenario string
+}
+
+// PromptInfo est le texte système actuellement utilisé pour un skill donné
+// (le texte personnalisé s'il existe, sinon le texte par défaut) et son
+// état "personnalisé" — pour affichage dans l'écran Paramètres.
+type PromptInfo struct {
+	Value      string
+	Customized bool
+}
+
+func resolvePrompt(override, def string) PromptInfo {
+	if override != "" {
+		return PromptInfo{Value: override, Customized: true}
+	}
+	return PromptInfo{Value: def, Customized: false}
 }
 
 func NewGenerateService(generator llm.Generator, provider llm.Provider, model, baseURL string) *GenerateService {
@@ -104,6 +128,28 @@ func (s *GenerateService) currentGenerator() llm.Generator {
 	return s.generator
 }
 
+// SetPrompts surcharge le texte des 3 skills de génération assistée — une
+// valeur vide revient au texte par défaut correspondant. N'affecte pas le
+// générateur actif (contrairement à SetProvider) : les prompts sont
+// indépendants du fournisseur/de la clé configurés.
+func (s *GenerateService) SetPrompts(process, specification, testScenario string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.promptProcess = process
+	s.promptSpec = specification
+	s.promptTestScenario = testScenario
+}
+
+// Prompts renvoie l'état actuel (texte effectif + personnalisé ou non) des
+// 3 skills, pour l'écran Paramètres.
+func (s *GenerateService) Prompts() (process, specification, testScenario PromptInfo) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return resolvePrompt(s.promptProcess, llm.DefaultProcessPrompt),
+		resolvePrompt(s.promptSpec, llm.DefaultSpecPrompt),
+		resolvePrompt(s.promptTestScenario, llm.DefaultTestScenarioPrompt)
+}
+
 func (s *GenerateService) Generate(ctx context.Context, text string) (*llm.DraftProcess, error) {
 	if strings.TrimSpace(text) == "" {
 		return nil, errEmptyText
@@ -115,9 +161,10 @@ func (s *GenerateService) Generate(ctx context.Context, text string) (*llm.Draft
 	if generator == nil {
 		return nil, llm.ErrNotConfigured
 	}
+	process, _, _ := s.Prompts()
 	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
 	defer cancel()
-	return generator.GenerateProcess(ctx, text)
+	return generator.GenerateProcess(ctx, text, process.Value)
 }
 
 func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef) ([]llm.DraftSpecification, error) {
@@ -131,9 +178,10 @@ func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities
 	if generator == nil {
 		return nil, llm.ErrNotConfigured
 	}
+	_, specification, _ := s.Prompts()
 	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
 	defer cancel()
-	return generator.GenerateSpecifications(ctx, activities)
+	return generator.GenerateSpecifications(ctx, activities, specification.Value)
 }
 
 func (s *GenerateService) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef) ([]llm.DraftTestScenario, error) {
@@ -147,9 +195,10 @@ func (s *GenerateService) GenerateTestScenarios(ctx context.Context, specificati
 	if generator == nil {
 		return nil, llm.ErrNotConfigured
 	}
+	_, _, testScenario := s.Prompts()
 	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
 	defer cancel()
-	return generator.GenerateTestScenarios(ctx, specifications)
+	return generator.GenerateTestScenarios(ctx, specifications, testScenario.Value)
 }
 
 var errEmptyText = &validationError{"le texte à analyser est vide"}

@@ -69,7 +69,7 @@ func TestMistralCall_RetriesOn429ThenSucceeds(t *testing.T) {
 		}))
 	})
 
-	draft, err := client.GenerateProcess(context.Background(), "un texte quelconque")
+	draft, err := client.GenerateProcess(context.Background(), "un texte quelconque", DefaultProcessPrompt)
 	if err != nil {
 		t.Fatalf("GenerateProcess: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestMistralCall_DoesNotRetryOn401(t *testing.T) {
 		_, _ = w.Write([]byte(`{"message":"API key is invalid."}`))
 	})
 
-	_, err := client.GenerateProcess(context.Background(), "un texte quelconque")
+	_, err := client.GenerateProcess(context.Background(), "un texte quelconque", DefaultProcessPrompt)
 	if err == nil {
 		t.Fatal("expected an error")
 	}
@@ -110,7 +110,7 @@ func TestMistralCall_GivesUpAfterMaxAttempts(t *testing.T) {
 		_, _ = w.Write([]byte(`{"message":"Rate limit exceeded"}`))
 	})
 
-	_, err := client.GenerateProcess(context.Background(), "un texte quelconque")
+	_, err := client.GenerateProcess(context.Background(), "un texte quelconque", DefaultProcessPrompt)
 	if err == nil {
 		t.Fatal("expected an error")
 	}

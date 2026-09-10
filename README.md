@@ -56,13 +56,46 @@ diagramme, il permet de le modifier directement :
   même d'y avoir déposé quoi que ce soit.
 - Une zone de texte en langage naturel, en haut de l'onglet, permet de
   décrire des ajouts ou modifications sans changer d'écran (même
-  génération assistée que l'onglet "Générer").
+  génération assistée que l'onglet "Générer") — le processus déjà présent
+  dans le diagramme est fourni en contexte au LLM, qui peut donc aussi
+  bien ajouter que modifier une activité déjà existante (renommage,
+  description précisée, changement d'acteur/de phase) plutôt que se
+  limiter à des ajouts.
+
+### Acteurs (toutes missions)
+
+Le bouton **🧑 Acteurs (toutes missions)** de la barre latérale (au-dessus
+de Paramètres) ouvre un écran indépendant de tout projet ouvert : les
+acteurs de toutes les missions sont regroupés par nom (ex. "Serveur"
+apparaissant à la fois dans un projet "Restaurant" et un projet "Hôtel de
+luxe"), et pour l'acteur sélectionné, chaque mission où il apparaît est
+rappelée côte à côte (mêmes informations que l'onglet Vue par acteur —
+activités par phase, interactions, spécifications et tests liés). Le
+bouton **Ouvrir cette mission** d'une section bascule directement sur ce
+projet, à l'onglet Vue par acteur, avec l'acteur déjà présélectionné.
+
+Le rapprochement se fait par nom (insensible à la casse) : deux acteurs
+de projets différents doivent porter exactement le même nom pour être
+regroupés — voir ADR-041.
+
+### Paramètres
+
+L'écran **⚙ Paramètres** (bas de la barre latérale) a deux onglets :
+
+- **Connexion au modèle** — voir "Clé API" ci-dessous.
+- **Skills** — le texte des 3 consignes ("skills") qui pilotent la
+  génération assistée (construire la mission map, construire les SSS,
+  construire les scénarios de test) est visible et éditable : chaque
+  skill peut être personnalisé (**Enregistrer**) ou remis au texte par
+  défaut (**Réinitialiser**). Réglage avancé — un texte incohérent peut
+  dégrader la qualité des propositions, voire empêcher la mise à jour
+  incrémentale du diagramme de fonctionner correctement (voir ADR-040).
 
 ### Clé API (génération assistée par LLM)
 
-Pas besoin de variable d'environnement : ouvrez **⚙ Paramètres** en bas de
-la barre latérale, choisissez un fournisseur (**Anthropic** ou
-**Mistral AI**) et collez sa clé API. Elle est stockée localement
+Dans l'onglet **Connexion au modèle** des Paramètres, choisissez un
+fournisseur (**Anthropic** ou **Mistral AI**) et collez sa clé API — pas
+besoin de variable d'environnement. Elle est stockée localement
 (`~/.config/missionmapmaker/config.json`, permissions restreintes), hors
 des fichiers projet — une clé par fournisseur est mémorisée séparément,
 basculer de l'un à l'autre ne perd pas la clé du premier.
@@ -71,7 +104,7 @@ Vous pouvez aussi définir `ANTHROPIC_API_KEY` en variable d'environnement
 au lancement du serveur : elle est alors prioritaire (fournisseur
 Anthropic) sur la configuration enregistrée depuis l'interface.
 
-Le champ **URL de base** (optionnel, dans le même écran) permet de
+Le champ **URL de base** (optionnel, dans le même onglet) permet de
 pointer vers un proxy, un déploiement régional/entreprise ou un service
 compatible auto-hébergé, plutôt que l'API publique du fournisseur.
 

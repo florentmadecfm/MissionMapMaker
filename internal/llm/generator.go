@@ -9,10 +9,16 @@ import (
 // Generator est le contrat commun à tous les fournisseurs LLM supportés :
 // le reste de l'application (internal/service, internal/api) ne dépend
 // que de cette interface, jamais d'un client de fournisseur particulier.
+//
+// systemPrompt est le texte de consigne déjà résolu par l'appelant (le
+// "skill" personnalisé depuis l'écran Paramètres, ou le texte par défaut —
+// voir Default*Prompt dans prompts.go et GenerateService dans
+// internal/service) : un Generator reste un simple exécutant, il ne connaît
+// pas la notion de personnalisation.
 type Generator interface {
-	GenerateProcess(ctx context.Context, text string) (*DraftProcess, error)
-	GenerateSpecifications(ctx context.Context, activities []ActivityRef) ([]DraftSpecification, error)
-	GenerateTestScenarios(ctx context.Context, specifications []SpecRef) ([]DraftTestScenario, error)
+	GenerateProcess(ctx context.Context, text, systemPrompt string) (*DraftProcess, error)
+	GenerateSpecifications(ctx context.Context, activities []ActivityRef, systemPrompt string) ([]DraftSpecification, error)
+	GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error)
 }
 
 // Provider identifie un fournisseur LLM supporté. Ajouter un fournisseur

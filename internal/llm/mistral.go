@@ -225,9 +225,9 @@ func parseRetryAfter(header string) time.Duration {
 	return 0
 }
 
-func (c *mistralClient) GenerateProcess(ctx context.Context, text string) (*DraftProcess, error) {
+func (c *mistralClient) GenerateProcess(ctx context.Context, text, systemPrompt string) (*DraftProcess, error) {
 	spec := extractProcessToolSpec()
-	raw, err := c.call(ctx, processSystemPrompt, text, spec)
+	raw, err := c.call(ctx, systemPrompt, text, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -238,14 +238,14 @@ func (c *mistralClient) GenerateProcess(ctx context.Context, text string) (*Draf
 	return &draft, nil
 }
 
-func (c *mistralClient) GenerateSpecifications(ctx context.Context, activities []ActivityRef) ([]DraftSpecification, error) {
+func (c *mistralClient) GenerateSpecifications(ctx context.Context, activities []ActivityRef, systemPrompt string) ([]DraftSpecification, error) {
 	input, err := json.Marshal(activities)
 	if err != nil {
 		return nil, fmt.Errorf("sérialisation des activités : %w", err)
 	}
 
 	spec := proposeSpecificationsToolSpec()
-	raw, err := c.call(ctx, specSystemPrompt, string(input), spec)
+	raw, err := c.call(ctx, systemPrompt, string(input), spec)
 	if err != nil {
 		return nil, err
 	}
@@ -258,14 +258,14 @@ func (c *mistralClient) GenerateSpecifications(ctx context.Context, activities [
 	return result.Specifications, nil
 }
 
-func (c *mistralClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef) ([]DraftTestScenario, error) {
+func (c *mistralClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error) {
 	input, err := json.Marshal(specifications)
 	if err != nil {
 		return nil, fmt.Errorf("sérialisation des spécifications : %w", err)
 	}
 
 	spec := proposeTestScenariosToolSpec()
-	raw, err := c.call(ctx, testScenarioSystemPrompt, string(input), spec)
+	raw, err := c.call(ctx, systemPrompt, string(input), spec)
 	if err != nil {
 		return nil, err
 	}

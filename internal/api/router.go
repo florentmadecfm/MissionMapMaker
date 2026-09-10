@@ -28,6 +28,7 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/projects", h.listProjects)
+	mux.HandleFunc("GET /api/actors", h.listActors)
 	mux.HandleFunc("POST /api/projects", h.createProject)
 	mux.HandleFunc("GET /api/projects/{id}", h.getProject)
 	mux.HandleFunc("PUT /api/projects/{id}", h.updateProject)
@@ -38,6 +39,8 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.saveSettings)
 	mux.HandleFunc("DELETE /api/settings", h.deleteSettings)
+	mux.HandleFunc("GET /api/settings/prompts", h.getPrompts)
+	mux.HandleFunc("PUT /api/settings/prompts", h.savePrompts)
 	mux.HandleFunc("GET /api/health", h.health)
 
 	// Sert le frontend buildé (web/dist, embarqué dans le binaire) pour
@@ -60,6 +63,18 @@ func (h *Handler) listProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, summaries)
+}
+
+// listActors renvoie l'index transverse acteur -> missions (voir
+// ProjectService.ListActors), consommé par le nouvel écran "Acteurs"
+// (indépendant de tout projet ouvert).
+func (h *Handler) listActors(w http.ResponseWriter, r *http.Request) {
+	actors, err := h.projects.ListActors()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, actors)
 }
 
 func (h *Handler) createProject(w http.ResponseWriter, r *http.Request) {
@@ -271,6 +286,79 @@ func (h *Handler) deleteSettings(w http.ResponseWriter, r *http.Request) {
 		log.Printf("suppression de la configuration : %v", err)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// getPrompts renvoie l'état actuel des 3 skills de génération assistée
+// (texte effectif — personnalisé ou par défaut — et indicateur
+// "personnalisé"), ainsi que le texte par défaut de chacun pour permettre
+// une réinitialisation côté interface.
+func (h *Handler) getPrompts(w http.ResponseWriter, r *http.Request) {
+	writePromptsResponse(w, h.generate)
+}
+
+// savePrompts enregistre le texte des 3 skills (les 3 sont toujours
+// envoyés ensemble par l'écran Paramètres, qui les charge tous au montage) :
+// effet immédiat (GenerateService en mémoire) et persistance locale. Un
+// champ vide (ou dont le contenu, une fois retiré des espaces, est vide)
+// revient au texte par défaut correspondant — c'est ainsi que l'écran
+// Paramètres implémente "Réinitialiser".
+func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Process       string `json:"process"`
+		Specification string `json:"specification"`
+		TestScenario  string `json:"testScenario"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	process := strings.TrimSpace(body.Process)
+	specification := strings.TrimSpace(body.Specification)
+	testScenario := strings.TrimSpace(body.TestScenario)
+	if process == llm.DefaultProcessPrompt {
+		process = ""
+	}
+	if specification == llm.DefaultSpecPrompt {
+		specification = ""
+	}
+	if testScenario == llm.DefaultTestScenarioPrompt {
+		testScenario = ""
+	}
+
+	h.generate.SetPrompts(process, specification, testScenario)
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("lecture de la configuration existante : %v", err)
+		cfg = &config.Config{}
+	}
+	cfg.Prompts = config.PromptSettings{Process: process, Specification: specification, TestScenario: testScenario}
+	if err := config.Save(cfg); err != nil {
+		log.Printf("sauvegarde de la configuration : %v", err)
+		// les prompts restent actifs en mémoire pour cette session même si l'écriture échoue
+	}
+
+	writePromptsResponse(w, h.generate)
+}
+
+func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateService) {
+	process, specification, testScenario := generate.Prompts()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"process":       process.Value,
+		"specification": specification.Value,
+		"testScenario":  testScenario.Value,
+		"customized": map[string]bool{
+			"process":       process.Customized,
+			"specification": specification.Customized,
+			"testScenario":  testScenario.Customized,
+		},
+		"defaults": map[string]string{
+			"process":       llm.DefaultProcessPrompt,
+			"specification": llm.DefaultSpecPrompt,
+			"testScenario":  llm.DefaultTestScenarioPrompt,
+		},
+	})
 }
 
 func (h *Handler) deleteProject(w http.ResponseWriter, r *http.Request) {

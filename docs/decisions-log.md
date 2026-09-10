@@ -1371,3 +1371,182 @@ identifié via le message "address already in use" dans les logs du
 nouveau `go run`, corrigé en arrêtant l'ancien processus avant de
 relancer un binaire recompilé ; sans lien avec le code de cette
 fonctionnalité.
+
+---
+
+## ADR-040 — Mise à jour du diagramme avec contexte du projet existant, et skills personnalisables
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — "quand je souhaite mettre à
+jour le diagramme de processus avec des améliorations / changements, ça
+ne prend pas en compte et ça ne met pas à jour le diagramme." Diagnostic :
+`/api/generate` (utilisé aussi bien par l'onglet "Générer" que par la
+barre de mise à jour du diagramme, ADR-038) n'envoyait au LLM QUE le
+nouveau texte saisi, sans aucune connaissance du projet déjà ouvert. Pour
+une génération initiale (projet vide), c'est sans conséquence. Mais pour
+une mise à jour, deux effets combinés produisaient le bug rapporté :
+1. Le LLM, ignorant tout du projet existant, ne pouvait pas exprimer une
+   modification (renommage, description précisée, changement de phase)
+   autrement qu'en reformulant l'activité visée — `mergeDraft`, strictement
+   additif et dédoublonnant par nom exact, ignorait alors silencieusement
+   toute variante non identique au nom déjà présent : ni ajout (doublon
+   évité, comme prévu), ni modification (aucun mécanisme pour ça) — la
+   description utilisateur "ne prenait effet nulle part".
+2. Un texte décrivant purement une amélioration ("améliore la description
+   de X") ne contient souvent aucun élément qui ressemble à un nouvel
+   acteur/une nouvelle phase/une nouvelle activité à extraire : le LLM
+   produisait alors une ébauche vide, donc *littéralement* aucune mise à
+   jour du diagramme.
+
+Une deuxième demande, indépendante mais touchant les mêmes prompts
+serveur : ajouter à l'écran Paramètres un onglet listant les "skills" qui
+pilotent la génération assistée (construire la mission map, construire
+les SSS, construire les scénarios de test), éditables en mode CRUD pour
+les adapter.
+
+**Décision** :
+- **Contexte du projet existant.** Nouveau module partagé
+  `generateUpdate.ts` (`web/src/features/nl-input/`), utilisé à la fois par
+  `NlInput.tsx` (onglet Générer) et `ProcessDiagram.tsx` (barre de mise à
+  jour du diagramme) : `buildProjectContext(project)` sérialise les
+  acteurs/phases/activités déjà présents dans un bloc de texte lisible
+  ("### Processus déjà existant"), et `generateAndMerge(project, text)`
+  préfixe ce contexte au texte utilisateur avant d'appeler `/api/generate`
+  (tronqué si la somme dépasserait la limite serveur de 20 000
+  caractères — le contexte cède la place en premier, jamais la demande de
+  l'utilisateur). Aucun nouvel endpoint : la même route `/api/generate`
+  sert les deux cas, la présence ou non du bloc de contexte suffisant à
+  distinguer génération initiale et mise à jour côté prompt.
+- **Modifications d'activités existantes.** `DraftProcess` gagne un champ
+  `activityChanges` (`internal/llm/draft.go`, `DraftActivityChange` :
+  `activityName`/`actorName` ciblent l'activité ACTUELLE, puis
+  `newName`/`newDescription`/`newActorName`/`newPhaseName` ne portent que
+  ce qui change réellement), ajouté au schéma de l'outil `extract_process`
+  (`schemas.go`). `DefaultProcessPrompt` explique au LLM comment
+  interpréter le bloc de contexte et quand utiliser `activityChanges`
+  plutôt que dupliquer dans `activities`. Côté frontend, `mergeDraft`
+  applique ces changements à l'activité retrouvée par (nom, acteur) exacts
+  — jamais de suppression, une cible non résolue est ignorée plutôt que de
+  risquer de modifier la mauvaise activité.
+- **Skills personnalisables.** Les 3 prompts système (`processSystemPrompt`
+  → `DefaultProcessPrompt`, etc., exportés) restent les valeurs par défaut ;
+  un utilisateur peut les surcharger depuis l'écran Paramètres → onglet
+  Skills (nouveau, `SkillsPanel.tsx`) — persistance dans le fichier de
+  configuration local (`config.Config.Prompts`, à côté de la clé API,
+  chargée au démarrage du serveur). `Generator` (interface commune
+  Anthropic/Mistral) prend désormais le texte système en paramètre plutôt
+  que de lire une constante package-level, `GenerateService` résolvant
+  personnalisé-ou-défaut avant chaque appel. Mode "CRUD" : chaque skill est
+  un emplacement fixe (Read : texte actuel ; Update : édition +
+  Enregistrer ; Delete : Réinitialiser retire la personnalisation) — pas de
+  "Create" d'un skill arbitraire, les 3 skills correspondent un-à-un aux 3
+  capacités de génération déjà exposées par le backend.
+
+**Justification** : réutiliser `/api/generate` plutôt que créer un
+endpoint de "mise à jour" séparé garde un seul prompt/skill "construire la
+mission map" à maintenir et à personnaliser (cohérent avec la liste des 3
+skills demandée par l'utilisateur, qui n'en cite pas un 4e pour les mises
+à jour) — la distinction initial/mise à jour se fait uniquement par la
+présence du bloc de contexte dans le texte envoyé. `activityChanges`
+séparé de `activities` (plutôt que, par exemple, un identifiant
+optionnel sur `DraftActivity`) rend explicite l'intention "modifier"
+vs "créer" aussi bien pour le LLM (deux listes différentes à remplir) que
+pour `mergeDraft` (deux boucles distinctes, chacune avec sa propre
+garantie : additive pour l'une, jamais destructive pour l'autre).
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...` (tous les tests existants adaptés aux nouvelles signatures passent),
+`tsc -b`, `npm run lint`, `npm run build`. Logique de fusion testée
+directement sur le code source réel (bundle esbuild isolé, hors
+harnais de test absent du projet) : `buildProjectContext` produit bien un
+bloc listant acteurs/phases/activités existants, et `mergeDraft` avec un
+`activityChanges` synthétique renomme l'activité ciblée, met à jour sa
+description ET la déplace vers une autre phase, sans dupliquer ni
+affecter les autres activités. Écran Paramètres vérifié avec Playwright :
+onglet Skills affiche les 3 skills avec leur texte par défaut
+("Par défaut") ; modifier puis Enregistrer bascule le badge sur
+"Personnalisé" (confirmé par relecture API `/api/settings/prompts`) ;
+Réinitialiser revient exactement au texte par défaut ; bascule vers
+l'onglet Connexion toujours fonctionnelle après avoir visité Skills.
+Le chemin de génération réelle (avec une vraie clé API, donc le contexte
+effectivement interprété par un LLM) n'a pas pu être testé dans cet
+environnement de développement, comme pour les autres fonctionnalités de
+génération assistée du projet.
+
+---
+
+## ADR-041 — Vue transverse d'un acteur sur plusieurs missions, identité par nom
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir consulter les
+informations d'un acteur (ex. "Serveur") à travers plusieurs missions
+(projets) différentes, chacune avec son propre diagramme (ex. un
+restaurant et un hôtel de luxe n'ont pas la même carte, mais le rôle
+"Serveur" existe dans les deux). Jusqu'ici, chaque projet est
+entièrement indépendant (acteurs/phases/activités à IDs propres à ce
+projet) et l'onglet "Vue par acteur" (`ActorView.tsx`) n'affiche un
+acteur qu'au sein du projet actuellement ouvert — rien ne permettait de
+rapprocher "le même acteur" à travers plusieurs missions.
+
+**Décision** : deux arbitrages validés avec l'utilisateur avant
+implémentation (voir plan `shimmying-growing-fountain`) :
+- **Identité d'acteur par nom** (insensible à la casse, espaces de bord
+  ignorés — même convention que `sameName` dans `mergeDraft.ts`), calculée
+  à l'affichage, plutôt qu'un catalogue d'acteurs global avec identifiant
+  partagé. Pas de migration de données ni de nouveau concept dans le
+  modèle : deux acteurs de projets différents portant le même nom sont
+  considérés "le même acteur" pour cette vue de consultation. Limite
+  acceptée : une coïncidence de nom entre deux acteurs réellement
+  différents les regrouperait à tort.
+- **Écran indépendant** dans la barre latérale ("🧑 Acteurs (toutes
+  missions)", à côté de "⚙ Paramètres"), plutôt qu'un onglet dans un
+  projet déjà ouvert — cohérent avec le fait que la vue n'a justement pas
+  besoin d'un projet ouvert pour avoir un sens.
+
+Implémentation :
+- Backend : `Repository.LoadAll()` (nouveau, `internal/storage`) charge
+  intégralement tous les projets — `List()` en devient un simple mappage
+  vers `ProjectSummary` (aucun changement de comportement, juste partage
+  de la marche du répertoire). `ProjectService.ListActors()` regroupe par
+  `strings.ToLower(strings.TrimSpace(actor.Name))`, missions triées par
+  récence. Nouvelle route `GET /api/actors`.
+- Frontend : le rendu détaillé d'un acteur (résumé + timeline par phase
+  avec interactions/specs/tests) est extrait de `ActorView.tsx` vers un
+  nouveau composant `ActorDetail.tsx` — réutilisé tel quel par le nouvel
+  écran `ActorMissionsScreen.tsx`, une fois par mission où l'acteur
+  sélectionné apparaît (`GET /api/actors` pour l'index, puis
+  `GET /api/projects/{id}` — déjà existant — pour chaque mission
+  concernée, jamais pour tous les projets). "Ouvrir cette mission"
+  bascule vers ce projet, onglet Vue par acteur, avec l'acteur
+  pré-sélectionné (`ActorView` gagne une prop `initialActorId` optionnelle).
+
+**Justification** : le rapprochement par nom réutilise un patron déjà
+éprouvé dans l'app (dédoublonnage des drafts LLM) plutôt que d'introduire
+un référentiel d'acteurs partagé — un chantier de modélisation et de
+migration bien plus lourd pour une fonctionnalité qui reste, dans son
+usage demandé, de la consultation. `LoadAll()` ne change rien au coût
+réel : `List()` chargeait déjà chaque projet intégralement avant de n'en
+garder qu'un résumé, donc l'indexation transverse n'ajoute pas de
+nouvelle charge, seulement une nouvelle route qui exploite un travail
+déjà fait. Extraire `ActorDetail` évite de dupliquer la logique de rendu
+(résumé, timeline par phase, résolution interactions/specs/tests) entre
+`ActorView` et le nouvel écran — un seul endroit à maintenir pour ce
+rendu, `ActorView` devenant un pur wrapper (sélection par chips) autour.
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...` (2 nouveaux tests `ProjectService.ListActors` : regroupement
+insensible à la casse avec tri par récence, ignore les noms vides après
+nettoyage), `tsc -b`, `npm run lint`, `npm run build`. Playwright E2E
+avec 2 projets réels (mêmes casse/espaces différents pour l'acteur
+"Serveur") : l'écran Acteurs regroupe bien les 2 missions sous une seule
+entrée, les sections affichent la bonne couleur/description/activité
+propres à chaque mission, triées avec la plus récente en premier
+(confirmé aussi bien côté API que dans l'ordre d'affichage) ; "Ouvrir
+cette mission" bascule bien sur le bon projet, à l'onglet Vue par
+acteur, avec l'acteur déjà présélectionné. Aucune régression sur
+`ActorView` (comportement identique, vérifié par la même extraction
+sans changement de rendu).

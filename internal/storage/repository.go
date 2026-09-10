@@ -37,15 +37,35 @@ func (r *Repository) projectFile(id string) (string, error) {
 
 // List returns the id and name of every stored project, sorted by name.
 func (r *Repository) List() ([]ProjectSummary, error) {
+	projects, err := r.LoadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	summaries := make([]ProjectSummary, 0, len(projects))
+	for _, p := range projects {
+		summaries = append(summaries, ProjectSummary{ID: p.ID, Name: p.Name, UpdatedAt: p.UpdatedAt})
+	}
+
+	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
+	return summaries, nil
+}
+
+// LoadAll charge intégralement tous les projets stockés (contrairement à
+// List, qui n'en garde qu'un résumé) — utilisé par les vues qui doivent
+// parcourir le contenu de chaque projet plutôt que juste les lister (ex.
+// index d'acteurs transverse à toutes les missions, voir
+// ProjectService.ListActors). Ordre non garanti (celui de os.ReadDir).
+func (r *Repository) LoadAll() ([]*domain.Project, error) {
 	entries, err := os.ReadDir(r.baseDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []ProjectSummary{}, nil
+			return []*domain.Project{}, nil
 		}
 		return nil, err
 	}
 
-	summaries := make([]ProjectSummary, 0, len(entries))
+	projects := make([]*domain.Project, 0, len(entries))
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -54,11 +74,9 @@ func (r *Repository) List() ([]ProjectSummary, error) {
 		if err != nil {
 			continue // ignore un dossier corrompu/partiel plutôt que de faire échouer tout le listing
 		}
-		summaries = append(summaries, ProjectSummary{ID: p.ID, Name: p.Name, UpdatedAt: p.UpdatedAt})
+		projects = append(projects, p)
 	}
-
-	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
-	return summaries, nil
+	return projects, nil
 }
 
 type ProjectSummary struct {

@@ -36,19 +36,27 @@ func main() {
 // prioritaire si présente, sinon le fournisseur précédemment configuré
 // depuis l'écran Paramètres (persisté dans le fichier de configuration
 // local) est utilisé. Dans les deux cas, l'utilisateur peut ensuite
-// changer de fournisseur/clé depuis l'interface, avec effet immédiat.
+// changer de fournisseur/clé depuis l'interface, avec effet immédiat. Les
+// skills personnalisés (cfg.Prompts), indépendants du fournisseur, sont
+// chargés dans tous les cas.
 func setupGenerateService() *service.GenerateService {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("lecture de la configuration locale : %v", err)
+		cfg = &config.Config{}
+	}
+
+	gs := buildGenerateService(cfg)
+	gs.SetPrompts(cfg.Prompts.Process, cfg.Prompts.Specification, cfg.Prompts.TestScenario)
+	return gs
+}
+
+func buildGenerateService(cfg *config.Config) *service.GenerateService {
 	if generator, err := llm.NewClientFromEnv(); err == nil {
 		model := envOr("MMM_LLM_MODEL", llm.ProviderAnthropic.DefaultModel())
 		return service.NewGenerateService(generator, llm.ProviderAnthropic, model, os.Getenv("ANTHROPIC_BASE_URL"))
 	} else if !errors.Is(err, llm.ErrNotConfigured) {
 		log.Fatal(err)
-	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		log.Printf("lecture de la configuration locale : %v", err)
-		cfg = &config.Config{}
 	}
 
 	if settings := cfg.Active(); settings.APIKey != "" {

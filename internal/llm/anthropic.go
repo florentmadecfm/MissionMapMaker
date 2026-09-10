@@ -56,13 +56,13 @@ func toAnthropicTool(spec ToolSpec) anthropic.ToolUnionParam {
 	return anthropic.ToolUnionParam{OfTool: &tool}
 }
 
-func (c *anthropicClient) GenerateProcess(ctx context.Context, text string) (*DraftProcess, error) {
+func (c *anthropicClient) GenerateProcess(ctx context.Context, text, systemPrompt string) (*DraftProcess, error) {
 	spec := extractProcessToolSpec()
 	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
 		MaxTokens: 8000,
 		System: []anthropic.TextBlockParam{
-			{Text: processSystemPrompt},
+			{Text: systemPrompt},
 		},
 		Tools: []anthropic.ToolUnionParam{toAnthropicTool(spec)},
 		Messages: []anthropic.MessageParam{
@@ -86,7 +86,7 @@ func (c *anthropicClient) GenerateProcess(ctx context.Context, text string) (*Dr
 	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
 }
 
-func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities []ActivityRef) ([]DraftSpecification, error) {
+func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities []ActivityRef, systemPrompt string) ([]DraftSpecification, error) {
 	input, err := json.Marshal(activities)
 	if err != nil {
 		return nil, fmt.Errorf("sérialisation des activités : %w", err)
@@ -97,7 +97,7 @@ func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities
 		Model:     anthropic.Model(c.model),
 		MaxTokens: 8000,
 		System: []anthropic.TextBlockParam{
-			{Text: specSystemPrompt},
+			{Text: systemPrompt},
 		},
 		Tools: []anthropic.ToolUnionParam{toAnthropicTool(spec)},
 		Messages: []anthropic.MessageParam{
@@ -123,7 +123,7 @@ func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities
 	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
 }
 
-func (c *anthropicClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef) ([]DraftTestScenario, error) {
+func (c *anthropicClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error) {
 	input, err := json.Marshal(specifications)
 	if err != nil {
 		return nil, fmt.Errorf("sérialisation des spécifications : %w", err)
@@ -134,7 +134,7 @@ func (c *anthropicClient) GenerateTestScenarios(ctx context.Context, specificati
 		Model:     anthropic.Model(c.model),
 		MaxTokens: 8000,
 		System: []anthropic.TextBlockParam{
-			{Text: testScenarioSystemPrompt},
+			{Text: systemPrompt},
 		},
 		Tools: []anthropic.ToolUnionParam{toAnthropicTool(spec)},
 		Messages: []anthropic.MessageParam{
