@@ -75,3 +75,64 @@
   font-size: 0.7rem;
   color: var(--color-text-muted);
 }
+
+.activity-card:hover {
+  cursor: pointer;
+}
+
+/* Aperçu de dépose (voir nodes.tsx, DropShadowNode) : une "ombre" à
+   contour pointillé à l'emplacement où la carte glissée atterrirait,
+   pointer-events désactivés pour ne jamais intercepter le glisser en
+   cours. */
+.drop-shadow-card {
+  width: 210px;
+  height: 96px;
+  border: 2px dashed var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-bg);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* ---------- Modale de détail d'activité (clic sur une carte) ---------- */
+
+.activity-detail-modal {
+  width: 560px;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+.activity-detail-meta {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.activity-detail-modal h3 {
+  font-size: 0.9rem;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.spec-view-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.75rem;
+  background: var(--color-surface-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.spec-view-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.spec-view-text {
+  margin: 0;
+  font-size: 0.88rem;
+}

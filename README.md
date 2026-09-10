@@ -107,5 +107,5 @@ qu'attachés à une release). Il n'y a donc rien à installer pour
 récupérer un exécutable prêt à l'emploi : télécharger le fichier
 correspondant à sa plateforme (`missionmapmaker-linux-amd64`,
 `missionmapmaker-windows-amd64.exe`, `missionmapmaker-macos-amd64` ou
-`missionmapmaker-macos-arm64`) et le lancer directement. Voir
-ADR-033. Ouvrir http://localhost:8080/.
+`missionmapmaker-macos-arm64`) et le lancer directement, puis ouvrir
+http://localhost:8080/. Voir ADR-033.

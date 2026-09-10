@@ -320,3 +320,19 @@ export function computeDropTarget(
 
   return { actorId, phaseId, subColumnIndex }
 }
+
+// Coin haut-gauche (mêmes coordonnées internes que LayoutNode.position) de
+// la cellule visée par un DropTarget — sert à positionner l'aperçu de
+// dépose (voir ProcessDiagram.tsx, "ombre" affichée sous la carte pendant
+// le glisser). Réutilise les en-têtes déjà calculés par computeLayout
+// plutôt que de refaire le calcul des largeurs/offsets de phase.
+export function cellTopLeft(nodes: LayoutNode[], target: DropTarget): { x: number; y: number } | null {
+  const actorHeader = nodes.find((n) => n.id === `actor-header-${target.actorId}`)
+  const phaseHeader = nodes.find((n) => n.id === `phase-header-${target.phaseId}`)
+  if (!actorHeader || !phaseHeader) return null
+
+  return {
+    x: phaseHeader.position.x + Math.max(target.subColumnIndex, 0) * SUBCOLUMN_WIDTH + CARD_MARGIN,
+    y: actorHeader.position.y + CARD_MARGIN,
+  }
+}
