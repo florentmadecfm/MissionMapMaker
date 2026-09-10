@@ -60,8 +60,9 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Nom', key: 'nom', width: 26 },
       { header: 'Couleur', key: 'couleur', width: 12 },
       { header: 'Description', key: 'description', width: 50 },
+      { header: 'Sous-lignes', key: 'sousLignes', width: 12 },
     ],
-    project.actors.map((a) => ({ nom: a.name, couleur: a.color, description: a.description })),
+    project.actors.map((a) => ({ nom: a.name, couleur: a.color, description: a.description, sousLignes: a.subLanes })),
   )
 
   addSheet(
@@ -69,8 +70,11 @@ export async function exportProjectToExcel(project: Project) {
     [
       { header: 'Ordre', key: 'ordre', width: 8 },
       { header: 'Nom', key: 'nom', width: 40 },
+      { header: 'Sous-colonnes', key: 'sousColonnes', width: 14 },
     ],
-    [...project.phases].sort((a, b) => a.order - b.order).map((p) => ({ ordre: p.order, nom: p.name })),
+    [...project.phases]
+      .sort((a, b) => a.order - b.order)
+      .map((p) => ({ ordre: p.order, nom: p.name, sousColonnes: p.subColumns })),
   )
 
   addSheet(
@@ -82,6 +86,8 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Description', key: 'description', width: 50 },
       { header: 'Texte source', key: 'texteSource', width: 50 },
       { header: 'Spécifications liées', key: 'specs', width: 30 },
+      { header: 'Sous-colonne', key: 'sousColonne', width: 12 },
+      { header: 'Sous-ligne', key: 'sousLigne', width: 12 },
     ],
     project.activities.map((act) => ({
       nom: act.name,
@@ -93,6 +99,8 @@ export async function exportProjectToExcel(project: Project) {
         .map((specId) => project.specifications.find((s) => s.id === specId)?.code)
         .filter(Boolean)
         .join(', '),
+      sousColonne: act.column,
+      sousLigne: act.subRow,
     })),
   )
 
