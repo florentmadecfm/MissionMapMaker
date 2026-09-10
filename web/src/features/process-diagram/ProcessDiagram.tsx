@@ -1,5 +1,15 @@
-import { useMemo, useState } from 'react'
-import { ReactFlow, Background, Controls, MarkerType, useViewport, type Connection, type Edge, type Node } from '@xyflow/react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MarkerType,
+  useReactFlow,
+  useViewport,
+  type Connection,
+  type Edge,
+  type Node,
+} from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
@@ -55,6 +65,29 @@ function DropTargetPreview({ cellPosition }: { cellPosition: { x: number; y: num
       }}
     />
   )
+}
+
+// `fitView` (prop sur <ReactFlow>) ne recadre la vue qu'au montage : tant
+// que l'onglet reste ouvert (génération d'un complément en langage
+// naturel, boutons "+", CRUD dans l'onglet Édition...), le nombre de
+// nœuds change mais la vue ne recadre jamais dessus — une activité créée
+// hors du cadre actuel semble alors ne "rien changer" au diagramme, alors
+// que la donnée a bien été mise à jour (ADR-043). Recadrer explicitement
+// via useReactFlow().fitView() dès que le nombre de nœuds change corrige
+// ce cas sans perturber le zoom/pan pendant une interaction qui ne change
+// pas ce nombre (glisser-déposer, simple relecture...). Rendu comme
+// enfant de <ReactFlow>, seul endroit où useReactFlow() est utilisable
+// (même contrainte que useViewport() pour DropTargetPreview ci-dessus).
+function AutoFitOnChange({ nodeCount }: { nodeCount: number }) {
+  const { fitView } = useReactFlow()
+  const prevCount = useRef(nodeCount)
+  useEffect(() => {
+    if (nodeCount !== prevCount.current) {
+      fitView({ duration: 300, padding: 0.15 })
+      prevCount.current = nodeCount
+    }
+  }, [nodeCount, fitView])
+  return null
 }
 
 // Id DOM-safe pour un marqueur de départ partagé par toutes les flèches
@@ -431,6 +464,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           <Background gap={24} />
           <Controls showInteractive={false} />
           <DropTargetPreview cellPosition={dragTargetPosition} />
+          <AutoFitOnChange nodeCount={nodes.length} />
         </ReactFlow>
       </div>
       {selectedActivityId && (

@@ -1618,3 +1618,80 @@ projet vide via le même menu — relecture API après sauvegarde : tous
 les champs, y compris les nouveaux (subLanes/subColumns/column/subRow)
 et les relations (acteur/phase/hiérarchie de specs/spécification testée)
 sont fidèlement reconstruits, aucune erreur console.
+
+---
+
+## ADR-043 — Recadrage automatique du diagramme, écran Acteurs plus explicite sur les données non sauvegardées
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : deux bugs remontés par l'utilisateur.
+
+1. « Quand un diagramme est généré, et que j'ajoute un complément, le
+   diagramme ne se met pas à jour. » Diagnostic : `fitView` (prop sur
+   `<ReactFlow>`) ne recadre la vue qu'**au montage** du composant. Tant
+   que l'onglet Diagramme reste ouvert, une mise à jour (génération d'un
+   complément en langage naturel — ADR-040 —, boutons "+", CRUD dans
+   l'onglet Édition...) ajoute bien de nouveaux nœuds à `project`/
+   `computeLayout`, mais rien ne redemande à React Flow de recadrer la
+   vue dessus : un complément qui atterrit hors du cadre actuellement
+   affiché (typique d'une génération qui ajoute des phases/activités
+   après celles déjà visibles) semble alors "ne rien changer" au
+   diagramme, alors que la donnée a bien été mise à jour — reproduit et
+   confirmé avec Playwright (le contenu ajouté existait bien dans le
+   DOM, seulement hors du viewport courant).
+2. « J'ai créé un second diagramme avec des acteurs communs du premier,
+   dans l'onglet Acteurs je ne vois pas la seconde mission. » Diagnostic :
+   `GET /api/actors` (ADR-041) lit uniquement les projets **sauvegardés
+   sur disque** — cohérent avec le reste de l'app (rien ne persiste sans
+   clic explicite sur "Sauvegarder", ADR-002), mais l'écran Acteurs
+   n'expliquait nulle part cette contrainte ni n'offrait de recharger à
+   la demande. Un mécanisme bout en bout (créer 2 missions, ajouter un
+   acteur commun, **sauvegarder les deux**) a été testé intégralement via
+   l'interface (pas l'API) et fonctionne correctement — confirmant qu'il
+   ne s'agit pas d'un bug de regroupement/indexation mais d'un manque de
+   clarté sur le fait qu'une mission non sauvegardée n'apparaît pas
+   encore.
+
+**Décision** :
+- **Diagramme** : nouveau composant `AutoFitOnChange` (`ProcessDiagram.tsx`),
+  rendu comme enfant de `<ReactFlow>` (seul endroit où `useReactFlow()`
+  est utilisable, même contrainte que `useViewport()` pour
+  `DropTargetPreview`) : compare le nombre de nœuds à chaque rendu via un
+  `useRef`, et appelle `fitView({ duration: 300, padding: 0.15 })` dès
+  qu'il change (croissance ou réduction), sans redéclencher sur un rendu
+  qui ne change pas ce nombre (glisser-déposer, simple relecture...).
+- **Écran Acteurs** : nouveau bandeau explicite ("Seules les données déjà
+  sauvegardées de chaque mission apparaissent ici...") avec un bouton
+  "↻ Actualiser" pour relancer `GET /api/actors` à la demande, sans
+  quitter l'écran — `loadActors()` est extrait en fonction nommée
+  réutilisée à la fois par le chargement initial et ce bouton, et
+  préserve la sélection courante si l'acteur existe toujours après
+  rechargement.
+
+**Justification** : recadrer sur tout changement du nombre de nœuds
+(plutôt que, par exemple, uniquement après une génération LLM) couvre
+uniformément tous les chemins qui ajoutent/retirent du contenu au
+diagramme — cohérent avec le principe déjà appliqué à `DropTargetPreview`
+de garder cette logique de viewport dans un composant dédié plutôt que
+de complexifier `ProcessDiagram` avec un état de recadrage manuel. Pour
+l'écran Acteurs, plutôt que de changer le comportement (aucune
+alternative fiable pour lire du contenu non sauvegardé, qui n'existe que
+dans le state React de l'onglet où il a été édité), rendre la contrainte
+visible et actionnable (bandeau + bouton) est la correction proportionnée
+au bug réel : pas un défaut de regroupement, mais un manque de
+communication sur un principe déjà en vigueur partout ailleurs dans l'app.
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...`, `tsc -b`, `npm run lint`, `npm run build`. Playwright : (1) sur
+un projet ouvert dont le diagramme est déjà cadré, l'ajout d'une phase
+distante (bouton "+ Phase", qui fait croître le nombre de nœuds comme le
+ferait un complément généré) change bien la transformation du viewport
+React Flow et rend visible le nouveau contenu, auparavant hors cadre ;
+(2) l'écran Acteurs affiche bien le bandeau explicatif et son bouton
+Actualiser, sans erreur console ; le mécanisme de regroupement par
+mission lui-même, testé de bout en bout via l'interface (créer 2
+missions, acteur commun, sauvegarder les deux), confirme 2 missions
+listées pour l'acteur partagé — le bug 2 n'était donc pas un défaut du
+regroupement mais un angle mort de communication, désormais comblé.
