@@ -1200,3 +1200,51 @@ geste n'a pas pu être confirmé de façon concluante dans l'environnement
 de test automatisé (Playwright/CDP) — sans lien avec ce correctif,
 reproductible aussi avec le glisser-déposer existant avant ces
 changements.
+
+---
+
+## ADR-037 — Ajouter une phase/une activité directement depuis le diagramme
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir ajouter
+manuellement une colonne de phase et une activité pour un acteur donné
+directement depuis le diagramme, sans repasser par l'onglet Édition
+(dans la continuité d'ADR-036, qui a déjà rapproché la création de lien
+du diagramme).
+
+**Décision** : `computeLayout` ajoute une colonne supplémentaire après
+la dernière phase — deux nouveaux types de nœuds React Flow, non
+déplaçables/non sélectionnables comme les autres en-têtes :
+- `addPhase` (`AddPhaseNode`) : une cellule en tête de colonne, même
+  hauteur que les en-têtes de phase. Au clic, ajoute une phase (même
+  logique que le bouton "+ Ajouter une phase" de l'onglet Édition).
+- `addActivity` (`AddActivityNode`) : une cellule par ligne d'acteur,
+  portant `data.actorId`. Au clic, ajoute une activité pour **cet**
+  acteur précisément (contrairement au bouton équivalent de l'onglet
+  Édition, qui prend toujours le premier acteur du projet par défaut —
+  ici l'acteur est déjà connu du contexte du clic), dans la première
+  phase du projet par défaut, à repositionner ensuite par
+  glisser-déposer si besoin.
+
+Le clic est géré de façon centralisée dans `onNodeClick`
+(`ProcessDiagram.tsx`, déjà utilisé pour ouvrir la consultation d'une
+activité — ADR-036), pas par un gestionnaire propre à chaque composant
+de nœud : cohérent avec le reste des nœuds d'en-tête, qui restent de
+purs composants de rendu.
+
+**Justification** : réutilise le patron déjà en place (une colonne
+supplémentaire dans la grille, comme les sous-colonnes d'une phase
+chargée) plutôt que d'introduire un mécanisme d'ajout séparé (bouton
+flottant, menu contextuel...). Pré-remplir l'acteur pour "+ Activité"
+depuis le contexte du clic (plutôt que le premier acteur du projet,
+comme le fait l'onglet Édition) évite une étape de correction
+immédiate qui serait sinon systématique dès que l'acteur voulu n'est
+pas le premier de la liste.
+
+**Conséquences** : vérifié bout en bout avec Playwright — le clic sur
+"+ Phase" ajoute bien une phase (confirmée via relecture API après
+Sauvegarder), le clic sur "+ Activité" de la ligne d'un acteur donné
+crée bien une activité assignée à **cet** acteur (pas le premier acteur
+du projet), affichée immédiatement dans sa ligne sur le diagramme.

@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT } from './layout'
+import { ADD_LANE_WIDTH, HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT } from './layout'
 
 // Points d'ancrage répartis verticalement (25/50/75% par défaut pour 3
 // poignées) plutôt qu'un unique point central, pour que plusieurs liens
@@ -24,6 +24,33 @@ export function ActorHeaderNode({ data }: NodeProps) {
       style={{ width: LANE_LABEL_WIDTH - 8, height: (data.height as number) - 8, borderLeftColor: data.color as string }}
     >
       {data.label as string}
+    </div>
+  )
+}
+
+// Bouton "+" en tête de la colonne ajoutée après la dernière phase :
+// ajoute une phase. Même hauteur que les en-têtes de phase pour
+// s'aligner visuellement avec eux. Le clic est géré au niveau de
+// ReactFlow (onNodeClick, voir ProcessDiagram.tsx), pas ici : ce
+// composant reste un simple rendu, cohérent avec les autres nœuds
+// d'en-tête (aucun n'a son propre gestionnaire de clic).
+export function AddPhaseNode({ data }: NodeProps) {
+  return (
+    <div className="lane-node add-lane-button" style={{ width: ADD_LANE_WIDTH - 8, height: (data.height as number) - 8 }}>
+      + Phase
+    </div>
+  )
+}
+
+// Bouton "+" du reste de cette même colonne, une cellule par acteur :
+// ajoute une activité pour cet acteur (voir data.actorId, posé par
+// computeLayout). Positionné après la dernière phase plutôt que dans
+// une phase existante — l'utilisateur choisit la phase ensuite via
+// glisser-déposer ou l'onglet Édition, comme pour toute activité.
+export function AddActivityNode({ data }: NodeProps) {
+  return (
+    <div className="lane-node add-lane-button" style={{ width: ADD_LANE_WIDTH - 8, height: (data.height as number) - 8 }}>
+      + Activité
     </div>
   )
 }
@@ -76,4 +103,6 @@ export const nodeTypes = {
   phaseHeader: PhaseHeaderNode,
   actorHeader: ActorHeaderNode,
   activity: ActivityNode,
+  addPhase: AddPhaseNode,
+  addActivity: AddActivityNode,
 }

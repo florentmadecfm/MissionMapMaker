@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ReactFlow, Background, Controls, MarkerType, useViewport, type Connection, type Edge, type Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
-import type { Interaction, Project } from '../../api/types'
+import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { ActivityDetailModal } from './ActivityDetailModal'
 import {
   CARD_HEIGHT_ESTIMATE,
@@ -211,12 +211,50 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     onChange({ ...project, interactions: [...project.interactions, interaction] })
   }
 
+  // Bouton "+ Phase" de la colonne ajoutée après la dernière phase : même
+  // logique que "+ Ajouter une phase" de l'onglet Édition (nom par
+  // défaut à préciser ensuite), pour construire le diagramme sans y
+  // aller et venir.
+  function addPhase() {
+    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1 }
+    onChange({ ...project, phases: [...project.phases, phase] })
+  }
+
+  // Bouton "+ Activité" de la cellule d'un acteur, même colonne : ajoute
+  // une activité pour CET acteur (contrairement à l'onglet Édition, qui
+  // prend toujours le premier acteur/la première phase par défaut —
+  // ici l'acteur est déjà connu du contexte). Placée dans la première
+  // phase par défaut ; à repositionner ensuite par glisser-déposer ou
+  // depuis l'onglet Édition, comme toute activité.
+  function addActivityForActor(actorId: string) {
+    if (project.phases.length === 0) return
+    const activity: Activity = {
+      id: newId('a'),
+      name: 'Nouvelle activité',
+      actorId,
+      phaseId: project.phases[0].id,
+      order: project.activities.length + 1,
+      column: 0,
+      description: '',
+      userStories: [],
+      traceLinks: [],
+    }
+    onChange({ ...project, activities: [...project.activities, activity] })
+  }
+
   // Clic sur une carte d'activité : ouvre la consultation de ses
-  // spécifications et tests V&V liés (voir ActivityDetailModal). Ignoré
-  // pour les en-têtes de ligne/colonne, qui n'ont pas ce détail.
+  // spécifications et tests V&V liés (voir ActivityDetailModal). Clic sur
+  // un bouton "+" de la colonne d'ajout : crée la phase/l'activité
+  // correspondante. Ignoré pour les autres en-têtes (phase/acteur), qui
+  // n'ont pas d'action au clic.
   function handleNodeClick(_event: unknown, node: Node) {
-    if (node.type !== 'activity') return
-    setSelectedActivityId(node.id)
+    if (node.type === 'activity') {
+      setSelectedActivityId(node.id)
+    } else if (node.type === 'addPhase') {
+      addPhase()
+    } else if (node.type === 'addActivity') {
+      addActivityForActor(node.data.actorId as string)
+    }
   }
 
   if (project.actors.length === 0 || project.phases.length === 0) {
@@ -228,7 +266,8 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       <header className="editor-header">
         <p className="nl-hint" style={{ flex: 1 }}>
           Glissez-déposez une carte pour la réassigner, glissez depuis le bord d'une carte vers une autre pour créer
-          une interaction, ou cliquez sur une carte pour consulter ses spécifications et tests liés.
+          une interaction, cliquez sur une carte pour consulter ses spécifications et tests liés, ou utilisez les
+          boutons "+" après la dernière phase pour ajouter une phase ou une activité.
         </p>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Sauvegarde…' : 'Sauvegarder'}

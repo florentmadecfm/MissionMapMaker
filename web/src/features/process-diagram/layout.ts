@@ -20,6 +20,11 @@ export const CARD_MARGIN = 16
 export const CARD_WIDTH = 210
 export const CARD_HEIGHT_ESTIMATE = 60
 
+// Largeur du bouton "+" ajouté après la dernière phase, pour ajouter une
+// phase (en tête) ou une activité pour l'acteur de la ligne (le reste de
+// la colonne) directement depuis le diagramme — voir ProcessDiagram.tsx.
+export const ADD_LANE_WIDTH = 130
+
 // Nombre de points d'ancrage répartis verticalement de chaque côté d'une
 // carte d'activité (voir nodes.tsx) : plusieurs interactions partant/
 // arrivant sur le même acteur/activité sont ainsi réparties sur des
@@ -29,7 +34,7 @@ export const HANDLES_PER_SIDE = 3
 
 export interface LayoutNode {
   id: string
-  type: 'phaseHeader' | 'actorHeader' | 'activity'
+  type: 'phaseHeader' | 'actorHeader' | 'activity' | 'addPhase' | 'addActivity'
   position: { x: number; y: number }
   data: Record<string, unknown>
   // Seules les cartes d'activité sont déplaçables (glisser-déposer pour
@@ -163,6 +168,29 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       type: 'actorHeader',
       position: { x: 0, y: PHASE_HEADER_HEIGHT + i * ROW_HEIGHT },
       data: { label: actor.name, color: actor.color, height: ROW_HEIGHT },
+      draggable: false,
+      selectable: false,
+    })
+  })
+
+  // Colonne "+" après la dernière phase : ajouter une phase (en tête,
+  // même hauteur que les en-têtes de phase) ou une activité pour l'acteur
+  // de la ligne (le reste de la colonne, une cellule par acteur) sans
+  // repasser par l'onglet Édition.
+  nodes.push({
+    id: 'add-phase-button',
+    type: 'addPhase',
+    position: { x: phaseCumulative, y: 0 },
+    data: { height: PHASE_HEADER_HEIGHT },
+    draggable: false,
+    selectable: false,
+  })
+  actors.forEach((actor, i) => {
+    nodes.push({
+      id: `add-activity-${actor.id}`,
+      type: 'addActivity',
+      position: { x: phaseCumulative, y: PHASE_HEADER_HEIGHT + i * ROW_HEIGHT },
+      data: { actorId: actor.id, height: ROW_HEIGHT },
       draggable: false,
       selectable: false,
     })
