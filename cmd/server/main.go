@@ -47,7 +47,14 @@ func setupGenerateService() *service.GenerateService {
 	}
 
 	gs := buildGenerateService(cfg)
-	gs.SetPrompts(cfg.Prompts.Process, cfg.Prompts.Specification, cfg.Prompts.TestScenario)
+	gs.SetPrompts(service.PromptOverrides{
+		Process:              cfg.Prompts.Process,
+		ProcessContext:       cfg.Prompts.ProcessContext,
+		Specification:        cfg.Prompts.Specification,
+		SpecificationContext: cfg.Prompts.SpecificationContext,
+		TestScenario:         cfg.Prompts.TestScenario,
+		TestScenarioContext:  cfg.Prompts.TestScenarioContext,
+	})
 	return gs
 }
 

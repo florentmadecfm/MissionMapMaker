@@ -164,16 +164,32 @@ export interface Settings {
   baseUrl: string
 }
 
-// Les 3 "skills" de génération assistée, identifiés par la capacité qu'ils
-// pilotent (voir SkillsPanel.tsx / internal/llm/prompts.go côté serveur).
+// Deux couches distinctes par capacité de génération assistée, concaténées
+// côté serveur au moment de l'appel (voir GenerateService.Prompts,
+// internal/service/generate_service.go) :
+// - process/specification/testScenario : le "skill" (onglet Skills), la
+//   méthode détaillée (étapes, règles de rédaction, format de sortie).
+// - *Context : le "prompt" (onglet Prompts), le contexte et l'objectif de
+//   la tâche — voir PromptEditor.tsx (partagé par SkillsPanel.tsx et
+//   PromptsPanel.tsx) / internal/llm/prompts.go côté serveur.
 export interface PromptSettings {
   process: string
+  processContext: string
   specification: string
+  specificationContext: string
   testScenario: string
+  testScenarioContext: string
 }
 
 export interface PromptSettingsResponse extends PromptSettings {
-  customized: { process: boolean; specification: boolean; testScenario: boolean }
+  customized: {
+    process: boolean
+    processContext: boolean
+    specification: boolean
+    specificationContext: boolean
+    testScenario: boolean
+    testScenarioContext: boolean
+  }
   defaults: PromptSettings
 }
 

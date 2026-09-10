@@ -91,3 +91,61 @@ func TestGenerateTestScenarios_AcceptsCountAtLimit(t *testing.T) {
 		t.Fatalf("expected no error at the limit, got %v", err)
 	}
 }
+
+// recordingGenerator capture le systemPrompt effectivement transmis par
+// GenerateService, pour vérifier la composition prompt (contexte) + skill
+// (méthode) sans dépendre d'un fournisseur réel.
+type recordingGenerator struct {
+	lastProcessPrompt       string
+	lastSpecificationPrompt string
+	lastTestScenarioPrompt  string
+}
+
+func (g *recordingGenerator) GenerateProcess(ctx context.Context, text, systemPrompt string) (*llm.DraftProcess, error) {
+	g.lastProcessPrompt = systemPrompt
+	return &llm.DraftProcess{}, nil
+}
+
+func (g *recordingGenerator) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef, systemPrompt string) ([]llm.DraftSpecification, error) {
+	g.lastSpecificationPrompt = systemPrompt
+	return nil, nil
+}
+
+func (g *recordingGenerator) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef, systemPrompt string) ([]llm.DraftTestScenario, error) {
+	g.lastTestScenarioPrompt = systemPrompt
+	return nil, nil
+}
+
+// Le système envoyé au LLM doit être le prompt (contexte/objectif) suivi du
+// skill (méthode), même quand seul l'un des deux est personnalisé — les deux
+// couches restent indépendantes l'une de l'autre (ADR-045).
+func TestGenerate_ComposesContextAndSkillPrompts(t *testing.T) {
+	gen := &recordingGenerator{}
+	s := NewGenerateService(gen, llm.ProviderMistral, "m", "")
+
+	s.SetPrompts(PromptOverrides{ProcessContext: "Contexte personnalisé."})
+	if _, err := s.Generate(context.Background(), "un texte valide"); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	want := "Contexte personnalisé.\n\n" + llm.DefaultProcessPrompt
+	if gen.lastProcessPrompt != want {
+		t.Fatalf("expected composed prompt %q, got %q", want, gen.lastProcessPrompt)
+	}
+
+	s.SetPrompts(PromptOverrides{Specification: "Skill personnalisé."})
+	if _, err := s.GenerateSpecifications(context.Background(), []llm.ActivityRef{{Name: "a", ActorName: "b"}}); err != nil {
+		t.Fatalf("GenerateSpecifications: %v", err)
+	}
+	want = llm.DefaultSpecContextPrompt + "\n\nSkill personnalisé."
+	if gen.lastSpecificationPrompt != want {
+		t.Fatalf("expected composed prompt %q, got %q", want, gen.lastSpecificationPrompt)
+	}
+
+	if _, err := s.GenerateTestScenarios(context.Background(), []llm.SpecRef{{Code: "SSS-001"}}); err != nil {
+		t.Fatalf("GenerateTestScenarios: %v", err)
+	}
+	want = llm.DefaultTestScenarioContextPrompt + "\n\n" + llm.DefaultTestScenarioPrompt
+	if gen.lastTestScenarioPrompt != want {
+		t.Fatalf("expected default composed prompt %q, got %q", want, gen.lastTestScenarioPrompt)
+	}
+}

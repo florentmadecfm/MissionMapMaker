@@ -1762,3 +1762,72 @@ rendue comme arête par `computeLayout` — confirmé absente avant ce
 correctif (le même scénario, testé contre le code d'avant ADR-044,
 n'ajoutait aucune interaction) ; le cas déjà correct (acteurs renseignés)
 reste inchangé, sans régression.
+
+---
+
+## ADR-045 — Onglet Prompts distinct des Skills : contexte/objectif vs méthode
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — ajouter, dans l'écran
+Paramètres, un onglet "Prompts" distinct de l'onglet "Skills" (ADR-042),
+avec les mêmes sous-onglets, pour pouvoir les améliorer. Clarifié à la
+question de savoir en quoi cela diffère des Skills déjà éditables :
+« il faut différencier les skills qui permettent de bien faire une
+Mission Map, une SSS et de rédiger un test de VV, [de] les prompts qui
+vont donner le contexte, l'objectif et les skills associée à la tâche au
+LLM » — soit une distinction explicite entre deux couches par tâche : le
+**skill** (COMMENT l'accomplir — déjà exposé) et le **prompt** (le
+CONTEXTE et l'OBJECTIF — jusqu'ici fondus dans le skill, non séparables).
+
+**Décision** : chacune des 3 capacités de génération (mission map, SSS,
+scénarios de test) gagne un second texte éditable, le "prompt" — au lieu
+de retailler les 3 skills existants (risque de régresser un texte déjà
+éprouvé), un nouveau texte de contexte/objectif par défaut est ajouté en
+préfixe, concaténé au skill existant (inchangé) au moment de l'appel :
+`systemPrompt = prompt + "\n\n" + skill`.
+- `internal/llm/prompts.go` : 3 nouvelles constantes
+  `Default*ContextPrompt` (contexte + objectif, 2 courts paragraphes).
+- `internal/config/config.go` (`PromptSettings`) : 3 nouveaux champs
+  `*Context`, mêmes règles qu'avant (vide = défaut).
+- `internal/service/generate_service.go` : `SetPrompts` prend désormais
+  un struct `PromptOverrides` (6 champs, plus lisible que 6 paramètres
+  positionnels) ; `Prompts()` renvoie un `PromptSet` (6 `PromptInfo`) ;
+  nouvelle fonction `effectiveSystemPrompt(context, skill PromptInfo)
+  string` utilisée par les 3 méthodes `Generate*`.
+- `GET`/`PUT /api/settings/prompts` (inchangés dans leur forme) portent
+  désormais les 6 champs (valeur effective, `customized`, `defaults`).
+- Frontend : `SkillsPanel.tsx` (3 skills) et le nouveau `PromptsPanel.tsx`
+  (3 prompts) sont deux fines déclarations de champs/libellés au-dessus
+  d'un même composant partagé `PromptEditor.tsx` (extrait de l'ancien
+  `SkillsPanel.tsx`, paramétré par la liste de champs à éditer) — même
+  mécanique CRUD (sous-onglets, Enregistrer/Réinitialiser, pastille
+  "Personnalisé") pour les deux, sans dupliquer la logique d'état/appel
+  API. Nouvel onglet "Prompts" dans `SettingsModal.tsx`, entre Connexion
+  et Skills.
+
+**Justification** : préfixer plutôt que retailler les skills existants
+élimine tout risque de régression sur des textes déjà testés et
+éprouvés (ADR-040, ADR-044) — le skill reste identique bit à bit tant
+que l'utilisateur ne le modifie pas lui-même. Extraire `PromptEditor.tsx`
+plutôt que dupliquer `SkillsPanel.tsx` évite deux copies de ~150 lignes
+de logique d'état à maintenir en parallèle pour un futur correctif (ex.
+un prochain ADR sur la fusion ou la validation) — seules les données
+(quels champs, quels libellés) diffèrent entre les deux panels, pas le
+comportement. Un `PromptOverrides`/`PromptSet` struct plutôt que des
+paramètres positionnels évite l'erreur classique d'inversion d'ordre
+quand une fonction grossit au-delà de 2-3 paramètres de même type.
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...` (nouveau test `TestGenerate_ComposesContextAndSkillPrompts` :
+vérifie via un generator factice que le texte envoyé au LLM est bien
+`contexte + "\n\n" + skill`, y compris quand un seul des deux est
+personnalisé), `tsc -b`, `npm run lint`, `npm run build`. Playwright :
+3 onglets Paramètres confirmés (Connexion au modèle, Prompts, Skills) ;
+onglet Prompts affiche ses 3 sous-onglets et le bon texte par défaut ;
+personnaliser un prompt (Mission map) puis Enregistrer bascule sa
+pastille sur "Personnalisé" SANS toucher au skill correspondant (vérifié
+`customized.process` reste `false` alors que `customized.processContext`
+passe à `true`) — confirmant l'indépendance des deux couches ; Réinitialiser
+revient au texte par défaut.

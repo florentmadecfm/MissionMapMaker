@@ -25,17 +25,30 @@ type ProviderSettings struct {
 	BaseURL string `json:"baseUrl,omitempty"`
 }
 
-// PromptSettings surcharge le texte des consignes ("skills") données au LLM
-// pour chacune des 3 capacités de génération assistée — un champ vide
-// signifie "texte par défaut" (voir internal/llm/prompts.go). Personnaliser
-// un skill est un réglage avancé exposé depuis l'écran Paramètres : aucune
-// validation ne garantit qu'un texte modifié reste cohérent (peut dégrader
-// la qualité des propositions, voire casser la détection des modifications
-// lors d'une mise à jour incrémentale du diagramme).
+// PromptSettings surcharge, pour chacune des 3 capacités de génération
+// assistée, deux couches distinctes envoyées au LLM (concaténées au moment
+// de l'appel, voir GenerateService) — un champ vide signifie "texte par
+// défaut" (voir internal/llm/prompts.go) :
+//   - Process/Specification/TestScenario : le "skill", la méthode détaillée
+//     (étapes, règles de rédaction, format de sortie).
+//   - *Context : le "prompt", le contexte et l'objectif de la tâche —
+//     distinct du skill pour pouvoir l'ajuster indépendamment (ex. préciser
+//     à qui s'adresse la réponse, ou l'objectif métier visé) sans toucher à
+//     la méthode.
+//
+// Personnaliser l'un ou l'autre est un réglage avancé exposé depuis l'écran
+// Paramètres : aucune validation ne garantit qu'un texte modifié reste
+// cohérent (peut dégrader la qualité des propositions, voire casser la
+// détection des modifications lors d'une mise à jour incrémentale du
+// diagramme).
 type PromptSettings struct {
 	Process       string `json:"process,omitempty"`
 	Specification string `json:"specification,omitempty"`
 	TestScenario  string `json:"testScenario,omitempty"`
+
+	ProcessContext       string `json:"processContext,omitempty"`
+	SpecificationContext string `json:"specificationContext,omitempty"`
+	TestScenarioContext  string `json:"testScenarioContext,omitempty"`
 }
 
 type Config struct {

@@ -80,16 +80,22 @@ regroupés — voir ADR-041.
 
 ### Paramètres
 
-L'écran **⚙ Paramètres** (bas de la barre latérale) a deux onglets :
+L'écran **⚙ Paramètres** (bas de la barre latérale) a trois onglets :
 
 - **Connexion au modèle** — voir "Clé API" ci-dessous.
-- **Skills** — le texte des 3 consignes ("skills") qui pilotent la
-  génération assistée (construire la mission map, construire les SSS,
-  construire les scénarios de test) est visible et éditable : chaque
-  skill peut être personnalisé (**Enregistrer**) ou remis au texte par
-  défaut (**Réinitialiser**). Réglage avancé — un texte incohérent peut
-  dégrader la qualité des propositions, voire empêcher la mise à jour
-  incrémentale du diagramme de fonctionner correctement (voir ADR-040).
+- **Prompts** — pour chacune des 3 capacités de génération assistée
+  (mission map, SSS, scénarios de test), le texte de CONTEXTE et
+  D'OBJECTIF de la tâche (à qui elle s'adresse, ce qu'on cherche à
+  produire) est visible et éditable, indépendamment du skill correspondant
+  (les deux sont concaténés au moment de l'appel au LLM).
+- **Skills** — le texte de MÉTHODE (étapes, règles de rédaction, format
+  de sortie) des 3 mêmes capacités est visible et éditable.
+
+Dans les deux onglets, chaque texte peut être personnalisé
+(**Enregistrer**) ou remis au texte par défaut (**Réinitialiser**).
+Réglage avancé — un texte incohérent peut dégrader la qualité des
+propositions, voire empêcher la mise à jour incrémentale du diagramme de
+fonctionner correctement (voir ADR-040, ADR-045).
 
 ### Clé API (génération assistée par LLM)
 

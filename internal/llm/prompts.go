@@ -4,15 +4,33 @@ package llm
 // Anthropic, function calling Mistral) diffère, mais l'instruction donnée
 // au modèle est la même quel que soit le fournisseur actif.
 //
-// Ces 3 constantes sont les textes PAR DÉFAUT des "skills" de génération
-// assistée, exposés en lecture/écriture depuis l'écran Paramètres (onglet
-// Skills) — un utilisateur peut les adapter, la version personnalisée étant
-// alors stockée dans la configuration locale (voir internal/config) et
-// utilisée à la place par GenerateService, ce texte par défaut restant la
-// valeur de secours ("Réinitialiser"). Exportées (Default*) pour être
-// référencées à la fois par internal/service (résolution personnalisé/texte
-// par défaut) et par internal/api (renvoyées telles quelles à l'écran
-// Paramètres pour affichage/réinitialisation).
+// Ces constantes sont les textes PAR DÉFAUT de deux couches distinctes,
+// exposées en lecture/écriture depuis l'écran Paramètres (onglets Prompts
+// et Skills) et concaténées au moment de l'appel (voir GenerateService,
+// effectiveSystemPrompt) :
+//   - Default*ContextPrompt ("Prompts") : le contexte et l'objectif de la
+//     tâche — à qui elle s'adresse, ce qu'on cherche à produire et pourquoi.
+//   - Default*Prompt ("Skills") : la méthode détaillée — étapes, règles de
+//     rédaction, format de sortie attendu.
+// Un utilisateur peut adapter l'une ou l'autre indépendamment ; la version
+// personnalisée est alors stockée dans la configuration locale (voir
+// internal/config) et utilisée à la place par GenerateService, ce texte par
+// défaut restant la valeur de secours ("Réinitialiser"). Exportées pour
+// être référencées à la fois par internal/service (résolution
+// personnalisé/texte par défaut) et par internal/api (renvoyées telles
+// quelles à l'écran Paramètres pour affichage/réinitialisation).
+
+const DefaultProcessContextPrompt = `Contexte : l'utilisateur est un UX designer / Product Owner qui décrit un processus métier en langage naturel, souvent en une ou deux phrases simples (ex. "le fonctionnement d'un restaurant") — parfois pour créer un diagramme de processus (story map : acteurs, phases, activités, interactions) depuis rien, parfois pour compléter ou modifier un diagramme déjà existant.
+
+Objectif : transformer cette description, même brève, en une structure déjà solide et exploitable telle quelle dans l'outil — pas une liste éparse à moitié vide que l'utilisateur devrait tout reconstruire à la main. Applique strictement la méthode ci-dessous.`
+
+const DefaultSpecContextPrompt = `Contexte : les activités d'un diagramme de processus déjà construit doivent être tracées vers un référentiel de spécifications inspiré INCOSE, pour documenter le besoin métier qui justifie chacune.
+
+Objectif : proposer, pour chaque activité fournie, les besoins partie prenante (SSS) qui la justifient côté système/outil. Applique strictement la méthode de rédaction ci-dessous.`
+
+const DefaultTestScenarioContextPrompt = `Contexte : des spécifications (besoins partie prenante / exigences) ont déjà été rédigées pour un diagramme de processus, et doivent être vérifiées par des scénarios de test de Vérification & Validation (V&V), au format habituellement utilisé dans un outil comme Polarion.
+
+Objectif : proposer, pour chaque spécification fournie, un ou plusieurs scénarios de test qui permettent de vérifier objectivement qu'elle est satisfaite. Applique strictement le format ci-dessous.`
 
 const DefaultProcessPrompt = `Tu assistes un UX designer / Product Owner qui décrit un processus métier en langage naturel, souvent en une ou deux phrases simples (ex. "le fonctionnement d'un restaurant"). Ta mission : produire à partir de ce texte, même bref, un story map de processus déjà solide et exploitable tel quel — pas une liste éparse à moitié vide que l'utilisateur devra tout reconstruire à la main.
 

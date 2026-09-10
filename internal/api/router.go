@@ -288,52 +288,58 @@ func (h *Handler) deleteSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// getPrompts renvoie l'état actuel des 3 skills de génération assistée
-// (texte effectif — personnalisé ou par défaut — et indicateur
-// "personnalisé"), ainsi que le texte par défaut de chacun pour permettre
-// une réinitialisation côté interface.
+// getPrompts renvoie l'état actuel des 3 skills et des 3 prompts (contexte)
+// de génération assistée (texte effectif — personnalisé ou par défaut — et
+// indicateur "personnalisé"), ainsi que le texte par défaut de chacun pour
+// permettre une réinitialisation côté interface.
 func (h *Handler) getPrompts(w http.ResponseWriter, r *http.Request) {
 	writePromptsResponse(w, h.generate)
 }
 
-// savePrompts enregistre le texte des 3 skills (les 3 sont toujours
-// envoyés ensemble par l'écran Paramètres, qui les charge tous au montage) :
-// effet immédiat (GenerateService en mémoire) et persistance locale. Un
-// champ vide (ou dont le contenu, une fois retiré des espaces, est vide)
-// revient au texte par défaut correspondant — c'est ainsi que l'écran
-// Paramètres implémente "Réinitialiser".
+// savePrompts enregistre le texte des 3 skills et des 3 prompts (les 6 sont
+// toujours envoyés ensemble par l'écran Paramètres, qui les charge tous au
+// montage) : effet immédiat (GenerateService en mémoire) et persistance
+// locale. Un champ vide (ou dont le contenu, une fois retiré des espaces,
+// est vide, ou égal au texte par défaut) revient au texte par défaut
+// correspondant — c'est ainsi que l'écran Paramètres implémente
+// "Réinitialiser".
 func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Process       string `json:"process"`
-		Specification string `json:"specification"`
-		TestScenario  string `json:"testScenario"`
+		Process              string `json:"process"`
+		ProcessContext       string `json:"processContext"`
+		Specification        string `json:"specification"`
+		SpecificationContext string `json:"specificationContext"`
+		TestScenario         string `json:"testScenario"`
+		TestScenarioContext  string `json:"testScenarioContext"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	process := strings.TrimSpace(body.Process)
-	specification := strings.TrimSpace(body.Specification)
-	testScenario := strings.TrimSpace(body.TestScenario)
-	if process == llm.DefaultProcessPrompt {
-		process = ""
+	overrides := service.PromptOverrides{
+		Process:              normalizePromptOverride(body.Process, llm.DefaultProcessPrompt),
+		ProcessContext:       normalizePromptOverride(body.ProcessContext, llm.DefaultProcessContextPrompt),
+		Specification:        normalizePromptOverride(body.Specification, llm.DefaultSpecPrompt),
+		SpecificationContext: normalizePromptOverride(body.SpecificationContext, llm.DefaultSpecContextPrompt),
+		TestScenario:         normalizePromptOverride(body.TestScenario, llm.DefaultTestScenarioPrompt),
+		TestScenarioContext:  normalizePromptOverride(body.TestScenarioContext, llm.DefaultTestScenarioContextPrompt),
 	}
-	if specification == llm.DefaultSpecPrompt {
-		specification = ""
-	}
-	if testScenario == llm.DefaultTestScenarioPrompt {
-		testScenario = ""
-	}
-
-	h.generate.SetPrompts(process, specification, testScenario)
+	h.generate.SetPrompts(overrides)
 
 	cfg, err := config.Load()
 	if err != nil {
 		log.Printf("lecture de la configuration existante : %v", err)
 		cfg = &config.Config{}
 	}
-	cfg.Prompts = config.PromptSettings{Process: process, Specification: specification, TestScenario: testScenario}
+	cfg.Prompts = config.PromptSettings{
+		Process:              overrides.Process,
+		ProcessContext:       overrides.ProcessContext,
+		Specification:        overrides.Specification,
+		SpecificationContext: overrides.SpecificationContext,
+		TestScenario:         overrides.TestScenario,
+		TestScenarioContext:  overrides.TestScenarioContext,
+	}
 	if err := config.Save(cfg); err != nil {
 		log.Printf("sauvegarde de la configuration : %v", err)
 		// les prompts restent actifs en mémoire pour cette session même si l'écriture échoue
@@ -342,21 +348,38 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 	writePromptsResponse(w, h.generate)
 }
 
+func normalizePromptOverride(value, def string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == def {
+		return ""
+	}
+	return trimmed
+}
+
 func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateService) {
-	process, specification, testScenario := generate.Prompts()
+	p := generate.Prompts()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"process":       process.Value,
-		"specification": specification.Value,
-		"testScenario":  testScenario.Value,
+		"process":              p.Process.Value,
+		"processContext":       p.ProcessContext.Value,
+		"specification":        p.Specification.Value,
+		"specificationContext": p.SpecificationContext.Value,
+		"testScenario":         p.TestScenario.Value,
+		"testScenarioContext":  p.TestScenarioContext.Value,
 		"customized": map[string]bool{
-			"process":       process.Customized,
-			"specification": specification.Customized,
-			"testScenario":  testScenario.Customized,
+			"process":              p.Process.Customized,
+			"processContext":       p.ProcessContext.Customized,
+			"specification":        p.Specification.Customized,
+			"specificationContext": p.SpecificationContext.Customized,
+			"testScenario":         p.TestScenario.Customized,
+			"testScenarioContext":  p.TestScenarioContext.Customized,
 		},
 		"defaults": map[string]string{
-			"process":       llm.DefaultProcessPrompt,
-			"specification": llm.DefaultSpecPrompt,
-			"testScenario":  llm.DefaultTestScenarioPrompt,
+			"process":              llm.DefaultProcessPrompt,
+			"processContext":       llm.DefaultProcessContextPrompt,
+			"specification":        llm.DefaultSpecPrompt,
+			"specificationContext": llm.DefaultSpecContextPrompt,
+			"testScenario":         llm.DefaultTestScenarioPrompt,
+			"testScenarioContext":  llm.DefaultTestScenarioContextPrompt,
 		},
 	})
 }
