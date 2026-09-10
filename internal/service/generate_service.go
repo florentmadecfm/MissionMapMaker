@@ -39,19 +39,26 @@ type GenerateService struct {
 	model     string
 	baseURL   string
 
-	// promptProcess/promptSpec/promptTestScenario surchargent le texte des
-	// 3 skills par défaut (llm.Default*Prompt) — vide = texte par défaut.
+	// promptProcess/promptSpec/promptTestScenario ("Skills" — la méthode
+	// détaillée) et promptProcessContext/promptSpecContext/
+	// promptTestScenarioContext ("Prompts" — contexte et objectif de la
+	// tâche) surchargent chacun un texte par défaut (llm.Default*Prompt /
+	// llm.Default*ContextPrompt) — vide = texte par défaut. Le système
+	// final envoyé au LLM concatène les deux (voir effectiveSystemPrompt).
 	// Ni le modèle ni le fournisseur ne les mettent à zéro : contrairement
 	// à la clé API, ce ne sont pas des secrets propres à une session, ils
 	// restent actifs quel que soit le fournisseur choisi.
-	promptProcess      string
-	promptSpec         string
-	promptTestScenario string
+	promptProcess             string
+	promptProcessContext      string
+	promptSpec                string
+	promptSpecContext         string
+	promptTestScenario        string
+	promptTestScenarioContext string
 }
 
-// PromptInfo est le texte système actuellement utilisé pour un skill donné
-// (le texte personnalisé s'il existe, sinon le texte par défaut) et son
-// état "personnalisé" — pour affichage dans l'écran Paramètres.
+// PromptInfo est le texte actuellement utilisé pour un skill ou un prompt
+// donné (le texte personnalisé s'il existe, sinon le texte par défaut) et
+// son état "personnalisé" — pour affichage dans l'écran Paramètres.
 type PromptInfo struct {
 	Value      string
 	Customized bool
@@ -62,6 +69,36 @@ func resolvePrompt(override, def string) PromptInfo {
 		return PromptInfo{Value: override, Customized: true}
 	}
 	return PromptInfo{Value: def, Customized: false}
+}
+
+// PromptOverrides regroupe les 6 champs personnalisables passés à
+// SetPrompts — un struct plutôt que 6 paramètres positionnels, pour rester
+// lisible côté appelants (router.go, main.go).
+type PromptOverrides struct {
+	Process              string
+	ProcessContext       string
+	Specification        string
+	SpecificationContext string
+	TestScenario         string
+	TestScenarioContext  string
+}
+
+// PromptSet est l'état actuel (texte effectif + personnalisé ou non) des 3
+// paires prompt/skill, pour l'écran Paramètres.
+type PromptSet struct {
+	Process              PromptInfo
+	ProcessContext       PromptInfo
+	Specification        PromptInfo
+	SpecificationContext PromptInfo
+	TestScenario         PromptInfo
+	TestScenarioContext  PromptInfo
+}
+
+// effectiveSystemPrompt concatène la couche "Prompt" (contexte + objectif)
+// et la couche "Skill" (méthode) d'une même tâche : c'est ce texte, et non
+// le skill seul, qui est envoyé comme message système au LLM.
+func effectiveSystemPrompt(context, skill PromptInfo) string {
+	return context.Value + "\n\n" + skill.Value
 }
 
 func NewGenerateService(generator llm.Generator, provider llm.Provider, model, baseURL string) *GenerateService {
@@ -128,26 +165,35 @@ func (s *GenerateService) currentGenerator() llm.Generator {
 	return s.generator
 }
 
-// SetPrompts surcharge le texte des 3 skills de génération assistée — une
-// valeur vide revient au texte par défaut correspondant. N'affecte pas le
-// générateur actif (contrairement à SetProvider) : les prompts sont
-// indépendants du fournisseur/de la clé configurés.
-func (s *GenerateService) SetPrompts(process, specification, testScenario string) {
+// SetPrompts surcharge le texte des 3 skills et des 3 prompts (contexte)
+// de génération assistée — une valeur vide revient au texte par défaut
+// correspondant. N'affecte pas le générateur actif (contrairement à
+// SetProvider) : prompts et skills sont indépendants du fournisseur/de la
+// clé configurés.
+func (s *GenerateService) SetPrompts(overrides PromptOverrides) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.promptProcess = process
-	s.promptSpec = specification
-	s.promptTestScenario = testScenario
+	s.promptProcess = overrides.Process
+	s.promptProcessContext = overrides.ProcessContext
+	s.promptSpec = overrides.Specification
+	s.promptSpecContext = overrides.SpecificationContext
+	s.promptTestScenario = overrides.TestScenario
+	s.promptTestScenarioContext = overrides.TestScenarioContext
 }
 
 // Prompts renvoie l'état actuel (texte effectif + personnalisé ou non) des
-// 3 skills, pour l'écran Paramètres.
-func (s *GenerateService) Prompts() (process, specification, testScenario PromptInfo) {
+// 3 skills et des 3 prompts, pour l'écran Paramètres.
+func (s *GenerateService) Prompts() PromptSet {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return resolvePrompt(s.promptProcess, llm.DefaultProcessPrompt),
-		resolvePrompt(s.promptSpec, llm.DefaultSpecPrompt),
-		resolvePrompt(s.promptTestScenario, llm.DefaultTestScenarioPrompt)
+	return PromptSet{
+		Process:              resolvePrompt(s.promptProcess, llm.DefaultProcessPrompt),
+		ProcessContext:       resolvePrompt(s.promptProcessContext, llm.DefaultProcessContextPrompt),
+		Specification:        resolvePrompt(s.promptSpec, llm.DefaultSpecPrompt),
+		SpecificationContext: resolvePrompt(s.promptSpecContext, llm.DefaultSpecContextPrompt),
+		TestScenario:         resolvePrompt(s.promptTestScenario, llm.DefaultTestScenarioPrompt),
+		TestScenarioContext:  resolvePrompt(s.promptTestScenarioContext, llm.DefaultTestScenarioContextPrompt),
+	}
 }
 
 func (s *GenerateService) Generate(ctx context.Context, text string) (*llm.DraftProcess, error) {
@@ -161,10 +207,10 @@ func (s *GenerateService) Generate(ctx context.Context, text string) (*llm.Draft
 	if generator == nil {
 		return nil, llm.ErrNotConfigured
 	}
-	process, _, _ := s.Prompts()
+	prompts := s.Prompts()
 	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
 	defer cancel()
-	return generator.GenerateProcess(ctx, text, process.Value)
+	return generator.GenerateProcess(ctx, text, effectiveSystemPrompt(prompts.ProcessContext, prompts.Process))
 }
 
 func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef) ([]llm.DraftSpecification, error) {
@@ -178,10 +224,10 @@ func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities
 	if generator == nil {
 		return nil, llm.ErrNotConfigured
 	}
-	_, specification, _ := s.Prompts()
+	prompts := s.Prompts()
 	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
 	defer cancel()
-	return generator.GenerateSpecifications(ctx, activities, specification.Value)
+	return generator.GenerateSpecifications(ctx, activities, effectiveSystemPrompt(prompts.SpecificationContext, prompts.Specification))
 }
 
 func (s *GenerateService) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef) ([]llm.DraftTestScenario, error) {
@@ -195,10 +241,10 @@ func (s *GenerateService) GenerateTestScenarios(ctx context.Context, specificati
 	if generator == nil {
 		return nil, llm.ErrNotConfigured
 	}
-	_, _, testScenario := s.Prompts()
+	prompts := s.Prompts()
 	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
 	defer cancel()
-	return generator.GenerateTestScenarios(ctx, specifications, testScenario.Value)
+	return generator.GenerateTestScenarios(ctx, specifications, effectiveSystemPrompt(prompts.TestScenarioContext, prompts.TestScenario))
 }
 
 var errEmptyText = &validationError{"le texte à analyser est vide"}

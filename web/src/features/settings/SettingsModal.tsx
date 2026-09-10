@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Provider, Settings } from '../../api/types'
+import { PromptsPanel } from './PromptsPanel'
 import { SkillsPanel } from './SkillsPanel'
 
 interface Props {
@@ -32,7 +33,7 @@ const PROVIDER_DEFAULT_BASE_URL: Record<Provider, string> = {
   mistral: 'https://api.mistral.ai/v1/chat/completions',
 }
 
-type SettingsTab = 'connexion' | 'skills'
+type SettingsTab = 'connexion' | 'prompts' | 'skills'
 
 export function SettingsModal({ onClose, onSettingsChange }: Props) {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('connexion')
@@ -124,6 +125,13 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
           </button>
           <button
             type="button"
+            className={settingsTab === 'prompts' ? 'active' : ''}
+            onClick={() => setSettingsTab('prompts')}
+          >
+            Prompts
+          </button>
+          <button
+            type="button"
             className={settingsTab === 'skills' ? 'active' : ''}
             onClick={() => setSettingsTab('skills')}
           >
@@ -131,7 +139,9 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
           </button>
         </nav>
 
-        {settingsTab === 'skills' ? (
+        {settingsTab === 'prompts' ? (
+          <PromptsPanel />
+        ) : settingsTab === 'skills' ? (
           <SkillsPanel />
         ) : loading ? (
           <p>Chargement…</p>

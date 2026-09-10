@@ -23,16 +23,24 @@ export function ActorMissionsScreen({ onOpenProject }: Props) {
   const [missionProjects, setMissionProjects] = useState<Record<string, Project>>({})
   const [loadingMissions, setLoadingMissions] = useState(false)
   const [missionsError, setMissionsError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
+  function loadActors() {
+    setRefreshing(true)
     api
       .listActors()
       .then((list) => {
         setActors(list)
-        setSelectedName(list[0]?.name ?? null)
+        setError(null)
+        // Garde l'acteur déjà sélectionné s'il existe toujours ; sinon
+        // (première charge, ou acteur disparu) retombe sur le premier.
+        setSelectedName((current) => (current && list.some((a) => a.name === current) ? current : list[0]?.name ?? null))
       })
       .catch((e) => setError(String(e)))
-  }, [])
+      .finally(() => setRefreshing(false))
+  }
+
+  useEffect(loadActors, [])
 
   const selected = actors?.find((a) => a.name === selectedName) ?? null
 
@@ -55,58 +63,70 @@ export function ActorMissionsScreen({ onOpenProject }: Props) {
   if (!actors) {
     return <p>Chargement…</p>
   }
-  if (actors.length === 0) {
-    return <p className="placeholder">Aucun acteur pour l'instant — ajoutez-en dans une mission.</p>
-  }
 
   return (
-    <div className="actor-missions-screen">
-      <aside className="actor-missions-list">
-        {actors.map((a) => (
-          <button
-            key={a.name}
-            type="button"
-            className={`actor-missions-list-item${a.name === selectedName ? ' active' : ''}`}
-            onClick={() => setSelectedName(a.name)}
-          >
-            <span className="actor-missions-list-name">{a.name}</span>
-            <span className="actor-missions-list-count">
-              {a.projects.length} mission{a.projects.length > 1 ? 's' : ''}
-            </span>
-          </button>
-        ))}
-      </aside>
+    <div className="actor-missions-screen-wrapper">
+      <p className="nl-hint actor-missions-hint">
+        Seules les données déjà <strong>sauvegardées</strong> de chaque mission apparaissent ici — une mission tout
+        juste créée ou modifiée mais pas encore sauvegardée n'y figure pas encore.{' '}
+        <button type="button" onClick={loadActors} disabled={refreshing}>
+          {refreshing ? 'Actualisation…' : '↻ Actualiser'}
+        </button>
+      </p>
+      {actors.length === 0 ? (
+        <p className="placeholder">
+          Aucun acteur pour l'instant — ajoutez-en dans une mission, sauvegardez, puis actualisez.
+        </p>
+      ) : (
+        <div className="actor-missions-screen">
+          <aside className="actor-missions-list">
+            {actors.map((a) => (
+              <button
+                key={a.name}
+                type="button"
+                className={`actor-missions-list-item${a.name === selectedName ? ' active' : ''}`}
+                onClick={() => setSelectedName(a.name)}
+              >
+                <span className="actor-missions-list-name">{a.name}</span>
+                <span className="actor-missions-list-count">
+                  {a.projects.length} mission{a.projects.length > 1 ? 's' : ''}
+                </span>
+              </button>
+            ))}
+          </aside>
 
-      <div className="actor-missions-detail">
-        {selected && (
-          <>
-            <h2 className="panel-title">{selected.name}</h2>
-            {loadingMissions && <p>Chargement des missions…</p>}
-            {missionsError && <p className="error">{missionsError}</p>}
-            {!loadingMissions &&
-              selected.projects.map((ref) => {
-                const project = missionProjects[ref.projectId]
-                return (
-                  <section key={ref.projectId} className="actor-mission-section">
-                    <header className="actor-mission-header">
-                      <span className="actor-dot" style={{ background: ref.color }} />
-                      <h3>{ref.projectName}</h3>
-                      <button type="button" onClick={() => onOpenProject(ref.projectId, ref.actorId)}>
-                        Ouvrir cette mission
-                      </button>
-                    </header>
-                    {ref.description && <p className="actor-mission-description">{ref.description}</p>}
-                    {project ? (
-                      <ActorDetail project={project} actorId={ref.actorId} />
-                    ) : (
-                      <p className="placeholder">— indisponible —</p>
-                    )}
-                  </section>
-                )
-              })}
-          </>
-        )}
-      </div>
+          <div className="actor-missions-detail">
+            {selected && (
+              <>
+                <h2 className="panel-title">{selected.name}</h2>
+                {loadingMissions && <p>Chargement des missions…</p>}
+                {missionsError && <p className="error">{missionsError}</p>}
+                {!loadingMissions &&
+                  selected.projects.map((ref) => {
+                    const project = missionProjects[ref.projectId]
+                    return (
+                      <section key={ref.projectId} className="actor-mission-section">
+                        <header className="actor-mission-header">
+                          <span className="actor-dot" style={{ background: ref.color }} />
+                          <h3>{ref.projectName}</h3>
+                          <button type="button" onClick={() => onOpenProject(ref.projectId, ref.actorId)}>
+                            Ouvrir cette mission
+                          </button>
+                        </header>
+                        {ref.description && <p className="actor-mission-description">{ref.description}</p>}
+                        {project ? (
+                          <ActorDetail project={project} actorId={ref.actorId} />
+                        ) : (
+                          <p className="placeholder">— indisponible —</p>
+                        )}
+                      </section>
+                    )
+                  })}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -864,10 +864,23 @@
 
 /* ---------- Écran transverse "Acteurs" (toutes missions) ---------- */
 
+.actor-missions-screen-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  height: calc(100vh - 160px);
+}
+
+.actor-missions-hint button {
+  font-size: 0.78rem;
+  padding: 0.15rem 0.5rem;
+}
+
 .actor-missions-screen {
   display: flex;
   gap: 1.5rem;
-  height: calc(100vh - 160px);
+  flex: 1;
+  min-height: 0;
 }
 
 .actor-missions-list {

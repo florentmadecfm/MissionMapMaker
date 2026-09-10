@@ -1618,3 +1618,216 @@ projet vide via le même menu — relecture API après sauvegarde : tous
 les champs, y compris les nouveaux (subLanes/subColumns/column/subRow)
 et les relations (acteur/phase/hiérarchie de specs/spécification testée)
 sont fidèlement reconstruits, aucune erreur console.
+
+---
+
+## ADR-043 — Recadrage automatique du diagramme, écran Acteurs plus explicite sur les données non sauvegardées
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : deux bugs remontés par l'utilisateur.
+
+1. « Quand un diagramme est généré, et que j'ajoute un complément, le
+   diagramme ne se met pas à jour. » Diagnostic : `fitView` (prop sur
+   `<ReactFlow>`) ne recadre la vue qu'**au montage** du composant. Tant
+   que l'onglet Diagramme reste ouvert, une mise à jour (génération d'un
+   complément en langage naturel — ADR-040 —, boutons "+", CRUD dans
+   l'onglet Édition...) ajoute bien de nouveaux nœuds à `project`/
+   `computeLayout`, mais rien ne redemande à React Flow de recadrer la
+   vue dessus : un complément qui atterrit hors du cadre actuellement
+   affiché (typique d'une génération qui ajoute des phases/activités
+   après celles déjà visibles) semble alors "ne rien changer" au
+   diagramme, alors que la donnée a bien été mise à jour — reproduit et
+   confirmé avec Playwright (le contenu ajouté existait bien dans le
+   DOM, seulement hors du viewport courant).
+2. « J'ai créé un second diagramme avec des acteurs communs du premier,
+   dans l'onglet Acteurs je ne vois pas la seconde mission. » Diagnostic :
+   `GET /api/actors` (ADR-041) lit uniquement les projets **sauvegardés
+   sur disque** — cohérent avec le reste de l'app (rien ne persiste sans
+   clic explicite sur "Sauvegarder", ADR-002), mais l'écran Acteurs
+   n'expliquait nulle part cette contrainte ni n'offrait de recharger à
+   la demande. Un mécanisme bout en bout (créer 2 missions, ajouter un
+   acteur commun, **sauvegarder les deux**) a été testé intégralement via
+   l'interface (pas l'API) et fonctionne correctement — confirmant qu'il
+   ne s'agit pas d'un bug de regroupement/indexation mais d'un manque de
+   clarté sur le fait qu'une mission non sauvegardée n'apparaît pas
+   encore.
+
+**Décision** :
+- **Diagramme** : nouveau composant `AutoFitOnChange` (`ProcessDiagram.tsx`),
+  rendu comme enfant de `<ReactFlow>` (seul endroit où `useReactFlow()`
+  est utilisable, même contrainte que `useViewport()` pour
+  `DropTargetPreview`) : compare le nombre de nœuds à chaque rendu via un
+  `useRef`, et appelle `fitView({ duration: 300, padding: 0.15 })` dès
+  qu'il change (croissance ou réduction), sans redéclencher sur un rendu
+  qui ne change pas ce nombre (glisser-déposer, simple relecture...).
+- **Écran Acteurs** : nouveau bandeau explicite ("Seules les données déjà
+  sauvegardées de chaque mission apparaissent ici...") avec un bouton
+  "↻ Actualiser" pour relancer `GET /api/actors` à la demande, sans
+  quitter l'écran — `loadActors()` est extrait en fonction nommée
+  réutilisée à la fois par le chargement initial et ce bouton, et
+  préserve la sélection courante si l'acteur existe toujours après
+  rechargement.
+
+**Justification** : recadrer sur tout changement du nombre de nœuds
+(plutôt que, par exemple, uniquement après une génération LLM) couvre
+uniformément tous les chemins qui ajoutent/retirent du contenu au
+diagramme — cohérent avec le principe déjà appliqué à `DropTargetPreview`
+de garder cette logique de viewport dans un composant dédié plutôt que
+de complexifier `ProcessDiagram` avec un état de recadrage manuel. Pour
+l'écran Acteurs, plutôt que de changer le comportement (aucune
+alternative fiable pour lire du contenu non sauvegardé, qui n'existe que
+dans le state React de l'onglet où il a été édité), rendre la contrainte
+visible et actionnable (bandeau + bouton) est la correction proportionnée
+au bug réel : pas un défaut de regroupement, mais un manque de
+communication sur un principe déjà en vigueur partout ailleurs dans l'app.
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...`, `tsc -b`, `npm run lint`, `npm run build`. Playwright : (1) sur
+un projet ouvert dont le diagramme est déjà cadré, l'ajout d'une phase
+distante (bouton "+ Phase", qui fait croître le nombre de nœuds comme le
+ferait un complément généré) change bien la transformation du viewport
+React Flow et rend visible le nouveau contenu, auparavant hors cadre ;
+(2) l'écran Acteurs affiche bien le bandeau explicatif et son bouton
+Actualiser, sans erreur console ; le mécanisme de regroupement par
+mission lui-même, testé de bout en bout via l'interface (créer 2
+missions, acteur commun, sauvegarder les deux), confirme 2 missions
+listées pour l'acteur partagé — le bug 2 n'était donc pas un défaut du
+regroupement mais un angle mort de communication, désormais comblé.
+
+---
+
+## ADR-044 — Interaction ajoutée en langage naturel sur une activité existante, silencieusement ignorée si l'acteur n'est pas répété
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : suite à ADR-043, l'utilisateur a précisé que le bug
+persistant n'était pas le recadrage du diagramme (confirmé sans lien) mais
+: « j'ai demandé ajouter des intéracteurs [interactions] sur une activité
+existante et cela ne fonctionnait pas ». Diagnostic, en relisant
+`mergeDraft.ts` : `findActivityId(name, actorName)` — utilisée uniquement
+pour résoudre les extrémités d'une interaction — exige une correspondance
+stricte sur l'acteur (`a.actorId === actorId`, avec `actorId =
+findActorId(actorName)`). Si le LLM, invité à décrire UNIQUEMENT une
+nouvelle interaction entre deux activités déjà nommées sans ambiguïté
+dans le contexte fourni, juge `fromActorName`/`toActorName` redondants et
+les laisse vides (malgré le schéma qui les déclare requis — une
+contrainte de schéma n'est pas forcément respectée à la lettre par tous
+les fournisseurs/modèles), `findActorId('')` renvoie `undefined` : comme
+aucune activité n'a un `actorId` littéralement `undefined`, la résolution
+échoue et **toute l'interaction est abandonnée silencieusement**, sans
+message d'erreur ni ébauche vide visible. `activityChanges`, ajouté en
+ADR-040, avait déjà ce même risque mais avec une tolérance explicite
+(`!targetActorId || a.actorId === targetActorId`) — `findActivityId`,
+plus ancienne, ne l'avait jamais reçue.
+
+**Décision** :
+- `mergeDraft.ts` (`findActivityId`) reçoit la même tolérance que
+  `activityChanges` : `(!actorId || a.actorId === actorId)` — un nom
+  d'acteur vide ou non reconnu ne fait plus échouer la résolution, elle
+  retombe sur une correspondance par nom d'activité seul (au risque
+  assumé, déjà accepté ailleurs dans ce fichier, de résoudre au mauvais
+  homonyme dans le cas rare de deux activités de même nom portées par des
+  acteurs différents ET d'un acteur incorrect/absent en même temps).
+- `DefaultProcessPrompt` (`internal/llm/prompts.go`) gagne un paragraphe
+  dédié : ajouter une interaction entre deux activités déjà existantes
+  est explicitement présenté comme un cas de mise à jour courant et
+  valide à lui seul (un appel à l'outil qui ne renseigne QUE
+  "interactions" est correct), et le caractère **toujours requis** de
+  `fromActorName`/`toActorName`, y compris quand l'acteur semble évident,
+  est rappelé explicitement — pour réduire la fréquence du cas que le
+  correctif frontend tolère maintenant, plutôt que de compter uniquement
+  sur cette tolérance.
+
+**Justification** : tolérer un acteur manquant plutôt qu'exiger une
+correspondance stricte suit exactement le précédent déjà posé par
+`activityChanges` dans ce même fichier — plutôt que deux règles de
+résolution différentes pour deux mécanismes très proches (l'une stricte,
+l'autre tolérante), les deux se comportent maintenant de la même façon
+face à une donnée incomplète issue du LLM. Le double correctif
+(tolérance côté fusion + rappel explicite côté prompt) traite à la fois
+le symptôme immédiat (ne plus perdre silencieusement l'interaction) et
+la cause probable (réduire les cas où le modèle omet le champ), plutôt
+que de se reposer sur un seul des deux.
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...`, `tsc -b`, `npm run lint`, `npm run build`. Logique de fusion
+testée directement sur le code source réel (bundle esbuild isolé,
+comme pour ADR-040) : une ébauche d'interaction entre deux activités
+déjà existantes, avec `fromActorName`/`toActorName` volontairement vides
+(reproduisant le cas signalé), est maintenant bien ajoutée au projet ET
+rendue comme arête par `computeLayout` — confirmé absente avant ce
+correctif (le même scénario, testé contre le code d'avant ADR-044,
+n'ajoutait aucune interaction) ; le cas déjà correct (acteurs renseignés)
+reste inchangé, sans régression.
+
+---
+
+## ADR-045 — Onglet Prompts distinct des Skills : contexte/objectif vs méthode
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — ajouter, dans l'écran
+Paramètres, un onglet "Prompts" distinct de l'onglet "Skills" (ADR-042),
+avec les mêmes sous-onglets, pour pouvoir les améliorer. Clarifié à la
+question de savoir en quoi cela diffère des Skills déjà éditables :
+« il faut différencier les skills qui permettent de bien faire une
+Mission Map, une SSS et de rédiger un test de VV, [de] les prompts qui
+vont donner le contexte, l'objectif et les skills associée à la tâche au
+LLM » — soit une distinction explicite entre deux couches par tâche : le
+**skill** (COMMENT l'accomplir — déjà exposé) et le **prompt** (le
+CONTEXTE et l'OBJECTIF — jusqu'ici fondus dans le skill, non séparables).
+
+**Décision** : chacune des 3 capacités de génération (mission map, SSS,
+scénarios de test) gagne un second texte éditable, le "prompt" — au lieu
+de retailler les 3 skills existants (risque de régresser un texte déjà
+éprouvé), un nouveau texte de contexte/objectif par défaut est ajouté en
+préfixe, concaténé au skill existant (inchangé) au moment de l'appel :
+`systemPrompt = prompt + "\n\n" + skill`.
+- `internal/llm/prompts.go` : 3 nouvelles constantes
+  `Default*ContextPrompt` (contexte + objectif, 2 courts paragraphes).
+- `internal/config/config.go` (`PromptSettings`) : 3 nouveaux champs
+  `*Context`, mêmes règles qu'avant (vide = défaut).
+- `internal/service/generate_service.go` : `SetPrompts` prend désormais
+  un struct `PromptOverrides` (6 champs, plus lisible que 6 paramètres
+  positionnels) ; `Prompts()` renvoie un `PromptSet` (6 `PromptInfo`) ;
+  nouvelle fonction `effectiveSystemPrompt(context, skill PromptInfo)
+  string` utilisée par les 3 méthodes `Generate*`.
+- `GET`/`PUT /api/settings/prompts` (inchangés dans leur forme) portent
+  désormais les 6 champs (valeur effective, `customized`, `defaults`).
+- Frontend : `SkillsPanel.tsx` (3 skills) et le nouveau `PromptsPanel.tsx`
+  (3 prompts) sont deux fines déclarations de champs/libellés au-dessus
+  d'un même composant partagé `PromptEditor.tsx` (extrait de l'ancien
+  `SkillsPanel.tsx`, paramétré par la liste de champs à éditer) — même
+  mécanique CRUD (sous-onglets, Enregistrer/Réinitialiser, pastille
+  "Personnalisé") pour les deux, sans dupliquer la logique d'état/appel
+  API. Nouvel onglet "Prompts" dans `SettingsModal.tsx`, entre Connexion
+  et Skills.
+
+**Justification** : préfixer plutôt que retailler les skills existants
+élimine tout risque de régression sur des textes déjà testés et
+éprouvés (ADR-040, ADR-044) — le skill reste identique bit à bit tant
+que l'utilisateur ne le modifie pas lui-même. Extraire `PromptEditor.tsx`
+plutôt que dupliquer `SkillsPanel.tsx` évite deux copies de ~150 lignes
+de logique d'état à maintenir en parallèle pour un futur correctif (ex.
+un prochain ADR sur la fusion ou la validation) — seules les données
+(quels champs, quels libellés) diffèrent entre les deux panels, pas le
+comportement. Un `PromptOverrides`/`PromptSet` struct plutôt que des
+paramètres positionnels évite l'erreur classique d'inversion d'ordre
+quand une fonction grossit au-delà de 2-3 paramètres de même type.
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...` (nouveau test `TestGenerate_ComposesContextAndSkillPrompts` :
+vérifie via un generator factice que le texte envoyé au LLM est bien
+`contexte + "\n\n" + skill`, y compris quand un seul des deux est
+personnalisé), `tsc -b`, `npm run lint`, `npm run build`. Playwright :
+3 onglets Paramètres confirmés (Connexion au modèle, Prompts, Skills) ;
+onglet Prompts affiche ses 3 sous-onglets et le bon texte par défaut ;
+personnaliser un prompt (Mission map) puis Enregistrer bascule sa
+pastille sur "Personnalisé" SANS toucher au skill correspondant (vérifié
+`customized.process` reste `false` alors que `customized.processContext`
+passe à `true`) — confirmant l'indépendance des deux couches ; Réinitialiser
+revient au texte par défaut.
