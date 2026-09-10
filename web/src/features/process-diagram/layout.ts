@@ -7,7 +7,12 @@ export const PHASE_HEADER_HEIGHT = 60
 // computeLayout) voit sa largeur totale — et son en-tête — s'étendre d'un
 // multiple de SUBCOLUMN_WIDTH plutôt que de rester figée à une seule.
 export const SUBCOLUMN_WIDTH = 300
-export const ROW_HEIGHT = 160
+// Hauteur d'une sous-ligne : l'espace réservé à une activité au sein de la
+// ligne d'un acteur. Un acteur qui a plusieurs sous-lignes (Actor.subLanes,
+// ou une activité positionnée sur Activity.subRow > 0) voit sa ligne totale
+// — et son en-tête — s'étendre d'un multiple de SUBLANE_HEIGHT, symétrique
+// de SUBCOLUMN_WIDTH mais sur l'axe vertical.
+export const SUBLANE_HEIGHT = 160
 export const CARD_MARGIN = 16
 // Largeur fixe (voir .activity-card en CSS) et hauteur approximative d'une
 // carte d'activité, utilisées uniquement pour estimer un point central par
@@ -68,21 +73,22 @@ export interface LayoutEdge {
 }
 
 // Résout, pour chaque activité, sa sous-colonne finale au sein de sa
-// cellule (acteur, phase). Les activités dont `column` a été fixé
-// explicitement (> 0, via glisser-déposer — voir ProcessDiagram.tsx)
-// gardent cette valeur telle quelle, même seules dans leur cellule :
-// c'est ce qui permet à une activité isolée de s'aligner sur une
-// sous-colonne qu'un autre acteur a fait apparaître dans la phase. Les
-// autres (`column` à 0, la valeur par défaut y compris pour les projets
-// enregistrés avant l'introduction de ce champ) sont réparties
-// automatiquement, dans leur ordre relatif (`order`), sur les
-// sous-colonnes encore libres de leur acteur dans cette phase — en
-// sautant celles déjà prises par une activité du même acteur positionnée
-// explicitement.
+// cellule (acteur, phase, sous-ligne — voir `subRow`, chaque sous-ligne
+// empile ses propres sous-colonnes indépendamment des autres). Les
+// activités dont `column` a été fixé explicitement (> 0, via
+// glisser-déposer — voir ProcessDiagram.tsx) gardent cette valeur telle
+// quelle, même seules dans leur cellule : c'est ce qui permet à une
+// activité isolée de s'aligner sur une sous-colonne qu'un autre acteur a
+// fait apparaître dans la phase. Les autres (`column` à 0, la valeur par
+// défaut y compris pour les projets enregistrés avant l'introduction de
+// ce champ) sont réparties automatiquement, dans leur ordre relatif
+// (`order`), sur les sous-colonnes encore libres de leur acteur dans
+// cette phase — en sautant celles déjà prises par une activité du même
+// acteur positionnée explicitement.
 function resolveColumns(activities: Project['activities']): Map<string, number> {
   const byCell = new Map<string, Project['activities']>()
   for (const activity of activities) {
-    const key = `${activity.actorId}:${activity.phaseId}`
+    const key = `${activity.actorId}:${activity.phaseId}:${Math.max(activity.subRow, 0)}`
     const list = byCell.get(key) ?? []
     list.push(activity)
     byCell.set(key, list)
@@ -112,16 +118,19 @@ function resolveColumns(activities: Project['activities']): Map<string, number> 
 
 // Calcule une disposition en swimlanes : les phases forment les colonnes
 // (triées par `order`), les acteurs forment les lignes, et chaque activité
-// est placée dans la cellule (acteur, phase) correspondante.
+// est placée dans la cellule (acteur, phase, sous-ligne) correspondante.
 //
-// Quand un acteur a plusieurs activités concurrentes dans la même phase,
-// celles-ci sont réparties sur des sous-colonnes côte à côte plutôt
-// qu'empilées verticalement dans une case étroite : la phase s'élargit
-// d'autant (jusqu'à la plus grande sous-colonne utilisée par n'importe
-// quel acteur dans cette phase — voir resolveColumns), et toutes les
-// lignes d'acteur restent à hauteur fixe — ce qui garde le diagramme
-// lisible même quand une phase concentre beaucoup d'activités réparties
-// entre plusieurs acteurs.
+// Quand un acteur a plusieurs activités concurrentes dans la même phase
+// (même sous-ligne), celles-ci sont réparties sur des sous-colonnes côte
+// à côte plutôt qu'empilées verticalement dans une case étroite : la
+// phase s'élargit d'autant (jusqu'à la plus grande sous-colonne utilisée
+// par n'importe quel acteur dans cette phase — voir resolveColumns).
+// Symétriquement, un acteur peut avoir plusieurs sous-lignes (réservées
+// manuellement via Actor.subLanes, ou occupées via Activity.subRow) : sa
+// ligne s'étend alors d'autant, sur toute la largeur du diagramme (toutes
+// les phases partagent les mêmes sous-lignes d'un acteur donné) — ce qui
+// garde le diagramme lisible même quand une phase ou un acteur concentre
+// beaucoup d'activités.
 export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
   const phases = [...project.phases].sort((a, b) => a.order - b.order)
   const actors = project.actors
@@ -133,12 +142,28 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
   const activityColumn = resolveColumns(project.activities)
 
   // Largeur de chaque phase : un multiple de SUBCOLUMN_WIDTH couvrant la
-  // plus grande sous-colonne effectivement utilisée dans cette phase,
-  // toutes activités confondues (explicites ou auto-assignées).
+  // plus grande sous-colonne effectivement utilisée dans cette phase
+  // (explicite ou auto-assignée), au moins `phase.subColumns` (réservation
+  // manuelle, voir ProcessDiagram.tsx), au moins 1.
   const subColumnsByPhase = new Map<string, number>()
+  for (const phase of phases) {
+    subColumnsByPhase.set(phase.id, Math.max(1, phase.subColumns))
+  }
   for (const activity of project.activities) {
     const col = activityColumn.get(activity.id) ?? 0
     subColumnsByPhase.set(activity.phaseId, Math.max(subColumnsByPhase.get(activity.phaseId) ?? 1, col + 1))
+  }
+
+  // Hauteur de la ligne de chaque acteur : un multiple de SUBLANE_HEIGHT
+  // couvrant la plus grande sous-ligne effectivement utilisée par cet
+  // acteur (toutes phases confondues), au moins `actor.subLanes`
+  // (réservation manuelle), au moins 1.
+  const subLanesByActor = new Map<string, number>()
+  for (const actor of actors) {
+    subLanesByActor.set(actor.id, Math.max(1, actor.subLanes))
+  }
+  for (const activity of project.activities) {
+    subLanesByActor.set(activity.actorId, Math.max(subLanesByActor.get(activity.actorId) ?? 1, activity.subRow + 1))
   }
 
   const phaseWidths = phases.map((p) => (subColumnsByPhase.get(p.id) ?? 1) * SUBCOLUMN_WIDTH)
@@ -149,6 +174,14 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     phaseCumulative += w
   }
 
+  const actorHeights = actors.map((a) => (subLanesByActor.get(a.id) ?? 1) * SUBLANE_HEIGHT)
+  const actorOffsets: number[] = []
+  let actorCumulative = PHASE_HEADER_HEIGHT
+  for (const h of actorHeights) {
+    actorOffsets.push(actorCumulative)
+    actorCumulative += h
+  }
+
   const nodes: LayoutNode[] = []
 
   phases.forEach((phase, i) => {
@@ -156,7 +189,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       id: `phase-header-${phase.id}`,
       type: 'phaseHeader',
       position: { x: phaseOffsets[i], y: 0 },
-      data: { label: phase.name, width: phaseWidths[i] },
+      data: { label: phase.name, width: phaseWidths[i], phaseId: phase.id },
       draggable: false,
       selectable: false,
     })
@@ -166,8 +199,8 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     nodes.push({
       id: `actor-header-${actor.id}`,
       type: 'actorHeader',
-      position: { x: 0, y: PHASE_HEADER_HEIGHT + i * ROW_HEIGHT },
-      data: { label: actor.name, color: actor.color, height: ROW_HEIGHT },
+      position: { x: 0, y: actorOffsets[i] },
+      data: { label: actor.name, color: actor.color, height: actorHeights[i], actorId: actor.id },
       draggable: false,
       selectable: false,
     })
@@ -189,8 +222,8 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     nodes.push({
       id: `add-activity-${actor.id}`,
       type: 'addActivity',
-      position: { x: phaseCumulative, y: PHASE_HEADER_HEIGHT + i * ROW_HEIGHT },
-      data: { actorId: actor.id, height: ROW_HEIGHT },
+      position: { x: phaseCumulative, y: actorOffsets[i] },
+      data: { actorId: actor.id, height: actorHeights[i] },
       draggable: false,
       selectable: false,
     })
@@ -207,11 +240,12 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     if (pi === undefined || ai === undefined) continue // acteur/phase supprimé entre-temps
 
     const stackPos = activityColumn.get(activity.id) ?? 0
+    const subRow = Math.max(activity.subRow, 0)
 
     const actor = actors[ai]
     const position = {
       x: phaseOffsets[pi] + stackPos * SUBCOLUMN_WIDTH + CARD_MARGIN,
-      y: PHASE_HEADER_HEIGHT + ai * ROW_HEIGHT + CARD_MARGIN,
+      y: actorOffsets[ai] + subRow * SUBLANE_HEIGHT + CARD_MARGIN,
     }
     activityCenters.set(activity.id, { x: position.x + CARD_WIDTH / 2, y: position.y + CARD_HEIGHT_ESTIMATE / 2 })
     nodes.push({
@@ -256,17 +290,22 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       // phase (donc alignées verticalement) ? Route alors par le haut/bas
       // plutôt que les côtés, pour ne pas partager le couloir horizontal
       // utilisé par les interactions entre sous-colonnes ou phases
-      // différentes.
+      // différentes. La comparaison se fait sur la position Y réelle des
+      // cartes (activityCenters), pas sur l'index de ligne de l'acteur
+      // seul : deux activités du même acteur mais de sous-lignes
+      // différentes (voir subRow) doivent aussi être routées verticalement
+      // entre elles, exactement comme deux acteurs différents.
       const sameColumn =
         fromActivity?.phaseId === toActivity?.phaseId &&
         activityColumn.get(i.fromActivityId) === activityColumn.get(i.toActivityId)
-      const fromRow = actorIndex.get(fromActivity?.actorId ?? '') ?? 0
-      const toRow = actorIndex.get(toActivity?.actorId ?? '') ?? 0
+      const fromCenter = activityCenters.get(i.fromActivityId) ?? { x: 0, y: 0 }
+      const toCenter = activityCenters.get(i.toActivityId) ?? { x: 0, y: 0 }
+      const sameVerticalPosition = fromCenter.y === toCenter.y
 
       let sourceHandle: string
       let targetHandle: string
-      if (sameColumn && fromRow !== toRow) {
-        const goingDown = toRow > fromRow
+      if (sameColumn && !sameVerticalPosition) {
+        const goingDown = toCenter.y > fromCenter.y
         sourceHandle = goingDown
           ? `bottom-out-${nextHandle(i.fromActivityId, 'bottom-out')}`
           : `top-out-${nextHandle(i.fromActivityId, 'top-out')}`
@@ -278,8 +317,6 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         targetHandle = `in-${nextHandle(i.toActivityId, 'in')}`
       }
 
-      const fromCenter = activityCenters.get(i.fromActivityId) ?? { x: 0, y: 0 }
-      const toCenter = activityCenters.get(i.toActivityId) ?? { x: 0, y: 0 }
       const gradient = { x1: fromCenter.x, y1: fromCenter.y, x2: toCenter.x, y2: toCenter.y }
 
       return {
@@ -302,23 +339,30 @@ export interface DropTarget {
   actorId: string
   phaseId: string
   // Position souhaitée au sein de la pile de cette cellule (acteur,
-  // phase), déduite du décalage horizontal du point de dépose au sein de
-  // la colonne de phase. Non bornée à la taille réelle de la pile cible :
-  // à charge de l'appelant de la ramener dans l'intervalle valide, qui
-  // dépend du nombre d'activités déjà présentes dans cette cellule (en
-  // excluant celle qu'on déplace).
+  // phase, sous-ligne), déduite du décalage horizontal du point de dépose
+  // au sein de la colonne de phase. Non bornée à la taille réelle de la
+  // pile cible : à charge de l'appelant de la ramener dans l'intervalle
+  // valide, qui dépend du nombre d'activités déjà présentes dans cette
+  // cellule (en excluant celle qu'on déplace).
   subColumnIndex: number
+  // Sous-ligne visée au sein de la ligne de l'acteur, déduite du décalage
+  // vertical du point de dépose. Contrairement à subColumnIndex, toujours
+  // utilisée telle quelle (pas d'empilement automatique sur cet axe, voir
+  // Activity.subRow) — à charge de l'appelant de la ramener dans
+  // l'intervalle réservé pour cet acteur si besoin.
+  subRowIndex: number
 }
 
 // À partir de la position (coordonnées internes du canevas, celles que
 // React Flow rapporte dans l'événement de fin de glisser-déposer) où une
-// carte d'activité a été lâchée, détermine la cellule (acteur, phase)
-// cible : la ligne d'acteur et la colonne de phase dont la bande contient
-// le centre de la carte. Un dépôt hors de la grille (au-dessus de la
-// première ligne, à droite de la dernière phase, etc.) se rabat sur la
-// ligne/colonne la plus proche plutôt que d'ignorer le geste — glisser
-// une carte franchement à gauche ou à droite du canevas revient ainsi à
-// la déposer dans la première ou la dernière phase.
+// carte d'activité a été lâchée, détermine la cellule (acteur, phase,
+// sous-ligne, sous-colonne) cible : la ligne d'acteur et la colonne de
+// phase dont la bande contient le centre de la carte, puis la sous-ligne/
+// sous-colonne au sein de cette bande. Un dépôt hors de la grille
+// (au-dessus de la première ligne, à droite de la dernière phase, etc.)
+// se rabat sur la ligne/colonne la plus proche plutôt que d'ignorer le
+// geste — glisser une carte franchement à gauche ou à droite du canevas
+// revient ainsi à la déposer dans la première ou la dernière phase.
 export function computeDropTarget(
   project: Project,
   nodes: LayoutNode[],
@@ -334,7 +378,7 @@ export function computeDropTarget(
   const centerY = dropPosition.y + CARD_HEIGHT_ESTIMATE / 2
 
   const actorRow =
-    actorHeaders.find((n) => centerY >= n.position.y && centerY < n.position.y + ROW_HEIGHT) ??
+    actorHeaders.find((n) => centerY >= n.position.y && centerY < n.position.y + (n.data.height as number)) ??
     (centerY < actorHeaders[0].position.y ? actorHeaders[0] : actorHeaders[actorHeaders.length - 1])
   const phaseColumn =
     phaseHeaders.find((n) => centerX >= n.position.x && centerX < n.position.x + (n.data.width as number)) ??
@@ -345,8 +389,9 @@ export function computeDropTarget(
   if (!project.actors.some((a) => a.id === actorId) || !project.phases.some((p) => p.id === phaseId)) return null
 
   const subColumnIndex = Math.round((centerX - phaseColumn.position.x) / SUBCOLUMN_WIDTH)
+  const subRowIndex = Math.round((centerY - actorRow.position.y) / SUBLANE_HEIGHT)
 
-  return { actorId, phaseId, subColumnIndex }
+  return { actorId, phaseId, subColumnIndex, subRowIndex }
 }
 
 // Coin haut-gauche (mêmes coordonnées internes que LayoutNode.position) de
@@ -361,6 +406,6 @@ export function cellTopLeft(nodes: LayoutNode[], target: DropTarget): { x: numbe
 
   return {
     x: phaseHeader.position.x + Math.max(target.subColumnIndex, 0) * SUBCOLUMN_WIDTH + CARD_MARGIN,
-    y: actorHeader.position.y + CARD_MARGIN,
+    y: actorHeader.position.y + Math.max(target.subRowIndex, 0) * SUBLANE_HEIGHT + CARD_MARGIN,
   }
 }

@@ -9,21 +9,35 @@ const HANDLE_OFFSETS = Array.from({ length: HANDLES_PER_SIDE }, (_, i) => `${((i
 export function PhaseHeaderNode({ data }: NodeProps) {
   // La largeur vient de computeLayout (data.width) : une phase qui a
   // besoin de plusieurs sous-colonnes (plusieurs activités concurrentes
-  // d'un même acteur) a un en-tête plus large, pas une largeur fixe.
+  // d'un même acteur, ou une réservation manuelle via le bouton "+"
+  // ci-dessous) a un en-tête plus large, pas une largeur fixe. Le clic
+  // sur le bouton est géré au niveau de ReactFlow (onNodeClick, voir
+  // ProcessDiagram.tsx), qui distingue le bouton du reste de l'en-tête
+  // via son élément cible (event.target).
   return (
     <div className="lane-node phase-header" style={{ width: (data.width as number) - 8, height: PHASE_HEADER_HEIGHT - 8 }}>
       {data.label as string}
+      <button type="button" className="add-subcolumn-button" title="Ajouter une colonne pour cette phase">
+        +
+      </button>
     </div>
   )
 }
 
 export function ActorHeaderNode({ data }: NodeProps) {
+  // La hauteur vient de computeLayout (data.height) : un acteur qui a
+  // besoin de plusieurs sous-lignes (une activité positionnée sur
+  // Activity.subRow > 0, ou une réservation manuelle via le bouton "+"
+  // ci-dessous) a un en-tête plus haut, symétrique de PhaseHeaderNode.
   return (
     <div
       className="lane-node actor-header"
       style={{ width: LANE_LABEL_WIDTH - 8, height: (data.height as number) - 8, borderLeftColor: data.color as string }}
     >
       {data.label as string}
+      <button type="button" className="add-sublane-button" title="Ajouter une ligne pour cet acteur">
+        +
+      </button>
     </div>
   )
 }

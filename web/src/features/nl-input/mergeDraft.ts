@@ -21,6 +21,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
         name: da.name,
         color: ACTOR_COLORS[actors.length % ACTOR_COLORS.length],
         description: da.description ?? '',
+        subLanes: 0,
       })
     }
   }
@@ -28,7 +29,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
   const phases: Phase[] = [...project.phases]
   for (const dp of draft.phases) {
     if (!phases.some((p) => sameName(p.name, dp.name))) {
-      phases.push({ id: newId('ph'), name: dp.name, order: dp.order || phases.length + 1 })
+      phases.push({ id: newId('ph'), name: dp.name, order: dp.order || phases.length + 1, subColumns: 0 })
     }
   }
 
@@ -53,6 +54,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
       phaseId,
       order: activities.length + 1,
       column: 0,
+      subRow: 0,
       description: da.description ?? '',
       sourceText: da.name,
       userStories: [],

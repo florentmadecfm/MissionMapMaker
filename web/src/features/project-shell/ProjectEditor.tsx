@@ -48,7 +48,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
   }
 
   function addActor() {
-    const actor: Actor = { id: newId('act'), name: 'Nouvel acteur', color: '#2563eb', description: '' }
+    const actor: Actor = { id: newId('act'), name: 'Nouvel acteur', color: '#2563eb', description: '', subLanes: 0 }
     onChange({ ...project, actors: [...project.actors, actor] })
   }
 
@@ -68,7 +68,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
   }
 
   function addPhase() {
-    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1 }
+    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0 }
     onChange({ ...project, phases: [...project.phases, phase] })
   }
 
@@ -96,6 +96,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       phaseId: project.phases[0].id,
       order: project.activities.length + 1,
       column: 0,
+      subRow: 0,
       description: '',
       userStories: [],
       traceLinks: [],

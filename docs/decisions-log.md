@@ -1289,3 +1289,85 @@ cohérent avec celui de l'onglet Générer). Le chemin de génération réelle
 (avec une vraie clé API) n'a pas pu être testé dans cet environnement de
 développement, comme pour les autres fonctionnalités de génération
 assistée par LLM du projet.
+
+---
+
+## ADR-039 — Sous-lignes d'acteur et sous-colonnes de phase réservées manuellement
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — "il faut pour un acteur
+donné qui a une ligne, pouvoir ajouter une seconde ligne. Idem pour une
+phase." ADR-018/020 avaient déjà introduit des sous-colonnes
+automatiques (`Activity.Column`) quand plusieurs activités concurrentes
+d'un même acteur se trouvent dans une même phase, mais uniquement par
+empilement automatique — impossible de réserver une seconde ligne/
+colonne *avant* d'y avoir une activité, ce qui posait un problème
+d'œuf-et-poule pour le glisser-déposer (on ne peut pas déposer une
+carte dans un emplacement qui n'existe pas encore visuellement).
+
+**Décision** : mécanisme symétrique sur les deux axes de la grille,
+chacun avec une réservation manuelle persistante en plus de la
+répartition automatique existante :
+- Axe horizontal (déjà partiellement là) : `Phase.SubColumns` (nouveau
+  champ, 0/1 = une seule colonne) réserve un nombre minimum de
+  sous-colonnes pour cette phase, fusionné avec le nombre déjà déduit
+  des activités (`Math.max`).
+- Axe vertical (nouveau) : `Actor.SubLanes` (0/1 = une seule ligne)
+  réserve un nombre minimum de sous-lignes pour cet acteur, et
+  `Activity.SubRow` (0 = ligne principale) place explicitement une
+  activité sur une sous-ligne donnée — glisser-déposer uniquement,
+  **pas** d'empilement automatique par `Order` sur cet axe (contrairement
+  à `Column`) : les activités de phases différentes ne se chevauchent
+  jamais visuellement sur une même ligne, donc rien ne force
+  automatiquement une activité vers une sous-ligne suivante.
+
+Chaque en-tête (phase et acteur) porte désormais un petit bouton "+" en
+coin (`.add-subcolumn-button` / `.add-sublane-button`), distingué du
+reste de l'en-tête au clic via `event.target.closest(...)` dans le
+`onNodeClick` centralisé (même patron qu'ADR-036/037) : incrémente
+`subColumns`/`subLanes` (`Math.max(valeur actuelle, 1) + 1`).
+
+`computeLayout` calcule `actorHeights`/`actorOffsets` (hauteur de
+chaque ligne d'acteur, cumulée) exactement comme `phaseWidths`/
+`phaseOffsets` existaient déjà pour les colonnes — `ROW_HEIGHT` est
+renommé `SUBLANE_HEIGHT` pour marquer cette symétrie. `resolveColumns`
+groupe désormais par `actorId:phaseId:subRow` (une sous-ligne empile
+ses propres sous-colonnes indépendamment des autres). Le routage des
+flèches, qui comparait auparavant deux activités par index d'acteur
+(une seule position Y possible par acteur), compare maintenant leur
+position Y réelle en pixels (`activityCenters`) : nécessaire pour
+distinguer deux activités du **même** acteur sur des sous-lignes
+différentes, ce qu'un simple index d'acteur ne permettait pas.
+
+**Justification** : la réservation manuelle persistante (plutôt que de
+se limiter à l'empilement automatique) résout directement le problème
+d'œuf-et-poule du glisser-déposer, déjà identifié et résolu de la même
+façon côté colonnes (ADR-020) — étendre exactement le même patron à
+l'axe vertical garde le modèle de données et l'algorithme de mise en
+page cohérents entre les deux axes plutôt que d'introduire un mécanisme
+différent. Pas d'empilement automatique par `Order` sur l'axe vertical
+(contrairement à `Column`) car rien ne le justifie : à la différence de
+deux activités concurrentes dans la même cellule (acteur, phase), qui
+se chevauchent visuellement si elles restent sur une seule colonne,
+deux activités d'un même acteur dans des phases différentes ne se
+chevauchent jamais (colonnes différentes) — l'empilement automatique
+n'aurait été qu'une complexité sans bénéfice visuel.
+
+**Conséquences** : vérifié bout en bout avec Playwright (build Go,
+`tsc -b`, lint, puis scénario réel) — clic sur le "+" d'un en-tête
+d'acteur ajoute bien une seconde ligne visible (hauteur de la ligne
+doublée) confirmée par relecture API après Sauvegarder
+(`actors[0].subLanes === 2`), idem pour le "+" d'un en-tête de phase
+(`phases[0].subColumns === 2`) ; glisser-déposer une carte vers la
+sous-ligne ajoutée confirme `activities[0].subRow === 1` après
+Sauvegarder, avec un rendu visuel correct (carte positionnée dans la
+seconde moitié de la ligne, plus haute, de l'acteur). Un serveur Go
+obsolète (`go run` précédent d'une session antérieure, toujours lié sur
+le port 8080) a d'abord faussé un premier essai de vérification en
+servant une ancienne version du binaire sans les nouveaux champs —
+identifié via le message "address already in use" dans les logs du
+nouveau `go run`, corrigé en arrêtant l'ancien processus avant de
+relancer un binaire recompilé ; sans lien avec le code de cette
+fonctionnalité.
