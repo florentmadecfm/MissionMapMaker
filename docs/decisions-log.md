@@ -1695,3 +1695,70 @@ mission lui-même, testé de bout en bout via l'interface (créer 2
 missions, acteur commun, sauvegarder les deux), confirme 2 missions
 listées pour l'acteur partagé — le bug 2 n'était donc pas un défaut du
 regroupement mais un angle mort de communication, désormais comblé.
+
+---
+
+## ADR-044 — Interaction ajoutée en langage naturel sur une activité existante, silencieusement ignorée si l'acteur n'est pas répété
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : suite à ADR-043, l'utilisateur a précisé que le bug
+persistant n'était pas le recadrage du diagramme (confirmé sans lien) mais
+: « j'ai demandé ajouter des intéracteurs [interactions] sur une activité
+existante et cela ne fonctionnait pas ». Diagnostic, en relisant
+`mergeDraft.ts` : `findActivityId(name, actorName)` — utilisée uniquement
+pour résoudre les extrémités d'une interaction — exige une correspondance
+stricte sur l'acteur (`a.actorId === actorId`, avec `actorId =
+findActorId(actorName)`). Si le LLM, invité à décrire UNIQUEMENT une
+nouvelle interaction entre deux activités déjà nommées sans ambiguïté
+dans le contexte fourni, juge `fromActorName`/`toActorName` redondants et
+les laisse vides (malgré le schéma qui les déclare requis — une
+contrainte de schéma n'est pas forcément respectée à la lettre par tous
+les fournisseurs/modèles), `findActorId('')` renvoie `undefined` : comme
+aucune activité n'a un `actorId` littéralement `undefined`, la résolution
+échoue et **toute l'interaction est abandonnée silencieusement**, sans
+message d'erreur ni ébauche vide visible. `activityChanges`, ajouté en
+ADR-040, avait déjà ce même risque mais avec une tolérance explicite
+(`!targetActorId || a.actorId === targetActorId`) — `findActivityId`,
+plus ancienne, ne l'avait jamais reçue.
+
+**Décision** :
+- `mergeDraft.ts` (`findActivityId`) reçoit la même tolérance que
+  `activityChanges` : `(!actorId || a.actorId === actorId)` — un nom
+  d'acteur vide ou non reconnu ne fait plus échouer la résolution, elle
+  retombe sur une correspondance par nom d'activité seul (au risque
+  assumé, déjà accepté ailleurs dans ce fichier, de résoudre au mauvais
+  homonyme dans le cas rare de deux activités de même nom portées par des
+  acteurs différents ET d'un acteur incorrect/absent en même temps).
+- `DefaultProcessPrompt` (`internal/llm/prompts.go`) gagne un paragraphe
+  dédié : ajouter une interaction entre deux activités déjà existantes
+  est explicitement présenté comme un cas de mise à jour courant et
+  valide à lui seul (un appel à l'outil qui ne renseigne QUE
+  "interactions" est correct), et le caractère **toujours requis** de
+  `fromActorName`/`toActorName`, y compris quand l'acteur semble évident,
+  est rappelé explicitement — pour réduire la fréquence du cas que le
+  correctif frontend tolère maintenant, plutôt que de compter uniquement
+  sur cette tolérance.
+
+**Justification** : tolérer un acteur manquant plutôt qu'exiger une
+correspondance stricte suit exactement le précédent déjà posé par
+`activityChanges` dans ce même fichier — plutôt que deux règles de
+résolution différentes pour deux mécanismes très proches (l'une stricte,
+l'autre tolérante), les deux se comportent maintenant de la même façon
+face à une donnée incomplète issue du LLM. Le double correctif
+(tolérance côté fusion + rappel explicite côté prompt) traite à la fois
+le symptôme immédiat (ne plus perdre silencieusement l'interaction) et
+la cause probable (réduire les cas où le modèle omet le champ), plutôt
+que de se reposer sur un seul des deux.
+
+**Conséquences** : vérifié bout en bout — `go build`/`go vet`/`go test
+./...`, `tsc -b`, `npm run lint`, `npm run build`. Logique de fusion
+testée directement sur le code source réel (bundle esbuild isolé,
+comme pour ADR-040) : une ébauche d'interaction entre deux activités
+déjà existantes, avec `fromActorName`/`toActorName` volontairement vides
+(reproduisant le cas signalé), est maintenant bien ajoutée au projet ET
+rendue comme arête par `computeLayout` — confirmé absente avant ce
+correctif (le même scénario, testé contre le code d'avant ADR-044,
+n'ajoutait aucune interaction) ; le cas déjà correct (acteurs renseignés)
+reste inchangé, sans régression.

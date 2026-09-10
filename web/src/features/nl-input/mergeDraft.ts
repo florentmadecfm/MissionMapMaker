@@ -89,9 +89,19 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
     }
   }
 
+  // Résout une activité par (nom, acteur) — mais tolère un nom d'acteur
+  // vide ou non reconnu plutôt que d'exiger une correspondance stricte :
+  // un LLM chargé de décrire UNIQUEMENT une nouvelle interaction entre
+  // deux activités déjà existantes (aucun changement d'activité/acteur/
+  // phase) omet parfois fromActorName/toActorName, jugés redondants une
+  // fois l'activité déjà nommée sans ambiguïté — avant, cela faisait
+  // échouer silencieusement toute la résolution (aucun acteur n'a un id
+  // `undefined`), donc l'interaction entière disparaissait sans retour.
+  // Symétrique de la tolérance déjà en place pour activityChanges
+  // ci-dessus (`!targetActorId || ...`).
   const findActivityId = (name: string, actorName: string) => {
     const actorId = findActorId(actorName)
-    return activities.find((a) => sameName(a.name, name) && a.actorId === actorId)?.id
+    return activities.find((a) => sameName(a.name, name) && (!actorId || a.actorId === actorId))?.id
   }
 
   const interactions: Interaction[] = [...project.interactions]
