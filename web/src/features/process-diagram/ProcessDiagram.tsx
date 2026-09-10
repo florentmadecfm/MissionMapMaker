@@ -3,6 +3,7 @@ import { ReactFlow, Background, Controls, MarkerType, useViewport, type Connecti
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
+import { mergeDraft } from '../nl-input/mergeDraft'
 import { ActivityDetailModal } from './ActivityDetailModal'
 import {
   CARD_HEIGHT_ESTIMATE,
@@ -21,6 +22,11 @@ interface Props {
   onChange: (project: Project) => void
   onSaved: () => void
 }
+
+// Doit rester cohérent avec maxTextLength côté serveur
+// (internal/service/generate_service.go) et avec la même constante de
+// NlInput.tsx : au-delà, la génération est de toute façon rejetée.
+const MAX_TEXT_LENGTH = 20000
 
 function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
@@ -97,6 +103,10 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   // de l'endroit où la carte atterrirait si on la lâchait maintenant.
   const [dragTarget, setDragTarget] = useState<DropTarget | null>(null)
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
+  const [updateText, setUpdateText] = useState('')
+  const [updating, setUpdating] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
+  const [updateNotConfigured, setUpdateNotConfigured] = useState(false)
 
   const startColors = useMemo(() => [...new Set(edges.map((e) => e.sourceColor))], [edges])
 
@@ -117,6 +127,33 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       setSaveError(String(e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Décrire des ajouts/modifications en langage naturel sans quitter le
+  // diagramme : même pipeline que l'onglet "Générer" (génération LLM +
+  // mergeDraft), qui fusionne déjà de façon additive dans le projet
+  // existant (acteurs/phases/activités déjà présents, par nom, jamais
+  // dupliqués) — pas de logique de fusion à réécrire pour ce second point
+  // d'entrée.
+  async function handleGenerateUpdate() {
+    if (!updateText.trim()) return
+    setUpdating(true)
+    setUpdateError(null)
+    setUpdateNotConfigured(false)
+    try {
+      const draft = await api.generateFromText(updateText)
+      onChange(mergeDraft(project, draft))
+      setUpdateText('')
+    } catch (e) {
+      const message = String(e)
+      if (message.includes('clé API non configurée')) {
+        setUpdateNotConfigured(true)
+      } else {
+        setUpdateError(message)
+      }
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -275,6 +312,25 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
         {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
         {saveError && <span className="error">{saveError}</span>}
       </header>
+      <div className="diagram-nl-update">
+        <textarea
+          rows={2}
+          maxLength={MAX_TEXT_LENGTH}
+          placeholder="Décrivez des ajouts ou modifications en langage naturel (ex. « le support escalade aussi les tickets urgents au responsable »)…"
+          value={updateText}
+          onChange={(e) => setUpdateText(e.target.value)}
+        />
+        <button type="button" onClick={handleGenerateUpdate} disabled={updating || !updateText.trim()}>
+          {updating ? 'Mise à jour…' : 'Mettre à jour le diagramme'}
+        </button>
+      </div>
+      {updateNotConfigured && (
+        <div className="nl-warning">
+          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas de
+          la barre latérale pour en saisir une, ou utilisez l'édition manuelle.
+        </div>
+      )}
+      {updateError && <p className="error">{updateError}</p>}
       <div className="process-diagram">
         {/* Défini une fois, référencé par les styles/markers des flèches
             ci-dessus : dégradé par flèche (couleur départ -> arrivée) et un

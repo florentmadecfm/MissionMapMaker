@@ -12,6 +12,30 @@
   flex-shrink: 0;
 }
 
+/* Zone de mise à jour en langage naturel, sans quitter le diagramme :
+   même pipeline génération + fusion additive que l'onglet "Générer"
+   (voir ProcessDiagram.tsx, handleGenerateUpdate). Barre compacte (2
+   lignes) plutôt que la grande zone de texte de l'onglet Générer, pour
+   ne pas trop rogner l'espace du canevas, qui reste la priorité visuelle
+   de cet écran. */
+.diagram-nl-update {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+}
+
+.diagram-nl-update textarea {
+  flex: 1;
+  min-height: 0;
+  resize: vertical;
+}
+
+.diagram-nl-update button {
+  flex-shrink: 0;
+}
+
 .process-diagram {
   width: 100%;
   flex: 1;

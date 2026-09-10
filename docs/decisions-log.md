@@ -1248,3 +1248,44 @@ pas le premier de la liste.
 Sauvegarder), le clic sur "+ Activité" de la ligne d'un acteur donné
 crée bien une activité assignée à **cet** acteur (pas le premier acteur
 du projet), affichée immédiatement dans sa ligne sur le diagramme.
+
+---
+
+## ADR-038 — Mise à jour du diagramme en langage naturel sans changer d'onglet
+
+**Date** : 2026-09-10
+**Statut** : Retenu
+
+**Contexte** : demande explicite utilisateur — pouvoir mettre à jour le
+diagramme depuis une zone de texte en langage naturel, directement dans
+l'onglet Diagramme, plutôt que de devoir retourner sur l'onglet
+"Générer" pour décrire des ajouts.
+
+**Décision** : nouvelle barre compacte (`<textarea rows={2}>` + bouton
+"Mettre à jour le diagramme") entre l'en-tête et le canevas de
+`ProcessDiagram.tsx`, câblée sur exactement le même pipeline que
+l'onglet "Générer" (`api.generateFromText` puis `mergeDraft`) — aucune
+nouvelle logique de fusion nécessaire, puisque `mergeDraft` fusionne
+déjà de façon additive dans le projet ouvert (acteurs/phases/activités
+déjà présents, comparés par nom, jamais dupliqués ni écrasés ; seuls
+les éléments réellement nouveaux du texte décrit sont ajoutés). Gestion
+d'erreur identique à `NlInput.tsx` (détection de "clé API non
+configurée" pour afficher le même message d'action `.nl-warning`).
+Barre compacte (2 lignes) plutôt que la grande zone de texte de l'onglet
+Générer, pour ne pas trop rogner l'espace du canevas, qui reste la
+priorité visuelle de cet écran.
+
+**Justification** : réutiliser le pipeline existant tel quel, plutôt
+que d'en écrire un nouveau propre au diagramme — `mergeDraft` a été
+conçu dès l'origine comme une fusion additive dans un projet déjà
+ouvert (pas seulement une génération initiale), donc l'ajouter comme
+second point d'entrée ne demande aucun changement de logique métier,
+seulement un second endroit dans l'UI pour la déclencher.
+
+**Conséquences** : vérifié bout en bout avec Playwright — la barre
+s'affiche correctement sans réduire excessivement l'espace du canevas ;
+chemin "clé API non configurée" confirmé (message d'action affiché,
+cohérent avec celui de l'onglet Générer). Le chemin de génération réelle
+(avec une vraie clé API) n'a pas pu être testé dans cet environnement de
+développement, comme pour les autres fonctionnalités de génération
+assistée par LLM du projet.
