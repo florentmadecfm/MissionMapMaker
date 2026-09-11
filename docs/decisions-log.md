@@ -2461,3 +2461,70 @@ répercutée vers le Restaurant après rechargement. Non-régression
 confirmée par un rejeu complet de la suite Playwright originale
 d'ADR-055 (`test-actor-profile.mjs`, deux points d'entrée + round-trip
 Excel) en base propre.
+
+---
+
+## ADR-057 — Fiche persona lisible et éditable depuis l'écran Acteurs (toutes missions)
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : demande explicite — "il faut pouvoir lire la fiche depuis
+le menu des Acteurs (toutes missions)". La fiche persona (About/Bio/
+Goals/PainPoints, ADR-055) est partagée par nom entre missions depuis
+ADR-056, mais restait uniquement accessible depuis un projet ouvert
+(clic sur le nom d'un acteur dans le diagramme, ou bouton "Voir la
+fiche" de l'onglet Vue par acteur) — l'écran transverse
+`ActorMissionsScreen.tsx` (ADR-041), qui liste déjà un acteur à travers
+toutes ses missions sans ouvrir de projet précis, n'offrait aucun moyen
+d'en consulter la fiche.
+
+**Décision** :
+- Réutilisation telle quelle d'`ActorProfileModal.tsx` (déjà partagée
+  par les 2 points d'entrée existants) plutôt qu'une vue en lecture
+  seule dédiée : cohérent avec le patron déjà établi de réutilisation de
+  ce composant, et la fiche étant désormais un enregistrement UNIQUE
+  partagé (ADR-056), l'éditer depuis cet écran est aussi légitime que
+  depuis n'importe quel autre point d'entrée — "lire" en est un
+  sous-ensemble strict, sans coût supplémentaire de maintenance d'une
+  seconde variante.
+- Un seul bouton "Voir la fiche" par acteur sélectionné (dans l'en-tête
+  `.actor-missions-header`, à côté du nom), plutôt qu'un bouton par
+  section de mission : la fiche étant partagée, l'ouvrir depuis
+  n'importe quelle mission de cet acteur donnerait exactement le même
+  contenu — un bouton unique rend explicite qu'il s'agit d'UNE fiche, pas
+  d'une par mission. La mission la plus récente
+  (`selected.projects[0]`, déjà triée par récence par `ListActors`)
+  sert de mission "porteuse" pour l'édition/la sauvegarde — un choix
+  arbitraire mais stable, sans conséquence sur le contenu affiché
+  puisque toutes les missions partagent la même fiche.
+- `ActorProfileModal` gagne des props optionnelles `onSave`/`saving`/
+  `saveError`/`savedAt` : quand `onSave` est fourni, un nouveau
+  `<footer className="modal-footer">` (bouton "Sauvegarder" + horodatage
+  + erreur, même patron que les boutons "Sauvegarder" déjà présents
+  ailleurs dans l'app) apparaît dans la modale elle-même. `ProcessDiagram`/
+  `ActorView` ne passent pas ces props et gardent leur comportement
+  inchangé (bouton "Sauvegarder" déjà présent sur leur propre barre
+  d'outils, en dehors de la modale) — seul `ActorMissionsScreen`, qui n'a
+  pas d'autre barre d'outils puisque rien d'autre n'y est éditable, les
+  fournit pour rester utilisable en autonome.
+
+**Alternative écartée** : une vue "fiche" en lecture seule séparée,
+dupliquant l'affichage d'`ActorProfileModal` sans les contrôles
+d'édition — écartée : aurait demandé de maintenir deux présentations
+du même contenu (About/Bio/Goals/PainPoints) à faire évoluer en
+parallèle, pour un gain d'isolement minime vu que la fiche est de toute
+façon partagée et donc déjà "publique" à toutes les missions concernées.
+
+**Conséquences** : `tsc -b`, `npm run lint`, `npm run build` verts ;
+`go build`/`go vet`/`go test ./...` inchangés et verts (aucune
+modification backend). Playwright
+(`test-actor-missions-profile.mjs`) : bouton "Voir la fiche" activé et
+modale ouverte depuis l'écran Acteurs sans passer par un projet ouvert ;
+About/Bio/Objectif déjà saisis dans une autre mission bien lus ; ajout
+d'un point de friction depuis cet écran, bouton "Sauvegarder" intégré à
+la modale bien visible et fonctionnel (horodatage affiché) ; après
+rechargement complet de la page, le point de friction ajouté est bien
+persisté. Non-régression confirmée par un rejeu de la suite Playwright
+originale d'ADR-055 (`test-actor-profile.mjs`, points d'entrée diagramme
++ Vue par acteur inchangés).

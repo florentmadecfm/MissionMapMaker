@@ -7,6 +7,18 @@ interface Props {
   actorId: string
   onChange: (project: Project) => void
   onClose: () => void
+  // Sauvegarde optionnelle intégrée à la modale, pour un écran appelant
+  // qui n'a pas déjà sa propre barre d'outils "Sauvegarder" (ex. l'écran
+  // transverse Acteurs de ActorMissionsScreen.tsx, qui n'édite rien
+  // d'autre que cette fiche) — ProcessDiagram/ActorView, qui ont chacun
+  // déjà un bouton "Sauvegarder" persistant pour l'ensemble du projet, ne
+  // passent pas ces props et gardent leur comportement inchangé (rien
+  // n'est persisté tant que l'utilisateur ne clique pas leur propre
+  // bouton).
+  onSave?: () => void
+  saving?: boolean
+  saveError?: string | null
+  savedAt?: string | null
 }
 
 function newId(prefix: string) {
@@ -21,7 +33,7 @@ function newId(prefix: string) {
 // acteur et l'écran transverse Acteurs). Comme le reste de l'app, un
 // changement d'état local — « Sauvegarder » reste nécessaire pour le
 // persister.
-export function ActorProfileModal({ project, actorId, onChange, onClose }: Props) {
+export function ActorProfileModal({ project, actorId, onChange, onClose, onSave, saving, saveError, savedAt }: Props) {
   const [newGoal, setNewGoal] = useState('')
   const [newPainPoint, setNewPainPoint] = useState('')
   const actor = project.actors.find((a) => a.id === actorId)
@@ -150,6 +162,16 @@ export function ActorProfileModal({ project, actorId, onChange, onClose }: Props
 
         <h3>Activités du processus</h3>
         <ActorDetail project={project} actorId={actor.id} />
+
+        {onSave && (
+          <footer className="modal-footer">
+            <button type="button" className="btn-primary" onClick={onSave} disabled={saving}>
+              {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+            </button>
+            {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
+            {saveError && <span className="error">{saveError}</span>}
+          </footer>
+        )}
       </div>
     </div>
   )
