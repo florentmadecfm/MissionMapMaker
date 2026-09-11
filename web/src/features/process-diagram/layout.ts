@@ -364,22 +364,25 @@ export interface DropTarget {
 // geste — glisser une carte franchement à gauche ou à droite du canevas
 // revient ainsi à la déposer dans la première ou la dernière phase.
 //
-// ownActorId (optionnel, l'acteur ACTUEL de la carte qu'on glisse) : sans
-// lui, les bandes d'acteurs étant contiguës (aucun espace entre elles),
-// dépasser même légèrement le bas de sa propre ligne fait immédiatement
-// basculer sur la sous-ligne 0 de l'acteur SUIVANT — un simple geste pour
-// créer une nouvelle sous-ligne à SON acteur (une seule "case" de plus)
-// reassignait donc la carte à un acteur entièrement différent (toute une
-// "rangée" plus loin). Avec ownActorId, un dépôt qui déborde d'au plus une
-// SUBLANE_HEIGHT sous la zone déjà réservée par cet acteur reste sur cet
-// acteur, sur la nouvelle sous-ligne qui vient d'apparaître sous le
-// curseur — un dépôt plus franc dans la ligne suivante continue de
-// basculer sur cet autre acteur comme avant (voir ADR-049).
+// ownActorId/ownPhaseId (optionnels, l'acteur et la phase ACTUELS de la
+// carte qu'on glisse) : sans eux, les bandes d'acteurs (verticalement) et
+// de phases (horizontalement) étant contiguës (aucun espace entre elles),
+// dépasser même légèrement le bord de sa propre ligne/colonne fait
+// immédiatement basculer sur l'acteur/la phase SUIVANT(E) — un simple
+// geste pour créer une seule "case" de plus (une sous-ligne pour son
+// acteur, une sous-colonne pour sa phase) réassignait donc la carte à un
+// acteur ou une phase entièrement différent(e). Avec ces deux paramètres,
+// un dépôt qui déborde d'au plus une SUBLANE_HEIGHT/SUBCOLUMN_WIDTH au-delà
+// de la zone déjà réservée par son propre acteur/sa propre phase y reste,
+// sur la nouvelle sous-ligne/sous-colonne qui vient d'apparaître sous le
+// curseur — un dépôt plus franc continue de basculer sur l'acteur/la phase
+// suivant(e) comme avant (voir ADR-049, ADR-050).
 export function computeDropTarget(
   project: Project,
   nodes: LayoutNode[],
   dropPosition: { x: number; y: number },
   ownActorId?: string,
+  ownPhaseId?: string,
 ): DropTarget | null {
   const actorHeaders = nodes.filter((n) => n.type === 'actorHeader')
   const phaseHeaders = nodes.filter((n) => n.type === 'phaseHeader')
@@ -400,9 +403,17 @@ export function computeDropTarget(
     ? ownHeader
     : (actorHeaders.find((n) => centerY >= n.position.y && centerY < n.position.y + (n.data.height as number)) ??
       (centerY < actorHeaders[0].position.y ? actorHeaders[0] : actorHeaders[actorHeaders.length - 1]))
-  const phaseColumn =
-    phaseHeaders.find((n) => centerX >= n.position.x && centerX < n.position.x + (n.data.width as number)) ??
-    (centerX < phaseHeaders[0].position.x ? phaseHeaders[0] : phaseHeaders[phaseHeaders.length - 1])
+
+  const ownPhaseHeader = ownPhaseId ? phaseHeaders.find((n) => n.id === `phase-header-${ownPhaseId}`) : undefined
+  const staysOwnPhase =
+    ownPhaseHeader !== undefined &&
+    centerX >= ownPhaseHeader.position.x &&
+    centerX < ownPhaseHeader.position.x + (ownPhaseHeader.data.width as number) + SUBCOLUMN_WIDTH
+
+  const phaseColumn = staysOwnPhase
+    ? ownPhaseHeader
+    : (phaseHeaders.find((n) => centerX >= n.position.x && centerX < n.position.x + (n.data.width as number)) ??
+      (centerX < phaseHeaders[0].position.x ? phaseHeaders[0] : phaseHeaders[phaseHeaders.length - 1]))
 
   const actorId = actorRow.id.replace('actor-header-', '')
   const phaseId = phaseColumn.id.replace('phase-header-', '')

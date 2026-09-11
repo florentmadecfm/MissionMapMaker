@@ -2067,3 +2067,37 @@ glisser depuis la poignée d'une carte vers une autre crée l'interaction,
 cliquer sur la flèche ouvre la modale, et le texte saisi est bien
 persisté après "Valider" + "Sauvegarder". Aucune erreur console dans les
 trois cas.
+
+## ADR-050 — Même tolérance d'une case, sur l'axe horizontal (phases) cette fois
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : suite directe d'ADR-049, illustrée par une capture d'écran
+— l'utilisateur veut aussi pouvoir glisser une carte d'« une case » vers
+la droite (nouvelle sous-colonne au sein de SA phase) sans qu'elle
+bascule dans la phase suivante. Exactement le même bug qu'ADR-049, sur
+l'axe horizontal cette fois : `computeDropTarget` associait le point de
+dépose à la phase dont la bande (largeur = sous-colonnes actuelles ×
+`SUBCOLUMN_WIDTH`) contient le centre de la carte — les bandes de phases
+étant elles aussi contiguës, tout dépôt hors de sa propre bande basculait
+immédiatement sur la sous-colonne 0 de la phase SUIVANTE.
+
+**Décision** : même mécanisme qu'ADR-049, symétrique sur l'axe horizontal.
+`computeDropTarget` accepte un second paramètre optionnel `ownPhaseId` (la
+phase ACTUELLE de la carte glissée) : un dépôt qui déborde d'au plus une
+`SUBCOLUMN_WIDTH` à droite de la largeur déjà réservée par cette phase y
+reste (nouvelle sous-colonne) ; au-delà, bascule normalement vers la
+phase dont la bande contient réellement le point, comme avant. Même
+compromis assumé qu'ADR-049 (dupliqué en miroir) : une phase suivante à
+une seule sous-colonne tombe entièrement dans cette zone de tolérance —
+un glisser modéré n'y déplace plus directement, il faut glisser
+au-delà de sa bande, ou repasser par l'onglet Édition (menu déroulant
+phase).
+
+**Conséquences** : `tsc -b`, `npm run lint`, `npm run build` verts (aucun
+changement backend). Playwright, mêmes vrais événements souris qu'ADR-049 :
+un glisser modéré vers la droite (3 phases à 1 sous-colonne chacune)
+aboutit à `phaseId` inchangé et `column: 1` après sauvegarde ; un
+glisser franc jusqu'à une 3e phase plus loin déplace bien vers cette 3e
+phase, comme avant. Aucune erreur console.
