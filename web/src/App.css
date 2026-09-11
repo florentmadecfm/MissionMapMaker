@@ -1011,6 +1011,12 @@
   gap: 1.1rem;
 }
 
+.actor-missions-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .actor-mission-section {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1104,6 +1110,15 @@
   line-height: 1;
   color: var(--color-text-muted);
   padding: 0.1rem 0.4rem;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .modal input {

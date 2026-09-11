@@ -73,7 +73,11 @@ diagramme, il permet de le modifier directement :
   l'onglet **Vue par acteur** (bouton "Voir la fiche") (ADR-055). Cette
   fiche est **partagée entre toutes les missions** portant un acteur du
   même nom (à la casse près) : la modifier depuis une mission la met à
-  jour partout ailleurs, sans dupliquer la saisie (ADR-056).
+  jour partout ailleurs, sans dupliquer la saisie (ADR-056). Également
+  consultable et éditable, sans ouvrir aucun projet, depuis l'écran
+  **🧑 Acteurs (toutes missions)** de la barre latérale — bouton "Voir
+  la fiche" à côté du nom de l'acteur sélectionné, avec son propre
+  bouton "Sauvegarder" intégré à la modale (ADR-057).
 - Les boutons **"+"** après la dernière phase ajoutent une phase ou une
   activité pour un acteur donné, sans repasser par l'onglet Édition.
 - Le petit **"+"** en coin d'un en-tête de phase ou d'acteur réserve

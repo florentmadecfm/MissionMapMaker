@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { ActorSummary, Project } from '../../api/types'
 import { ActorDetail } from '../actor-view/ActorDetail'
+import { ActorProfileModal } from '../actor-view/ActorProfileModal'
 
 interface Props {
   // Index acteur -> missions, tenu à jour par ProjectShell.tsx (rafraîchi
@@ -28,6 +29,10 @@ export function ActorMissionsScreen({ actors, error, onOpenProject }: Props) {
   const [missionProjects, setMissionProjects] = useState<Record<string, Project>>({})
   const [loadingMissions, setLoadingMissions] = useState(false)
   const [missionsError, setMissionsError] = useState<string | null>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
+  const [profileSavedAt, setProfileSavedAt] = useState<string | null>(null)
 
   // Garde l'acteur déjà sélectionné s'il existe toujours à chaque
   // rafraîchissement de `actors` ; sinon (première charge, ou acteur
@@ -51,6 +56,38 @@ export function ActorMissionsScreen({ actors, error, onOpenProject }: Props) {
       .catch((e) => setMissionsError(String(e)))
       .finally(() => setLoadingMissions(false))
   }, [selectedName, actors])
+
+  // Change d'acteur sélectionné : referme la fiche et efface le statut de
+  // sauvegarde précédent plutôt que de les laisser flotter sur un acteur
+  // différent.
+  useEffect(() => {
+    setProfileOpen(false)
+    setProfileSaveError(null)
+    setProfileSavedAt(null)
+  }, [selectedName])
+
+  // La fiche persona étant partagée par nom entre missions (ADR-056),
+  // peu importe laquelle des missions de cet acteur sert de support à la
+  // modale — la mission la plus récente (projects[0], déjà triée par
+  // recency par ListActors) sert de mission "porteuse" pour l'édition et
+  // la sauvegarde.
+  const primaryRef = selected?.projects[0] ?? null
+  const primaryProject = primaryRef ? missionProjects[primaryRef.projectId] : null
+
+  async function handleProfileSave() {
+    if (!primaryProject) return
+    setSavingProfile(true)
+    setProfileSaveError(null)
+    try {
+      const saved = await api.saveProject(primaryProject)
+      setMissionProjects((prev) => ({ ...prev, [saved.id]: saved }))
+      setProfileSavedAt(new Date().toLocaleTimeString())
+    } catch (e) {
+      setProfileSaveError(String(e))
+    } finally {
+      setSavingProfile(false)
+    }
+  }
 
   if (error) {
     return <p className="error">{error}</p>
@@ -83,7 +120,17 @@ export function ActorMissionsScreen({ actors, error, onOpenProject }: Props) {
       <div className="actor-missions-detail">
         {selected && (
           <>
-            <h2 className="panel-title">{selected.name}</h2>
+            <div className="actor-missions-header">
+              <h2 className="panel-title">{selected.name}</h2>
+              <button
+                type="button"
+                className="actor-profile-button"
+                onClick={() => setProfileOpen(true)}
+                disabled={!primaryProject}
+              >
+                Voir la fiche
+              </button>
+            </div>
             {loadingMissions && <p>Chargement des missions…</p>}
             {missionsError && <p className="error">{missionsError}</p>}
             {!loadingMissions &&
@@ -107,6 +154,18 @@ export function ActorMissionsScreen({ actors, error, onOpenProject }: Props) {
                   </section>
                 )
               })}
+            {profileOpen && primaryProject && primaryRef && (
+              <ActorProfileModal
+                project={primaryProject}
+                actorId={primaryRef.actorId}
+                onChange={(updated) => setMissionProjects((prev) => ({ ...prev, [updated.id]: updated }))}
+                onClose={() => setProfileOpen(false)}
+                onSave={handleProfileSave}
+                saving={savingProfile}
+                saveError={profileSaveError}
+                savedAt={profileSavedAt}
+              />
+            )}
           </>
         )}
       </div>
