@@ -58,7 +58,9 @@ diagramme, il permet de le modifier directement :
   (ADR-049).
 - **Cliquer sur une carte** ouvre la consultation de ses spécifications
   et tests V&V liés (une fois générés), et permet d'ajouter/retirer des
-  **points de friction** en texte libre pour cette activité (ADR-052).
+  **points de friction** en texte libre pour cette activité (ADR-052) —
+  une carte qui en a au moins un affiche un badge ⚠ rouge en coin
+  haut-droit, visible sans avoir à l'ouvrir (ADR-053).
 - Les boutons **"+"** après la dernière phase ajoutent une phase ou une
   activité pour un acteur donné, sans repasser par l'onglet Édition.
 - Le petit **"+"** en coin d'un en-tête de phase ou d'acteur réserve

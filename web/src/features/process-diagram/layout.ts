@@ -276,6 +276,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         color: actor.color,
         storyCount: activity.userStories.length,
         specCount: activity.traceLinks.length,
+        painPointCount: activity.painPoints.length,
       },
       draggable: true,
       selectable: true,
