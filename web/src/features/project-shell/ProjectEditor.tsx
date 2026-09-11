@@ -33,7 +33,17 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
   }
 
   function addActor() {
-    const actor: Actor = { id: newId('act'), name: 'Nouvel acteur', color: '#2563eb', description: '', subLanes: 0 }
+    const actor: Actor = {
+      id: newId('act'),
+      name: 'Nouvel acteur',
+      color: '#2563eb',
+      description: '',
+      subLanes: 0,
+      about: '',
+      bio: '',
+      goals: [],
+      painPoints: [],
+    }
     onChange({ ...project, actors: [...project.actors, actor] })
   }
 

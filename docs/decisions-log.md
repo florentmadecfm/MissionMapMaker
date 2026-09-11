@@ -2243,3 +2243,122 @@ sauvegarde — dérivé de l'état local comme le reste du diagramme), reste
 présent après sauvegarde et rechargement complet de la page. Capture
 d'écran vérifiée visuellement (badge bien positionné en coin haut-droit,
 lisible sur fond clair comme foncé grâce au `text-shadow`).
+
+## ADR-054 — Ligne de synthèse des points de friction, tout en bas du diagramme
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : suite d'ADR-052/053 — demande explicite d'une ligne
+supplémentaire, tout en bas du diagramme, "qui représente l'ensemble des
+pain points par phase / activités et par acteurs" : une vue d'ensemble
+sans avoir à ouvrir chaque carte une par une.
+
+**Décision** : `computeLayout` ajoute une ligne sous la dernière ligne
+d'acteur (position `y = actorCumulative`, déjà calculée pour l'offset du
+prochain élément) : un en-tête à gauche ("⚠ Points de friction",
+`PainPointRowLabelNode`) et une cellule par phase (`PainPointCellNode`),
+largeur alignée sur l'en-tête de phase correspondant — même patron que
+les lignes d'acteur, mais couleur d'alerte (`--color-danger`) plutôt
+qu'une couleur d'acteur. Regroupement PAR PHASE (colonnes déjà présentes)
+plutôt qu'une seconde ligne par acteur : une ligne supplémentaire par
+acteur aurait dupliqué l'axe déjà porté par les lignes d'acteur
+existantes ; "et par acteurs" de la demande est satisfait en gardant,
+dans chaque cellule de phase, l'acteur et l'activité d'origine de chaque
+point de friction (pastille de couleur + "Acteur · Activité"), sans quoi
+regrouper uniquement par phase aurait perdu ce contexte.
+
+Cliquer une entrée ouvre `ActivityDetailModal` sur l'activité d'origine
+(réutilise l'état `selectedActivityId` déjà existant) — cohérent avec le
+badge d'ADR-053 : la ligne de synthèse n'est pas qu'un résumé passif, elle
+ramène directement à l'endroit où corriger.
+
+Hauteur de cellule fixe (`PAIN_POINT_ROW_HEIGHT = 160`, avec défilement
+interne au-delà) plutôt que dynamique par phase : même compromis que
+`CARD_HEIGHT_ESTIMATE` ailleurs dans `layout.ts`, une hauteur uniforme
+sur toute la ligne reste plus simple à calculer et visuellement plus
+cohérente qu'une hauteur qui varierait d'une colonne à l'autre.
+
+**Conséquences** : `tsc -b`, `npm run lint`, `npm run build`,
+`go build`/`go vet`/`go test ./...` verts (aucun changement backend —
+purement dérivé du projet déjà chargé, comme `storyCount`/`specCount`).
+Playwright : 2 acteurs × 2 phases, points de friction sur 2 activités de
+phases/acteurs différents — la cellule de la phase concernée liste bien
+les 2 entrées (une par acteur, avec pastille et libellé "Acteur ·
+Activité"), la phase sans point de friction affiche "—", et cliquer une
+entrée ouvre bien `ActivityDetailModal` sur la bonne activité. Capture
+d'écran vérifiée visuellement.
+
+## ADR-055 — Fiche persona par acteur (About/Bio/Goals/Pain points), CRUD complet
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : demande explicite — "pour les acteurs, ajoute la
+possibilité de faire une fiche par acteurs avec les éléments : About /
+Bio / Goals / Phase-Activité / pain points du métier de la personne et
+tout ça en mode CRUD".
+
+**Décision** :
+- `Actor` gagne `about`/`bio` (texte libre) et `goals`/`painPoints`
+  (listes `{id, text}`, `ActorGoal`/`ActorPainPoint`) — noms distincts
+  d'`Activity.PainPoint` (ADR-052) : `Actor.painPoints` décrit les
+  irritants du MÉTIER de la personne en général ("doit gérer plusieurs
+  tables en simultané aux heures de pointe"), pas ceux d'une activité
+  précise du diagramme ("le client attend longtemps avant de
+  commander") — les deux coexistent et ne doivent pas être confondus.
+- Nouveau composant `ActorProfileModal.tsx` (`features/actor-view/`) :
+  About/Bio en champs texte à édition directe (comme les autres champs
+  texte de l'app), Objectifs et Points de friction du métier en listes
+  éditables (ajout/suppression), et une section "Activités du processus"
+  qui réutilise TEL QUEL `ActorDetail.tsx` pour couvrir "Phase-Activité"
+  — plutôt que ré-implémenter une liste simplifiée, cohérent avec la
+  réutilisation déjà établie d'`ActorDetail` par `ActorView`/
+  `ActorMissionsScreen`.
+- Deux points d'entrée : cliquer le NOM d'un acteur dans le diagramme
+  (distinct du bouton "+" de réservation de sous-ligne, déjà sur le même
+  en-tête — désambiguïsé via `event.target`, même patron que les autres
+  boutons "+" d'en-tête) ; et un bouton "Voir la fiche" dans l'onglet Vue
+  par acteur, qui n'avait jusqu'ici aucune donnée éditable et donc pas de
+  bouton "Sauvegarder" — ajouté à cette occasion (même patron
+  `saving`/`saveError`/`savedAt` que les autres onglets), sans quoi les
+  changements faits depuis ce point d'entrée n'auraient eu aucun moyen
+  d'être persistés directement dans cet onglet.
+- CSS des listes éditables (points de friction d'une activité,
+  `ActivityDetailModal.tsx`, ADR-052) généralisée de `.pain-point-list`/
+  `.pain-point-add` vers `.item-list`/`.item-add` (teinte d'avertissement
+  optionnelle via `.item-list-warning`) pour être réutilisable telle
+  quelle par les Objectifs (neutres) et les Points de friction du métier
+  (teinte d'avertissement) de la fiche acteur, plutôt que dupliquer des
+  styles identiques sous un nom qui n'aurait plus été exact pour un
+  objectif.
+- Export/import Excel : colonnes "À propos"/"Bio" ajoutées à la feuille
+  "Acteurs" existante (texte court/moyen, comme Description) ; deux
+  nouvelles feuilles "Objectifs acteur" et "Points de friction acteur"
+  (Acteur, Texte), sur le modèle de "User stories"/"Points de friction" —
+  noms délibérément distincts de la feuille "Points de friction"
+  existante (activité) pour ne jamais les confondre à la relecture d'un
+  classeur, et pour que réimporter un ancien export (sans ces feuilles)
+  laisse simplement `goals`/`painPoints` vides plutôt que d'échouer.
+
+**Alternative écartée** : une ligne supplémentaire par acteur dans le
+diagramme (comme ADR-054 pour les points de friction d'activité) —
+écartée : la fiche persona mélange des champs structurellement
+différents (texte libre court, texte long, listes, section dérivée) qui
+ne tiennent pas dans une cellule de grille ; une modale dédiée, ouverte
+au clic, reste plus lisible et cohérente avec `ActivityDetailModal`/
+`InteractionDetailModal` déjà en place.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright : la modale s'ouvre au
+clic sur le nom d'un acteur dans le diagramme (et PAS au clic sur le "+"
+de réservation de sous-ligne, comportement distinct préservé) ; About,
+Bio, un objectif et un point de friction métier saisis puis persistés
+après sauvegarde ; la section Activités du processus affiche bien
+l'activité de l'acteur (réutilisation d'`ActorDetail` confirmée) ;
+seconde vérification depuis l'onglet Vue par acteur (bouton "Voir la
+fiche", données déjà saisies bien reprises, ajout d'un second objectif
+persisté via le nouveau bouton "Sauvegarder" de cet onglet) ; round-trip
+Excel complet (about/bio/goals/painPoints) vérifié de bout en bout ;
+non-régression du CRUD des points de friction d'activité (ADR-052)
+rejouée après le renommage des classes CSS partagées.

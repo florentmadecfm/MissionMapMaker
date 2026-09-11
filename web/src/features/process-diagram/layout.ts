@@ -34,6 +34,15 @@ export const CARD_HEIGHT_ESTIMATE = 60
 export const MAX_OFFSET_X = SUBCOLUMN_WIDTH - CARD_WIDTH - CARD_MARGIN
 export const MAX_OFFSET_Y = SUBLANE_HEIGHT - CARD_HEIGHT_ESTIMATE - CARD_MARGIN
 
+// Hauteur de la ligne de synthèse des points de friction, tout en bas du
+// diagramme (une cellule par phase, largeur alignée sur PhaseHeaderNode —
+// voir computeLayout) : fixe plutôt que dépendante du nombre de points de
+// friction de chaque phase (qui varie), avec défilement interne
+// (overflow-y, voir process-diagram.css) au-delà — même compromis que
+// CARD_HEIGHT_ESTIMATE ailleurs dans ce fichier, simplicité du calcul de
+// disposition plutôt qu'une hauteur dynamique par cellule.
+export const PAIN_POINT_ROW_HEIGHT = 160
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
@@ -52,7 +61,7 @@ export const HANDLES_PER_SIDE = 3
 
 export interface LayoutNode {
   id: string
-  type: 'phaseHeader' | 'actorHeader' | 'activity' | 'addPhase' | 'addActivity'
+  type: 'phaseHeader' | 'actorHeader' | 'activity' | 'addPhase' | 'addActivity' | 'painPointRowLabel' | 'painPointCell'
   position: { x: number; y: number }
   data: Record<string, unknown>
   // Seules les cartes d'activité sont déplaçables (glisser-déposer pour
@@ -60,6 +69,18 @@ export interface LayoutNode {
   // ligne/colonne restent fixes.
   draggable: boolean
   selectable: boolean
+}
+
+// Un point de friction affiché dans la ligne de synthèse (PainPointCellNode,
+// voir nodes.tsx) : conserve le contexte (acteur, activité) perdu par le
+// simple regroupement par phase, pour rester lisible une fois sorti de sa
+// carte d'origine.
+export interface PainPointRowEntry {
+  activityId: string
+  activityName: string
+  actorName: string
+  actorColor: string
+  text: string
 }
 
 export interface LayoutEdge {
@@ -214,6 +235,48 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       type: 'actorHeader',
       position: { x: 0, y: actorOffsets[i] },
       data: { label: actor.name, color: actor.color, height: actorHeights[i], actorId: actor.id },
+      draggable: false,
+      selectable: false,
+    })
+  })
+
+  // Ligne de synthèse des points de friction, tout en bas du diagramme
+  // (sous la dernière ligne d'acteur) : une cellule par phase, largeur
+  // alignée sur celle de son en-tête (comme les cartes d'activité),
+  // regroupant les points de friction de TOUTES les activités de cette
+  // phase, toutes acteurs confondus — chaque entrée reste étiquetée par
+  // son acteur et son activité d'origine pour ne pas perdre ce contexte
+  // (voir ADR-054).
+  const painPointsByPhase = new Map<string, PainPointRowEntry[]>()
+  for (const activity of project.activities) {
+    if (activity.painPoints.length === 0) continue
+    const actor = actorById.get(activity.actorId)
+    const list = painPointsByPhase.get(activity.phaseId) ?? []
+    for (const pp of activity.painPoints) {
+      list.push({
+        activityId: activity.id,
+        activityName: activity.name,
+        actorName: actor?.name ?? '(acteur supprimé)',
+        actorColor: actor?.color ?? '#64748b',
+        text: pp.text,
+      })
+    }
+    painPointsByPhase.set(activity.phaseId, list)
+  }
+  nodes.push({
+    id: 'pain-point-row-label',
+    type: 'painPointRowLabel',
+    position: { x: 0, y: actorCumulative },
+    data: { height: PAIN_POINT_ROW_HEIGHT },
+    draggable: false,
+    selectable: false,
+  })
+  phases.forEach((phase, i) => {
+    nodes.push({
+      id: `pain-point-cell-${phase.id}`,
+      type: 'painPointCell',
+      position: { x: phaseOffsets[i], y: actorCumulative },
+      data: { width: phaseWidths[i], entries: painPointsByPhase.get(phase.id) ?? [] },
       draggable: false,
       selectable: false,
     })

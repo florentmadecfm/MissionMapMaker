@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { ADD_LANE_WIDTH, HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT } from './layout'
+import { ADD_LANE_WIDTH, HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT, type PainPointRowEntry } from './layout'
 
 // Points d'ancrage répartis verticalement (25/50/75% par défaut pour 3
 // poignées) plutôt qu'un unique point central, pour que plusieurs liens
@@ -124,9 +124,53 @@ export function ActivityNode({ data }: NodeProps) {
   )
 }
 
+// En-tête de gauche de la ligne de synthèse des points de friction (voir
+// PainPointCellNode ci-dessous) — même colonne que les en-têtes d'acteur,
+// mais sans acteur associé : couleur d'alerte (voir .activity-card-warning,
+// ADR-053) plutôt qu'une couleur d'acteur, pour signaler d'un coup d'œil
+// que cette ligne est différente des lignes d'acteur au-dessus (ADR-054).
+export function PainPointRowLabelNode({ data }: NodeProps) {
+  return (
+    <div className="lane-node pain-point-row-label" style={{ height: (data.height as number) - 8 }}>
+      ⚠ Points de friction
+    </div>
+  )
+}
+
+// Une cellule par phase (même largeur que PhaseHeaderNode) : liste tous
+// les points de friction des activités de cette phase, toutes acteurs
+// confondus (voir computeLayout) — chaque entrée reste étiquetée par son
+// acteur (pastille de couleur) et son activité d'origine. Cliquer une
+// entrée ouvre ActivityDetailModal sur l'activité concernée (géré au
+// niveau de ReactFlow, onNodeClick, via l'attribut data-activity-id —
+// même patron que les boutons "+" des en-têtes, distingués du reste du
+// nœud via event.target).
+export function PainPointCellNode({ data }: NodeProps) {
+  const entries = data.entries as PainPointRowEntry[]
+  return (
+    <div className="pain-point-cell" style={{ width: (data.width as number) - 8 }}>
+      {entries.length === 0 ? (
+        <p className="pain-point-cell-empty">—</p>
+      ) : (
+        entries.map((entry, i) => (
+          <div key={i} className="pain-point-cell-entry" data-activity-id={entry.activityId} title={entry.text}>
+            <span className="actor-dot" style={{ background: entry.actorColor }} />
+            <span className="pain-point-cell-origin">
+              {entry.actorName} · {entry.activityName}
+            </span>
+            <span className="pain-point-cell-text">{entry.text}</span>
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
 export const nodeTypes = {
   phaseHeader: PhaseHeaderNode,
   actorHeader: ActorHeaderNode,
+  painPointRowLabel: PainPointRowLabelNode,
+  painPointCell: PainPointCellNode,
   activity: ActivityNode,
   addPhase: AddPhaseNode,
   addActivity: AddActivityNode,

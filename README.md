@@ -60,7 +60,17 @@ diagramme, il permet de le modifier directement :
   et tests V&V liés (une fois générés), et permet d'ajouter/retirer des
   **points de friction** en texte libre pour cette activité (ADR-052) —
   une carte qui en a au moins un affiche un badge ⚠ rouge en coin
-  haut-droit, visible sans avoir à l'ouvrir (ADR-053).
+  haut-droit, visible sans avoir à l'ouvrir (ADR-053). Une ligne "⚠ Points
+  de friction" tout en bas du diagramme récapitule, phase par phase, tous
+  les points de friction du processus (avec l'acteur et l'activité
+  d'origine de chacun) — cliquer une entrée ouvre directement l'activité
+  concernée (ADR-054).
+- **Cliquer sur le nom d'un acteur** ouvre sa fiche persona (à propos,
+  bio, objectifs, points de friction du métier — distincts des points de
+  friction d'une activité précise — et rappel des activités du
+  processus) en mode CRUD : ajout/suppression d'objectifs et de points de
+  friction, texte libre pour à propos/bio. Même fiche accessible depuis
+  l'onglet **Vue par acteur** (bouton "Voir la fiche") (ADR-055).
 - Les boutons **"+"** après la dernière phase ajoutent une phase ou une
   activité pour un acteur donné, sans repasser par l'onglet Édition.
 - Le petit **"+"** en coin d'un en-tête de phase ou d'acteur réserve
@@ -146,10 +156,11 @@ Le menu **☰**, au niveau de la barre d'onglets d'un projet ouvert
 accès à :
 
 - **Exporter en Excel** : télécharge un classeur `.xlsx` avec un onglet
-  par catégorie (Acteurs, Phases, Activités, User stories, Points de
-  friction, Interactions, Spécifications, Tests V&V, Traçabilité) —
-  toutes les informations du projet, lisibles sans l'application.
-  Génération entièrement côté navigateur (voir ADR-035).
+  par catégorie (Acteurs, Objectifs acteur, Points de friction acteur,
+  Phases, Activités, User stories, Points de friction, Interactions,
+  Spécifications, Tests V&V, Traçabilité) — toutes les informations du
+  projet, lisibles sans l'application. Génération entièrement côté
+  navigateur (voir ADR-035).
 - **Importer depuis Excel** : recharge un classeur exporté par l'app (le
   même format, éventuellement retouché à la main) — remplace les
   acteurs/phases/activités/interactions/spécifications/tests du projet
