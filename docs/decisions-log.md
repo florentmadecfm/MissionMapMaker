@@ -2212,3 +2212,34 @@ confirmé dans Vue par acteur. Round-trip Excel vérifié de bout en bout
 friction retrouvés à l'identique) — y compris la confirmation
 `window.confirm` du remplacement, jusqu'ici jamais exercée par un test
 Playwright de cette session (gérée via `page.on('dialog', ...)`).
+
+## ADR-053 — Badge triangle rouge sur le diagramme quand une activité a un point de friction
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : suite directe d'ADR-052 — les points de friction n'étaient
+visibles qu'en ouvrant la modale d'une activité (ou dans Vue par acteur) ;
+demande explicite d'un signal visuel directement sur la carte du
+diagramme, pour repérer les activités concernées sans avoir à cliquer
+sur chacune.
+
+**Décision** : `computeLayout` pose `painPointCount` (comme
+`storyCount`/`specCount` déjà présents) sur les données du nœud
+`activity`. `ActivityNode` (`nodes.tsx`) affiche, quand `painPointCount >
+0`, un badge "⚠" en coin haut-droit de la carte (`.activity-card-warning`,
+`position: absolute`, `.activity-card` passée en `position: relative`) —
+hors de `.activity-card-meta` (badges stories/specs, qui ne s'affiche que
+si l'un des deux est non nul) : le badge doit rester visible même sur une
+carte sans aucun autre badge. Couleur `--color-danger` (déjà utilisée pour
+les actions destructives ailleurs dans l'app) plutôt qu'un nouveau jaune
+d'avertissement, pour bien distinguer "point de friction" (signal fort,
+qui appelle une action) d'un simple compteur informatif.
+
+**Conséquences** : `tsc -b`, `npm run lint`, `npm run build` verts (aucun
+changement backend). Playwright : badge absent avant ajout, apparaît
+immédiatement après ajout d'un point de friction (même avant
+sauvegarde — dérivé de l'état local comme le reste du diagramme), reste
+présent après sauvegarde et rechargement complet de la page. Capture
+d'écran vérifiée visuellement (badge bien positionné en coin haut-droit,
+lisible sur fond clair comme foncé grâce au `text-shadow`).

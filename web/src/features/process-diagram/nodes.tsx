@@ -72,12 +72,23 @@ export function AddActivityNode({ data }: NodeProps) {
 export function ActivityNode({ data }: NodeProps) {
   const storyCount = data.storyCount as number
   const specCount = data.specCount as number
+  const painPointCount = data.painPointCount as number
   const color = data.color as string
   return (
     <div
       className="activity-card"
       style={{ borderTopColor: color, borderLeftColor: color, ['--card-color' as string]: color }}
     >
+      {/* Signale, sans avoir à ouvrir la carte, qu'au moins un point de
+          friction a été noté (voir ActivityDetailModal.tsx, ADR-053). */}
+      {painPointCount > 0 && (
+        <span
+          className="activity-card-warning"
+          title={`${painPointCount} point${painPointCount > 1 ? 's' : ''} de friction`}
+        >
+          ⚠
+        </span>
+      )}
       {/* Poignées gauche/droite : interactions entre activités de phases différentes. */}
       {HANDLE_OFFSETS.map((top, i) => (
         <Handle key={`in-h${i}`} id={`in-h${i}`} type="target" position={Position.Left} style={{ top }} />

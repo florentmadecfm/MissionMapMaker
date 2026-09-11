@@ -131,6 +131,7 @@
 }
 
 .activity-card {
+  position: relative;
   width: 210px;
   /* Léger fond teinté de la couleur de l'acteur (--card-color, posée en
      inline style) : renforce l'association visuelle entre une carte et les
@@ -143,6 +144,27 @@
   padding: 0.55rem 0.7rem;
   box-shadow: var(--shadow-md);
   font-size: 0.85rem;
+}
+
+/* Signale, sans avoir à ouvrir la carte, qu'au moins un point de
+   friction a été noté pour cette activité (voir ActivityDetailModal.tsx,
+   ADR-053). Coin haut-droit plutôt que dans .activity-card-meta (badges
+   stories/specs) : reste visible même quand la carte n'a ni l'un ni
+   l'autre, et se distingue d'un simple compteur par sa couleur d'alerte. */
+.activity-card-warning {
+  position: absolute;
+  top: -9px;
+  right: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-danger);
+  font-size: 1.05rem;
+  line-height: 1;
+  text-shadow:
+    0 0 3px var(--color-surface),
+    0 0 3px var(--color-surface);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 }
 
 .activity-card-title {
