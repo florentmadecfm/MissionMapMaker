@@ -347,3 +347,22 @@ Réutilisation de la même `ActorProfileModal`, avec un bouton
 `onSave`/`saving`/`saveError`/`savedAt`) pour les écrans sans barre
 d'outils de sauvegarde propre — un seul bouton "Voir la fiche" par
 acteur (pas par mission), la fiche étant unique et partagée (ADR-056).
+
+## ADR-058 — Points de friction d'une activité sélectionnables depuis la fiche de l'acteur
+
+`ActivityDetailModal` propose, en plus de la saisie libre déjà existante
+(ADR-052), un sélecteur des points de friction déjà connus pour l'acteur
+de l'activité (sa fiche persona, ADR-055/056), filtré pour exclure ceux
+déjà repris sur cette activité — évite de retaper un texte déjà utilisé
+ailleurs pour le même acteur. Un point réellement nouveau, saisi en texte
+libre, continue d'être ajouté à l'activité, mais enrichit désormais aussi
+la fiche de l'acteur au passage (si son texte n'y figure pas déjà,
+comparaison insensible à la casse) — devient à son tour sélectionnable
+pour les autres activités de cet acteur, y compris dans une autre mission
+(ADR-056). Choix validé avec l'utilisateur plutôt que de garder l'ajout
+strictement local à l'activité : construit un vocabulaire de points de
+friction réutilisable par acteur au fil de la saisie, sans étape
+séparée. Les deux listes restent des collections indépendantes (une
+copie de texte, pas une référence) — aucun changement de schéma, l'ajout
+au niveau de l'activité continue d'alimenter `Activity.PainPoints`,
+inchangé pour l'export/import Excel et le badge du diagramme (ADR-053).
