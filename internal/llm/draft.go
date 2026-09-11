@@ -22,6 +22,27 @@ type DraftProcess struct {
 	ActivityChanges []DraftActivityChange `json:"activityChanges,omitempty"`
 }
 
+// normalize garantit des tranches non nulles : un tableau racine omis par le
+// modèle (malgré le schéma "required", pas toujours strictement respecté
+// selon le fournisseur) désérialise en nil, qui se sérialise en JSON "null"
+// — imposs. à itérer côté frontend (`for (const x of draft.actors)`, voir
+// ADR-047). ActivityChanges reste éventuellement nil : il est légitimement
+// absent hors mise à jour incrémentale (`omitempty` côté Go).
+func (d *DraftProcess) normalize() {
+	if d.Actors == nil {
+		d.Actors = []DraftActor{}
+	}
+	if d.Phases == nil {
+		d.Phases = []DraftPhase{}
+	}
+	if d.Activities == nil {
+		d.Activities = []DraftActivity{}
+	}
+	if d.Interactions == nil {
+		d.Interactions = []DraftInteraction{}
+	}
+}
+
 // DraftActivityChange cible une activité déjà existante par son nom et son
 // acteur ACTUELS (ActivityName/ActorName), puis ne porte que les champs
 // NewXxx qui changent réellement (les autres restent vides). Comme

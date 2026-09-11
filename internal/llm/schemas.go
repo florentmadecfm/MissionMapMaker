@@ -74,6 +74,12 @@ func extractProcessToolSpec() ToolSpec {
 			"interactions":    map[string]any{"type": "array", "items": interactionSchema},
 			"activityChanges": map[string]any{"type": "array", "items": activityChangeSchema},
 		},
+		// Un appel qui ne modifie que les interactions (cas décrit dans
+		// DefaultProcessPrompt) doit quand même renvoyer les 4 tableaux de
+		// base, vides plutôt qu'omis : un champ omis par le modèle désérialise
+		// en `nil` côté Go, qui se sérialise en `null` JSON, que le frontend
+		// (`for (const x of draft.actors)`) ne peut pas itérer — voir ADR-047.
+		Required: []string{"actors", "phases", "activities", "interactions"},
 	}
 }
 
