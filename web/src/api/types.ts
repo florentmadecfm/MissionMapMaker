@@ -7,6 +7,25 @@ export interface Actor {
   // ligne). Voir layout.ts (computeLayout) pour l'algorithme de
   // placement ; symétrique de Phase.subColumns sur l'axe vertical.
   subLanes: number
+  // Fiche persona de cet acteur (ActorProfileModal.tsx, ADR-055) : about
+  // (résumé court) et bio (texte plus long) libres, goals et painPoints
+  // en listes d'entrées indépendantes. painPoints ici décrit les
+  // irritants du MÉTIER de la personne en général, distincts de
+  // Activity.painPoints (une activité précise du diagramme, ADR-052).
+  about: string
+  bio: string
+  goals: ActorGoal[]
+  painPoints: ActorPainPoint[]
+}
+
+export interface ActorGoal {
+  id: string
+  text: string
+}
+
+export interface ActorPainPoint {
+  id: string
+  text: string
 }
 
 export interface Phase {

@@ -61,8 +61,35 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Couleur', key: 'couleur', width: 12 },
       { header: 'Description', key: 'description', width: 50 },
       { header: 'Sous-lignes', key: 'sousLignes', width: 12 },
+      { header: 'À propos', key: 'about', width: 40 },
+      { header: 'Bio', key: 'bio', width: 50 },
     ],
-    project.actors.map((a) => ({ nom: a.name, couleur: a.color, description: a.description, sousLignes: a.subLanes })),
+    project.actors.map((a) => ({
+      nom: a.name,
+      couleur: a.color,
+      description: a.description,
+      sousLignes: a.subLanes,
+      about: a.about,
+      bio: a.bio,
+    })),
+  )
+
+  addSheet(
+    'Objectifs acteur',
+    [
+      { header: 'Acteur', key: 'acteur', width: 24 },
+      { header: 'Texte', key: 'texte', width: 60 },
+    ],
+    project.actors.flatMap((a) => a.goals.map((g) => ({ acteur: a.name, texte: g.text }))),
+  )
+
+  addSheet(
+    'Points de friction acteur',
+    [
+      { header: 'Acteur', key: 'acteur', width: 24 },
+      { header: 'Texte', key: 'texte', width: 60 },
+    ],
+    project.actors.flatMap((a) => a.painPoints.map((p) => ({ acteur: a.name, texte: p.text }))),
   )
 
   addSheet(

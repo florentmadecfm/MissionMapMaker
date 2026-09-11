@@ -84,7 +84,7 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose }: 
         {activity.painPoints.length === 0 ? (
           <p className="actor-warning">Aucun point de friction pour l'instant.</p>
         ) : (
-          <ul className="pain-point-list">
+          <ul className="item-list item-list-warning">
             {activity.painPoints.map((p) => (
               <li key={p.id}>
                 <span>{p.text}</span>
@@ -95,7 +95,7 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose }: 
             ))}
           </ul>
         )}
-        <div className="pain-point-add">
+        <div className="item-add">
           <input
             value={newPainPoint}
             onChange={(e) => setNewPainPoint(e.target.value)}

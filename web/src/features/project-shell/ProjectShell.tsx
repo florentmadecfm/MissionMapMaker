@@ -278,7 +278,15 @@ export function ProjectShell() {
             {tab === 'specifications' && (
               <SpecificationsPanel key={project.id} project={project} onChange={setProject} onSaved={handleSaved} />
             )}
-            {tab === 'acteur' && <ActorView key={project.id} project={project} initialActorId={initialActorId} />}
+            {tab === 'acteur' && (
+              <ActorView
+                key={project.id}
+                project={project}
+                onChange={setProject}
+                onSaved={handleSaved}
+                initialActorId={initialActorId}
+              />
+            )}
           </>
         ) : (
           <p className="placeholder">Créez ou ouvrez un projet pour commencer.</p>

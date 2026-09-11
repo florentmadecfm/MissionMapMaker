@@ -22,6 +22,10 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
         color: ACTOR_COLORS[actors.length % ACTOR_COLORS.length],
         description: da.description ?? '',
         subLanes: 0,
+        about: '',
+        bio: '',
+        goals: [],
+        painPoints: [],
       })
     }
   }

@@ -1,6 +1,8 @@
 import type {
   Activity,
   Actor,
+  ActorGoal,
+  ActorPainPoint,
   Interaction,
   PainPoint,
   Phase,
@@ -134,8 +136,30 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
     color: r['Couleur'] || '#2563eb',
     description: r['Description'] ?? '',
     subLanes: toNumber(r['Sous-lignes'] ?? '0'),
+    about: r['À propos'] ?? '',
+    bio: r['Bio'] ?? '',
+    goals: [],
+    painPoints: [],
   }))
   const actorIdByName = new Map(actors.map((a) => [a.name.trim().toLowerCase(), a.id]))
+
+  const actorGoalRows = await readSheet(wb, 'Objectifs acteur')
+  for (const r of actorGoalRows) {
+    const actor = actors.find((a) => a.name.trim().toLowerCase() === (r['Acteur'] ?? '').trim().toLowerCase())
+    const text = (r['Texte'] ?? '').trim()
+    if (!actor || !text) continue
+    const goal: ActorGoal = { id: newId('goal'), text }
+    actor.goals.push(goal)
+  }
+
+  const actorPainPointRows = await readSheet(wb, 'Points de friction acteur')
+  for (const r of actorPainPointRows) {
+    const actor = actors.find((a) => a.name.trim().toLowerCase() === (r['Acteur'] ?? '').trim().toLowerCase())
+    const text = (r['Texte'] ?? '').trim()
+    if (!actor || !text) continue
+    const painPoint: ActorPainPoint = { id: newId('app'), text }
+    actor.painPoints.push(painPoint)
+  }
 
   const phaseRows = await readSheet(wb, 'Phases')
   const phases: Phase[] = phaseRows.map((r, i) => ({

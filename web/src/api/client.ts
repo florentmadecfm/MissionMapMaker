@@ -36,7 +36,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 function normalizeProject(project: Project): Project {
   return {
     ...project,
-    actors: project.actors ?? [],
+    actors: (project.actors ?? []).map((a) => ({
+      ...a,
+      about: a.about ?? '',
+      bio: a.bio ?? '',
+      goals: a.goals ?? [],
+      painPoints: a.painPoints ?? [],
+    })),
     phases: project.phases ?? [],
     activities: (project.activities ?? []).map((a) => ({
       ...a,

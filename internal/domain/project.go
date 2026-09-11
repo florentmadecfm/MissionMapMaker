@@ -32,6 +32,25 @@ type Actor struct {
 	// une activité (bouton "+" sur l'en-tête d'acteur du diagramme),
 	// symétrique de Phase.SubColumns sur l'axe vertical.
 	SubLanes int `json:"subLanes"`
+	// Fiche persona de cet acteur (ADR-055) : About/Bio en texte libre,
+	// Goals/PainPoints en listes d'entrées indépendantes (même patron que
+	// Activity.PainPoints, ADR-052) — PainPoints ici décrit les irritants
+	// du MÉTIER de la personne en général, distincts des points de
+	// friction propres à une activité précise du diagramme.
+	About      string           `json:"about"`
+	Bio        string           `json:"bio"`
+	Goals      []ActorGoal      `json:"goals"`
+	PainPoints []ActorPainPoint `json:"painPoints"`
+}
+
+type ActorGoal struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+type ActorPainPoint struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
 }
 
 type Phase struct {

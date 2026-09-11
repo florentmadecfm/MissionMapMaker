@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { generateAndMerge } from '../nl-input/generateUpdate'
+import { ActorProfileModal } from '../actor-view/ActorProfileModal'
 import { ActivityDetailModal } from './ActivityDetailModal'
 import { InteractionDetailModal } from './InteractionDetailModal'
 import {
@@ -140,6 +141,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   const [dragTarget, setDragTarget] = useState<DropTarget | null>(null)
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null)
+  const [selectedActorProfileId, setSelectedActorProfileId] = useState<string | null>(null)
   const [updateText, setUpdateText] = useState('')
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
@@ -388,8 +390,12 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       addActivityForActor(node.data.actorId as string)
     } else if (node.type === 'phaseHeader' && (event.target as HTMLElement).closest('.add-subcolumn-button')) {
       addSubColumnForPhase(node.data.phaseId as string)
-    } else if (node.type === 'actorHeader' && (event.target as HTMLElement).closest('.add-sublane-button')) {
-      addSubLaneForActor(node.data.actorId as string)
+    } else if (node.type === 'actorHeader') {
+      if ((event.target as HTMLElement).closest('.add-sublane-button')) {
+        addSubLaneForActor(node.data.actorId as string)
+      } else {
+        setSelectedActorProfileId(node.data.actorId as string)
+      }
     } else if (node.type === 'painPointCell') {
       const activityId = (event.target as HTMLElement).closest('[data-activity-id]')?.getAttribute('data-activity-id')
       if (activityId) setSelectedActivityId(activityId)
@@ -413,9 +419,10 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
         <p className="nl-hint" style={{ flex: 1 }}>
           Glissez-déposez une carte pour la réassigner, glissez depuis le bord d'une carte vers une autre pour créer
           une interaction (cliquez ensuite sur la flèche pour la nommer), cliquez sur une carte pour consulter ses
-          spécifications et tests liés, utilisez les boutons "+" après la dernière phase pour ajouter une phase ou
-          une activité, ou le petit "+" en coin d'un en-tête pour ajouter une colonne (phase) ou une ligne (acteur)
-          supplémentaire.
+          spécifications et tests liés, cliquez sur le nom d'un acteur pour ouvrir sa fiche (à propos, bio,
+          objectifs, points de friction du métier), utilisez les boutons "+" après la dernière phase pour ajouter
+          une phase ou une activité, ou le petit "+" en coin d'un en-tête pour ajouter une colonne (phase) ou une
+          ligne (acteur) supplémentaire.
         </p>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Sauvegarde…' : 'Sauvegarder'}
@@ -512,6 +519,14 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           interactionId={selectedInteractionId}
           onChange={onChange}
           onClose={() => setSelectedInteractionId(null)}
+        />
+      )}
+      {selectedActorProfileId && (
+        <ActorProfileModal
+          project={project}
+          actorId={selectedActorProfileId}
+          onChange={onChange}
+          onClose={() => setSelectedActorProfileId(null)}
         />
       )}
     </div>
