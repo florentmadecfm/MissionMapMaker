@@ -44,6 +44,7 @@ function normalizeProject(project: Project): Project {
       offsetY: a.offsetY ?? 0,
       userStories: a.userStories ?? [],
       traceLinks: a.traceLinks ?? [],
+      painPoints: a.painPoints ?? [],
     })),
     interactions: project.interactions ?? [],
     specifications: project.specifications ?? [],

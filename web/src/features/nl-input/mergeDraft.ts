@@ -61,6 +61,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
       sourceText: da.name,
       userStories: [],
       traceLinks: [],
+      painPoints: [],
     })
   }
 

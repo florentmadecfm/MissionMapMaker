@@ -859,6 +859,47 @@
   font-size: 0.78rem;
 }
 
+.actor-pain-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: var(--color-warning);
+  font-size: 0.82rem;
+}
+
+.pain-point-list {
+  list-style: none;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pain-point-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: var(--color-warning-bg);
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.pain-point-add {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.pain-point-add input {
+  flex: 1;
+}
+
 .actor-specs {
   display: flex;
   gap: 0.3rem;

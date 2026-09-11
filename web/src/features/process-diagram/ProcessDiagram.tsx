@@ -366,6 +366,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       description: '',
       userStories: [],
       traceLinks: [],
+      painPoints: [],
     }
     onChange({ ...project, activities: [...project.activities, activity] })
   }
@@ -498,6 +499,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
         <ActivityDetailModal
           project={project}
           activityId={selectedActivityId}
+          onChange={onChange}
           onClose={() => setSelectedActivityId(null)}
         />
       )}

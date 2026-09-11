@@ -57,7 +57,8 @@ diagramme, il permet de le modifier directement :
   permet de la nommer directement, sans passer par l'onglet Édition
   (ADR-049).
 - **Cliquer sur une carte** ouvre la consultation de ses spécifications
-  et tests V&V liés (une fois générés).
+  et tests V&V liés (une fois générés), et permet d'ajouter/retirer des
+  **points de friction** en texte libre pour cette activité (ADR-052).
 - Les boutons **"+"** après la dernière phase ajoutent une phase ou une
   activité pour un acteur donné, sans repasser par l'onglet Édition.
 - Le petit **"+"** en coin d'un en-tête de phase ou d'acteur réserve
@@ -143,10 +144,10 @@ Le menu **☰**, au niveau de la barre d'onglets d'un projet ouvert
 accès à :
 
 - **Exporter en Excel** : télécharge un classeur `.xlsx` avec un onglet
-  par catégorie (Acteurs, Phases, Activités, User stories, Interactions,
-  Spécifications, Tests V&V, Traçabilité) — toutes les informations du
-  projet, lisibles sans l'application. Génération entièrement côté
-  navigateur (voir ADR-035).
+  par catégorie (Acteurs, Phases, Activités, User stories, Points de
+  friction, Interactions, Spécifications, Tests V&V, Traçabilité) —
+  toutes les informations du projet, lisibles sans l'application.
+  Génération entièrement côté navigateur (voir ADR-035).
 - **Importer depuis Excel** : recharge un classeur exporté par l'app (le
   même format, éventuellement retouché à la main) — remplace les
   acteurs/phases/activités/interactions/spécifications/tests du projet

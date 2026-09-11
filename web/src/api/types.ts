@@ -54,6 +54,16 @@ export interface Activity {
   sourceText?: string
   userStories: UserStory[]
   traceLinks: string[]
+  // Points de friction constatés pour cette activité (texte libre,
+  // indépendants les uns des autres) — distinct de `description` (résumé
+  // de l'activité elle-même). Ajoutés/retirés depuis le diagramme
+  // (ActivityDetailModal.tsx).
+  painPoints: PainPoint[]
+}
+
+export interface PainPoint {
+  id: string
+  text: string
 }
 
 export interface Interaction {
