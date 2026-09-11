@@ -60,7 +60,11 @@ diagramme, il permet de le modifier directement :
   et tests V&V liés (une fois générés), et permet d'ajouter/retirer des
   **points de friction** en texte libre pour cette activité (ADR-052) —
   une carte qui en a au moins un affiche un badge ⚠ rouge en coin
-  haut-droit, visible sans avoir à l'ouvrir (ADR-053).
+  haut-droit, visible sans avoir à l'ouvrir (ADR-053). Une ligne "⚠ Points
+  de friction" tout en bas du diagramme récapitule, phase par phase, tous
+  les points de friction du processus (avec l'acteur et l'activité
+  d'origine de chacun) — cliquer une entrée ouvre directement l'activité
+  concernée (ADR-054).
 - Les boutons **"+"** après la dernière phase ajoutent une phase ou une
   activité pour un acteur donné, sans repasser par l'onglet Édition.
 - Le petit **"+"** en coin d'un en-tête de phase ou d'acteur réserve

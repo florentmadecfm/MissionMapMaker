@@ -2243,3 +2243,48 @@ sauvegarde — dérivé de l'état local comme le reste du diagramme), reste
 présent après sauvegarde et rechargement complet de la page. Capture
 d'écran vérifiée visuellement (badge bien positionné en coin haut-droit,
 lisible sur fond clair comme foncé grâce au `text-shadow`).
+
+## ADR-054 — Ligne de synthèse des points de friction, tout en bas du diagramme
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : suite d'ADR-052/053 — demande explicite d'une ligne
+supplémentaire, tout en bas du diagramme, "qui représente l'ensemble des
+pain points par phase / activités et par acteurs" : une vue d'ensemble
+sans avoir à ouvrir chaque carte une par une.
+
+**Décision** : `computeLayout` ajoute une ligne sous la dernière ligne
+d'acteur (position `y = actorCumulative`, déjà calculée pour l'offset du
+prochain élément) : un en-tête à gauche ("⚠ Points de friction",
+`PainPointRowLabelNode`) et une cellule par phase (`PainPointCellNode`),
+largeur alignée sur l'en-tête de phase correspondant — même patron que
+les lignes d'acteur, mais couleur d'alerte (`--color-danger`) plutôt
+qu'une couleur d'acteur. Regroupement PAR PHASE (colonnes déjà présentes)
+plutôt qu'une seconde ligne par acteur : une ligne supplémentaire par
+acteur aurait dupliqué l'axe déjà porté par les lignes d'acteur
+existantes ; "et par acteurs" de la demande est satisfait en gardant,
+dans chaque cellule de phase, l'acteur et l'activité d'origine de chaque
+point de friction (pastille de couleur + "Acteur · Activité"), sans quoi
+regrouper uniquement par phase aurait perdu ce contexte.
+
+Cliquer une entrée ouvre `ActivityDetailModal` sur l'activité d'origine
+(réutilise l'état `selectedActivityId` déjà existant) — cohérent avec le
+badge d'ADR-053 : la ligne de synthèse n'est pas qu'un résumé passif, elle
+ramène directement à l'endroit où corriger.
+
+Hauteur de cellule fixe (`PAIN_POINT_ROW_HEIGHT = 160`, avec défilement
+interne au-delà) plutôt que dynamique par phase : même compromis que
+`CARD_HEIGHT_ESTIMATE` ailleurs dans `layout.ts`, une hauteur uniforme
+sur toute la ligne reste plus simple à calculer et visuellement plus
+cohérente qu'une hauteur qui varierait d'une colonne à l'autre.
+
+**Conséquences** : `tsc -b`, `npm run lint`, `npm run build`,
+`go build`/`go vet`/`go test ./...` verts (aucun changement backend —
+purement dérivé du projet déjà chargé, comme `storyCount`/`specCount`).
+Playwright : 2 acteurs × 2 phases, points de friction sur 2 activités de
+phases/acteurs différents — la cellule de la phase concernée liste bien
+les 2 entrées (une par acteur, avec pastille et libellé "Acteur ·
+Activité"), la phase sans point de friction affiche "—", et cliquer une
+entrée ouvre bien `ActivityDetailModal` sur la bonne activité. Capture
+d'écran vérifiée visuellement.

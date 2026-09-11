@@ -390,6 +390,9 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       addSubColumnForPhase(node.data.phaseId as string)
     } else if (node.type === 'actorHeader' && (event.target as HTMLElement).closest('.add-sublane-button')) {
       addSubLaneForActor(node.data.actorId as string)
+    } else if (node.type === 'painPointCell') {
+      const activityId = (event.target as HTMLElement).closest('[data-activity-id]')?.getAttribute('data-activity-id')
+      if (activityId) setSelectedActivityId(activityId)
     }
   }
 
