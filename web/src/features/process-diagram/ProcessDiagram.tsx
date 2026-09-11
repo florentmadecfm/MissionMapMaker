@@ -199,7 +199,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   function handleNodeDrag(_event: unknown, node: Node) {
     const activity = project.activities.find((a) => a.id === node.id)
     if (!activity) return
-    setDragTarget(computeDropTarget(project, nodes, node.position, activity.actorId))
+    setDragTarget(computeDropTarget(project, nodes, node.position, activity.actorId, activity.phaseId))
   }
 
   // Glisser-déposer une carte d'activité la réassigne à l'acteur/la phase
@@ -215,7 +215,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     const activity = project.activities.find((a) => a.id === node.id)
     if (!activity) return // pas une carte d'activité (les en-têtes ne sont pas déplaçables)
 
-    const target = computeDropTarget(project, nodes, node.position, activity.actorId)
+    const target = computeDropTarget(project, nodes, node.position, activity.actorId, activity.phaseId)
     if (!target) return
 
     const targetSubRow = Math.max(target.subRowIndex, 0)

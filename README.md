@@ -44,9 +44,10 @@ diagramme, il permet de le modifier directement :
 - **Glisser-déposer** une carte d'activité la réassigne à l'acteur/la
   phase visés (une ombre en pointillés prévisualise l'emplacement de
   dépose). Un dépôt qui déborde d'au plus une case sous la ligne déjà
-  occupée par SON acteur crée une sous-ligne de plus pour cet acteur
-  plutôt que de basculer sur l'acteur suivant — un dépôt plus franc
-  continue de réassigner à un autre acteur, comme avant (ADR-049).
+  occupée par SON acteur (ou à droite de la colonne déjà occupée par SA
+  phase) crée une sous-ligne/sous-colonne de plus pour cet acteur/cette
+  phase plutôt que de basculer sur l'acteur/la phase suivant(e) — un
+  dépôt plus franc continue de réassigner comme avant (ADR-049, ADR-050).
 - **Glisser depuis le bord d'une carte vers une autre** crée une
   interaction entre les deux activités — cliquer ensuite sur la flèche
   permet de la nommer directement, sans passer par l'onglet Édition
