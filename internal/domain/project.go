@@ -36,7 +36,13 @@ type Actor struct {
 	// Goals/PainPoints en listes d'entrées indépendantes (même patron que
 	// Activity.PainPoints, ADR-052) — PainPoints ici décrit les irritants
 	// du MÉTIER de la personne en général, distincts des points de
-	// friction propres à une activité précise du diagramme.
+	// friction propres à une activité précise du diagramme. Partagée entre
+	// toutes les missions où un acteur de même nom apparaît (ADR-056) :
+	// ProjectService les fusionne depuis storage.ActorProfileStore à
+	// chaque chargement, et les réécrit dans ce store partagé à chaque
+	// sauvegarde — ces 4 champs sont donc toujours écrasés par la version
+	// partagée au prochain Get, ce qui n'enregistre ici qu'un instantané
+	// (jamais lu directement par autre chose que ce mécanisme).
 	About      string           `json:"about"`
 	Bio        string           `json:"bio"`
 	Goals      []ActorGoal      `json:"goals"`
@@ -51,6 +57,16 @@ type ActorGoal struct {
 type ActorPainPoint struct {
 	ID   string `json:"id"`
 	Text string `json:"text"`
+}
+
+// ActorProfile est la fiche persona d'un acteur (mêmes 4 champs qu'Actor
+// ci-dessus), stockée une seule fois PAR NOM plutôt que par acteur — voir
+// storage.ActorProfileStore et ADR-056.
+type ActorProfile struct {
+	About      string           `json:"about"`
+	Bio        string           `json:"bio"`
+	Goals      []ActorGoal      `json:"goals"`
+	PainPoints []ActorPainPoint `json:"painPoints"`
 }
 
 type Phase struct {

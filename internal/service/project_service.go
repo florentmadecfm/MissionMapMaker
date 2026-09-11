@@ -17,11 +17,12 @@ import (
 )
 
 type ProjectService struct {
-	repo *storage.Repository
+	repo     *storage.Repository
+	profiles *storage.ActorProfileStore
 }
 
-func NewProjectService(repo *storage.Repository) *ProjectService {
-	return &ProjectService{repo: repo}
+func NewProjectService(repo *storage.Repository, profiles *storage.ActorProfileStore) *ProjectService {
+	return &ProjectService{repo: repo, profiles: profiles}
 }
 
 func (s *ProjectService) List() ([]storage.ProjectSummary, error) {
@@ -29,7 +30,88 @@ func (s *ProjectService) List() ([]storage.ProjectSummary, error) {
 }
 
 func (s *ProjectService) Get(id string) (*domain.Project, error) {
-	return s.repo.Load(id)
+	p, err := s.repo.Load(id)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.mergeActorProfiles(p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// mergeActorProfiles écrase About/Bio/Goals/PainPoints de chaque acteur du
+// projet par la fiche partagée correspondante (voir storage.ActorProfileStore,
+// ADR-056), quand elle existe — un acteur jamais sauvegardé depuis
+// l'introduction de ce mécanisme (ou dont le nom ne correspond à aucune
+// fiche partagée) garde simplement les valeurs déjà présentes dans le
+// fichier du projet.
+func (s *ProjectService) mergeActorProfiles(p *domain.Project) error {
+	profiles, err := s.profiles.LoadAll()
+	if err != nil {
+		return err
+	}
+	for i := range p.Actors {
+		key := storage.ProfileKey(p.Actors[i].Name)
+		if profile, ok := profiles[key]; ok {
+			p.Actors[i].About = profile.About
+			p.Actors[i].Bio = profile.Bio
+			p.Actors[i].Goals = profile.Goals
+			p.Actors[i].PainPoints = profile.PainPoints
+		}
+	}
+	return nil
+}
+
+// syncActorProfiles republie la fiche de chaque acteur du projet dans le
+// store partagé — appelé avant Repository.Save, pour que la fiche
+// modifiée soit immédiatement visible depuis les autres missions au
+// prochain Get (voir ADR-056). Un nom vide (acteur en cours de saisie,
+// pas encore nommé) est ignoré plutôt que de polluer le store d'une clé
+// vide.
+//
+// Pour un acteur dont l'ID n'existait PAS déjà dans `existing` (donc
+// nouvellement apparu dans cette requête), la fiche est au contraire
+// ADOPTÉE depuis le store plutôt qu'écrasée : le client qui vient de
+// créer cet acteur localement n'est jamais passé par Get pour ce nom, sa
+// fiche locale est donc vide par construction — la publier telle quelle
+// effacerait la fiche déjà partagée sous ce nom par une autre mission.
+// Un acteur déjà connu (même ID côté `existing`), lui, est toujours
+// republié tel quel : soit c'est une vraie modification à propager, soit
+// c'est la copie déjà fusionnée reçue au dernier Get, republier ne
+// change alors rien.
+func (s *ProjectService) syncActorProfiles(p, existing *domain.Project) error {
+	existingIDs := make(map[string]struct{}, len(existing.Actors))
+	for _, a := range existing.Actors {
+		existingIDs[a.ID] = struct{}{}
+	}
+
+	profiles, err := s.profiles.LoadAll()
+	if err != nil {
+		return err
+	}
+
+	updates := make(map[string]domain.ActorProfile, len(p.Actors))
+	for i := range p.Actors {
+		key := storage.ProfileKey(p.Actors[i].Name)
+		if key == "" {
+			continue
+		}
+		if _, known := existingIDs[p.Actors[i].ID]; !known {
+			if profile, ok := profiles[key]; ok {
+				p.Actors[i].About = profile.About
+				p.Actors[i].Bio = profile.Bio
+				p.Actors[i].Goals = profile.Goals
+				p.Actors[i].PainPoints = profile.PainPoints
+				continue
+			}
+		}
+		updates[key] = domain.ActorProfile{
+			About: p.Actors[i].About, Bio: p.Actors[i].Bio,
+			Goals: p.Actors[i].Goals, PainPoints: p.Actors[i].PainPoints,
+		}
+	}
+	return s.profiles.Upsert(updates)
 }
 
 func (s *ProjectService) Create(name string) (*domain.Project, error) {
@@ -70,7 +152,20 @@ func (s *ProjectService) Update(id string, p *domain.Project) (*domain.Project, 
 	p.CreatedAt = existing.CreatedAt
 	p.UpdatedAt = time.Now().UTC()
 
+	// Republie les fiches persona AVANT Save (ADR-056) : Save appelle
+	// Project.Validate, qui peut rejeter la requête pour une tout autre
+	// raison — republier après aurait laissé le store partagé et le
+	// projet enregistré diverger si Save échoue.
+	if err := s.syncActorProfiles(p, existing); err != nil {
+		return nil, err
+	}
 	if err := s.repo.Save(p); err != nil {
+		return nil, err
+	}
+	// Refusionne depuis le store partagé : si ce projet a deux acteurs du
+	// même nom (edge case), les deux doivent repartir avec exactement la
+	// même fiche (celle écrite en dernier), pas chacun la sienne.
+	if err := s.mergeActorProfiles(p); err != nil {
 		return nil, err
 	}
 	return p, nil

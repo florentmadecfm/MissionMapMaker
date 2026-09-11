@@ -756,22 +756,6 @@
   color: white;
 }
 
-.actor-profile-modal {
-  width: 720px;
-  max-height: calc(100vh - 4rem);
-  overflow-y: auto;
-}
-
-.actor-profile-modal h3 {
-  font-size: 0.9rem;
-  margin: 0.4rem 0 0.2rem;
-}
-
-.actor-profile-modal textarea {
-  width: 100%;
-  resize: vertical;
-}
-
 .actor-profile-button {
   margin-left: auto;
   padding: 0.4rem 0.85rem;
@@ -1079,6 +1063,27 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+
+/* Doit rester APRÈS .modal ci-dessus : même spécificité (une classe
+   chacun), donc c'est l'ordre dans la feuille de style qui départage —
+   .actor-profile-modal embarque ActorDetail (timeline de phases assez
+   large, voir ActorProfileModal.tsx), d'où une largeur nettement
+   supérieure aux autres modales. */
+.actor-profile-modal {
+  width: 1040px;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+.actor-profile-modal h3 {
+  font-size: 0.9rem;
+  margin: 0.4rem 0 0.2rem;
+}
+
+.actor-profile-modal textarea {
+  width: 100%;
+  resize: vertical;
 }
 
 .modal-header {
