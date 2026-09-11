@@ -79,6 +79,13 @@ export function ActorDetail({ project, actorId }: Props) {
                   <div key={act.id} className={`actor-activity-card${isolated ? ' isolated' : ''}`}>
                     <div className="actor-activity-title">{act.name}</div>
                     {act.description && <p className="actor-activity-desc">{act.description}</p>}
+                    {act.painPoints.length > 0 && (
+                      <ul className="actor-pain-points">
+                        {act.painPoints.map((p) => (
+                          <li key={p.id}>⚠ {p.text}</li>
+                        ))}
+                      </ul>
+                    )}
 
                     {incoming.length > 0 && (
                       <ul className="actor-io actor-io-in">

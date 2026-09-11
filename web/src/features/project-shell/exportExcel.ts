@@ -131,6 +131,22 @@ export async function exportProjectToExcel(project: Project) {
   )
 
   addSheet(
+    'Points de friction',
+    [
+      { header: 'Activité', key: 'activite', width: 40 },
+      { header: 'Acteur', key: 'acteur', width: 24 },
+      { header: 'Texte', key: 'texte', width: 60 },
+    ],
+    project.activities.flatMap((act) =>
+      act.painPoints.map((pp) => ({
+        activite: act.name,
+        acteur: actorName(project, act.actorId),
+        texte: pp.text,
+      })),
+    ),
+  )
+
+  addSheet(
     'Interactions',
     [
       { header: 'Depuis', key: 'depuis', width: 34 },

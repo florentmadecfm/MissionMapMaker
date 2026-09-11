@@ -2,6 +2,7 @@ import type {
   Activity,
   Actor,
   Interaction,
+  PainPoint,
   Phase,
   Project,
   Specification,
@@ -188,6 +189,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
       sourceText: r['Texte source'] || undefined,
       userStories: [],
       traceLinks,
+      painPoints: [],
     }
   })
   activities.forEach((a, i) => {
@@ -219,6 +221,16 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
       status: coerce(r['Statut'] ?? '', ['todo', 'in_progress', 'done'], 'todo'),
     }
     activity.userStories.push(story)
+  }
+
+  const painPointRows = await readSheet(wb, 'Points de friction')
+  for (const r of painPointRows) {
+    const activityId = findActivity(r['Activité'] ?? '', r['Acteur'] ?? '')
+    const activity = activities.find((a) => a.id === activityId)
+    const text = (r['Texte'] ?? '').trim()
+    if (!activity || !text) continue
+    const painPoint: PainPoint = { id: newId('pp'), text }
+    activity.painPoints.push(painPoint)
   }
 
   const interactionRows = await readSheet(wb, 'Interactions')

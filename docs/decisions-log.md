@@ -2168,3 +2168,47 @@ l'identique après rechargement de la page. Les scénarios ADR-049/050
 sous-ligne/sous-colonne) rejoués sans régression — le nouveau champ
 `offsetX`/`offsetY` apparaît simplement à 0 ou borné selon le cas dans
 leurs résultats.
+
+## ADR-052 — Points de friction (texte libre) par activité
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : demande utilisateur — pouvoir noter, pour chaque activité,
+des points de friction (irritants UX constatés) en texte libre.
+
+**Décision** : `Activity` gagne `painPoints: PainPoint[]` (`PainPoint =
+{id, text}`) — une LISTE plutôt qu'un simple champ texte, plusieurs points
+de friction indépendants pouvant coexister pour une même activité
+(cohérent avec `userStories`, `traceLinks`, déjà des listes sur
+`Activity`). Édition centralisée dans `ActivityDetailModal.tsx` (ouverte
+au clic sur une carte du diagramme) plutôt que dans le tableau compact
+"Activités" de l'onglet Édition, qui n'a pas la place pour une liste de
+longueur variable par ligne (déjà le cas pour `description`, jamais
+éditable ailleurs que par génération LLM) — `ActivityDetailModal`
+devient ainsi éditable pour la première fois (jusqu'ici lecture seule
+des spécifications/tests liés, qui le restent, leur édition continuant
+de vivre dans l'onglet Spécifications). Ajout/suppression appliqués
+immédiatement à l'état local (comme les tableaux Interactions/Activités
+de l'onglet Édition), la persistance restant soumise au bouton
+"Sauvegarder" existant, cohérent avec le reste de l'app.
+
+Affichage en lecture seule ajouté à `ActorDetail.tsx` (Vue par acteur ET
+écran transverse Acteurs, qui le réutilisent tous deux), à côté de
+`description`, pour la visibilité sans devoir rouvrir le diagramme.
+
+Export/import Excel : nouvelle feuille "Points de friction" (Activité,
+Acteur, Texte) — une ligne par point de friction, sur le modèle de la
+feuille "User stories" déjà existante, plutôt qu'une cellule à valeurs
+jointes (texte libre potentiellement long, avec virgules/retours à la
+ligne, contrairement aux codes courts de `traceLinks`).
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright : ajout de 2 points de
+friction et suppression de l'un d'eux depuis la modale du diagramme,
+persistance vérifiée après sauvegarde (le bon survit) ; affichage
+confirmé dans Vue par acteur. Round-trip Excel vérifié de bout en bout
+(export réel téléchargé, réimporté dans un second projet, les 2 points de
+friction retrouvés à l'identique) — y compris la confirmation
+`window.confirm` du remplacement, jusqu'ici jamais exercée par un test
+Playwright de cette session (gérée via `page.on('dialog', ...)`).

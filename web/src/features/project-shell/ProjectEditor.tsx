@@ -87,6 +87,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       description: '',
       userStories: [],
       traceLinks: [],
+      painPoints: [],
     }
     onChange({ ...project, activities: [...project.activities, activity] })
   }

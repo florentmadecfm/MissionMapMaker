@@ -90,6 +90,18 @@ type Activity struct {
 
 	UserStories []UserStory `json:"userStories"`
 	TraceLinks  []string    `json:"traceLinks"` // specification IDs
+	// PainPoints liste les points de friction constatés pour cette
+	// activité (texte libre, ex. "le client attend souvent plusieurs
+	// minutes avant d'être servi") — distinct de Description (résumé de
+	// l'activité elle-même) : plusieurs points de friction indépendants
+	// peuvent coexister pour une même activité, ajoutés/retirés un par un
+	// depuis le diagramme (voir ActivityDetailModal.tsx).
+	PainPoints []PainPoint `json:"painPoints"`
+}
+
+type PainPoint struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
 }
 
 type UserStory struct {
