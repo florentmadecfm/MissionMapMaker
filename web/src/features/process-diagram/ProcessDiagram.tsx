@@ -22,6 +22,8 @@ import {
   cellTopLeft,
   computeDropTarget,
   computeLayout,
+  MAX_OFFSET_X,
+  MAX_OFFSET_Y,
   type DropTarget,
   type LayoutEdge,
 } from './layout'
@@ -207,9 +209,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   // de la pile de cette cellule, si plusieurs activités s'y trouvent déjà
   // — voir computeDropTarget). Comme pour les autres onglets, ce n'est
   // qu'un changement d'état local : il faut « Sauvegarder » pour le
-  // persister. La carte elle-même n'a pas de position libre mémorisée :
-  // au prochain rendu, computeLayout la replace exactement à la position
-  // de grille de sa nouvelle cellule.
+  // persister.
   function handleNodeDragStop(_event: unknown, node: Node) {
     setDragTarget(null)
     const activity = project.activities.find((a) => a.id === node.id)
@@ -230,6 +230,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       .sort((a, b) => a.order - b.order)
     const rawIndex = Math.max(target.subColumnIndex, 0)
 
+    let updatedActivities: Activity[]
     if (rawIndex <= siblings.length) {
       // Dépose au sein (ou juste après) de la pile actuelle des activités
       // de cet acteur dans cette phase (et cette sous-ligne) : réordonne
@@ -245,38 +246,48 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       ]
       const orderById = new Map(sequence.map((id, i) => [id, i]))
 
-      onChange({
-        ...project,
-        activities: project.activities.map((a) => {
-          if (a.id === activity.id) {
-            return {
-              ...a,
-              actorId: target.actorId,
-              phaseId: target.phaseId,
-              column: 0,
-              subRow: targetSubRow,
-              order: orderById.get(a.id) ?? a.order,
-            }
+      updatedActivities = project.activities.map((a) => {
+        if (a.id === activity.id) {
+          return {
+            ...a,
+            actorId: target.actorId,
+            phaseId: target.phaseId,
+            column: 0,
+            subRow: targetSubRow,
+            order: orderById.get(a.id) ?? a.order,
           }
-          return orderById.has(a.id) ? { ...a, order: orderById.get(a.id) ?? a.order } : a
-        }),
+        }
+        return orderById.has(a.id) ? { ...a, order: orderById.get(a.id) ?? a.order } : a
       })
-      return
-    }
-
-    // Dépose au-delà de ce que l'empilement automatique de cet acteur
-    // occuperait dans cette phase (et cette sous-ligne) : l'intention est
-    // de s'aligner sur une sous-colonne précise qu'un AUTRE acteur a fait
-    // apparaître dans cette phase (voir ADR-020). On fixe une position
-    // explicite plutôt que d'insérer dans la pile de cet acteur, qui
-    // n'irait de toute façon pas jusque-là.
-    onChange({
-      ...project,
-      activities: project.activities.map((a) =>
+    } else {
+      // Dépose au-delà de ce que l'empilement automatique de cet acteur
+      // occuperait dans cette phase (et cette sous-ligne) : l'intention est
+      // de s'aligner sur une sous-colonne précise qu'un AUTRE acteur a fait
+      // apparaître dans cette phase (voir ADR-020). On fixe une position
+      // explicite plutôt que d'insérer dans la pile de cet acteur, qui
+      // n'irait de toute façon pas jusque-là.
+      updatedActivities = project.activities.map((a) =>
         a.id === activity.id
           ? { ...a, actorId: target.actorId, phaseId: target.phaseId, column: rawIndex, subRow: targetSubRow }
           : a,
-      ),
+      )
+    }
+
+    // Décalage fin (ADR-051) : au-delà de la case elle-même (déterminée
+    // ci-dessus), l'écart entre le point de dépose réel et la position par
+    // défaut de cette case affine la position affichée sans changer la
+    // case — computeLayout de la position par défaut (offsetX/Y remis à 0
+    // le temps du calcul) sert de référence, plutôt que de dupliquer ici
+    // la logique de résolution des sous-colonnes (resolveColumns).
+    const zeroed = updatedActivities.map((a) => (a.id === activity.id ? { ...a, offsetX: 0, offsetY: 0 } : a))
+    const defaultNode = computeLayout({ ...project, activities: zeroed }).nodes.find((n) => n.id === activity.id)
+    const defaultPosition = defaultNode?.position ?? node.position
+    const offsetX = Math.min(Math.max(node.position.x - defaultPosition.x, 0), MAX_OFFSET_X)
+    const offsetY = Math.min(Math.max(node.position.y - defaultPosition.y, 0), MAX_OFFSET_Y)
+
+    onChange({
+      ...project,
+      activities: zeroed.map((a) => (a.id === activity.id ? { ...a, offsetX, offsetY } : a)),
     })
   }
 
@@ -350,6 +361,8 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       order: project.activities.length + 1,
       column: 0,
       subRow: 0,
+      offsetX: 0,
+      offsetY: 0,
       description: '',
       userStories: [],
       traceLinks: [],

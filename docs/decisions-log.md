@@ -2101,3 +2101,70 @@ un glisser modéré vers la droite (3 phases à 1 sous-colonne chacune)
 aboutit à `phaseId` inchangé et `column: 1` après sauvegarde ; un
 glisser franc jusqu'à une 3e phase plus loin déplace bien vers cette 3e
 phase, comme avant. Aucune erreur console.
+
+## ADR-051 — Décalage fin (offsetX/offsetY) : nudger une carte sans changer de case
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : suite d'ADR-049/050, avec un second dessin annoté ("case
+jaune" = ce qu'on obtient aujourd'hui, "trait rouge" = ce qui est voulu,
+bien plus petit). Clarifié avec l'utilisateur via deux questions :
+(1) le comportement testé était bien celui du tout dernier binaire
+(ADR-049/050 inclus) — le manque venait donc d'ailleurs ; (2) le "petit
+décalage" voulu doit être un nouveau champ indépendant de la taille de
+case existante (SUBCOLUMN_WIDTH/SUBLANE_HEIGHT restent inchangées),
+plutôt que de réduire la taille des cases dans tout le diagramme.
+
+Cause : la position d'une carte n'existait qu'à travers 4 champs discrets
+(actorId, phaseId, subRow, column, tous résolus par des tailles de case
+fixes) — aucune position libre en pixels n'était mémorisée par activité.
+Pendant un glisser, React Flow déplace réellement la carte au pixel près
+sous le curseur (le rendu SEMBLE donc déjà fin), mais au relâchement,
+`handleNodeDragStop` ne conservait que la case résolue et recalculait la
+position depuis son coin par défaut — tout décalage fin fait pendant le
+geste était perdu, la carte "sautant" visuellement à ce coin. C'est ce
+qu'illustrait la "case jaune" : la case jaune n'est pas où on l'a lâchée,
+c'est où elle retombe systématiquement après relâchement.
+
+**Décision** : `Activity` gagne deux champs, `offsetX`/`offsetY` (float64
+côté Go, `number` côté TS, 0 par défaut y compris pour les projets déjà
+enregistrés) — un décalage en pixels internes du canevas, appliqué par
+`computeLayout` EN PLUS de la position par défaut de la case
+(`position.x/y += offsetX/Y`), sans jamais changer actorId/phaseId/
+subRow/column. Borné à `MAX_OFFSET_X`/`MAX_OFFSET_Y` (`layout.ts` —
+l'espace encore libre dans une case une fois la carte à sa position par
+défaut, `SUBCOLUMN_WIDTH - CARD_WIDTH - CARD_MARGIN` et symétrique en Y)
+pour ne jamais chevaucher la case voisine — un vrai changement de case
+reste le seul moyen d'aller plus loin (glisser au-delà de la zone de
+tolérance ADR-049/050, ou l'onglet Édition).
+
+`handleNodeDragStop` (`ProcessDiagram.tsx`) calcule d'abord la case
+cible comme avant (inchangé), puis calcule le résidu — l'écart entre le
+point de dépose réel et la position par défaut de la case résolue,
+obtenue en ré-appelant `computeLayout` avec `offsetX/Y` remis à 0 pour
+cette carte plutôt que de dupliquer ici la résolution des sous-colonnes
+(`resolveColumns`) — et le stocke, borné, comme `offsetX`/`offsetY`.
+`activityCenters` (repère du dégradé des flèches) intègre naturellement
+le décalage puisqu'il est calculé à partir de la même `position`.
+
+Export/import Excel : deux colonnes "Décalage X"/"Décalage Y" ajoutées à
+l'onglet Activités, pour un round-trip complet (cohérent avec
+Sous-colonne/Sous-ligne déjà présentes).
+
+**Alternative écartée** : réduire `SUBCOLUMN_WIDTH`/`SUBLANE_HEIGHT`
+globalement — rejetée explicitement par l'utilisateur (densifie tout le
+diagramme, moins de place pour le texte des cartes) au profit d'un champ
+dédié qui ne change la granularité que de l'ajustement fin, pas de la
+grille structurante (acteur/phase/sous-ligne/sous-colonne) elle-même.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright, vrais événements
+souris : un glisser de 40px (bien en-deçà d'une case entière) laisse
+`actorId`/`phaseId`/`subRow`/`column` inchangés et persiste un
+`offsetX` non nul après sauvegarde ; la carte réapparaît décalée à
+l'identique après rechargement de la page. Les scénarios ADR-049/050
+(glisser franc = vrai changement de case, glisser modéré = nouvelle
+sous-ligne/sous-colonne) rejoués sans régression — le nouveau champ
+`offsetX`/`offsetY` apparaît simplement à 0 ou borné selon le cas dans
+leurs résultats.

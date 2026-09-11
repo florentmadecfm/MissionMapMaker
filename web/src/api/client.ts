@@ -40,6 +40,8 @@ function normalizeProject(project: Project): Project {
     phases: project.phases ?? [],
     activities: (project.activities ?? []).map((a) => ({
       ...a,
+      offsetX: a.offsetX ?? 0,
+      offsetY: a.offsetY ?? 0,
       userStories: a.userStories ?? [],
       traceLinks: a.traceLinks ?? [],
     })),

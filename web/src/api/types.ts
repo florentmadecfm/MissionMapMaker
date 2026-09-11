@@ -43,6 +43,13 @@ export interface Activity {
   // de `column` mais sur l'axe vertical, partagée par toutes les phases
   // de cet acteur (voir Actor.subLanes).
   subRow: number
+  // Décalage fin (pixels internes du canevas) à l'intérieur de la case
+  // ci-dessus — 0 = position par défaut, comme avant. Ne change jamais
+  // actorId/phaseId/subRow/column : borné à l'espace encore libre dans
+  // la case pour ne jamais chevaucher une case voisine (voir
+  // MAX_OFFSET_X/Y, layout.ts, ADR-051).
+  offsetX: number
+  offsetY: number
   description: string
   sourceText?: string
   userStories: UserStory[]

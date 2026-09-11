@@ -25,6 +25,19 @@ export const CARD_MARGIN = 16
 export const CARD_WIDTH = 210
 export const CARD_HEIGHT_ESTIMATE = 60
 
+// Espace encore libre dans une case (sous-colonne/sous-ligne) une fois la
+// carte posée à sa position par défaut (voir CARD_MARGIN ci-dessus) :
+// borne le décalage fin (Activity.offsetX/offsetY, ADR-051) pour qu'une
+// carte nudgée ne chevauche jamais la case voisine. CARD_HEIGHT_ESTIMATE
+// n'étant qu'une approximation (voir plus haut), la borne verticale l'est
+// aussi — tolérable pour un simple ajustement visuel.
+export const MAX_OFFSET_X = SUBCOLUMN_WIDTH - CARD_WIDTH - CARD_MARGIN
+export const MAX_OFFSET_Y = SUBLANE_HEIGHT - CARD_HEIGHT_ESTIMATE - CARD_MARGIN
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
 // Largeur du bouton "+" ajouté après la dernière phase, pour ajouter une
 // phase (en tête) ou une activité pour l'acteur de la ligne (le reste de
 // la colonne) directement depuis le diagramme — voir ProcessDiagram.tsx.
@@ -243,9 +256,15 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     const subRow = Math.max(activity.subRow, 0)
 
     const actor = actors[ai]
+    // Le décalage fin (ADR-051) ajuste la position À L'INTÉRIEUR de la
+    // case sans jamais changer la case elle-même (stackPos/subRow
+    // ci-dessus, seuls déterminés par actorId/phaseId/column/subRow) —
+    // reborné ici (et non fait confiance tel quel) au cas où la case
+    // effectivement disponible ait changé depuis l'enregistrement de ce
+    // décalage (ex. import Excel d'une valeur arbitraire).
     const position = {
-      x: phaseOffsets[pi] + stackPos * SUBCOLUMN_WIDTH + CARD_MARGIN,
-      y: actorOffsets[ai] + subRow * SUBLANE_HEIGHT + CARD_MARGIN,
+      x: phaseOffsets[pi] + stackPos * SUBCOLUMN_WIDTH + CARD_MARGIN + clamp(activity.offsetX, 0, MAX_OFFSET_X),
+      y: actorOffsets[ai] + subRow * SUBLANE_HEIGHT + CARD_MARGIN + clamp(activity.offsetY, 0, MAX_OFFSET_Y),
     }
     activityCenters.set(activity.id, { x: position.x + CARD_WIDTH / 2, y: position.y + CARD_HEIGHT_ESTIMATE / 2 })
     nodes.push({

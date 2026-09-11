@@ -82,6 +82,8 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       order: project.activities.length + 1,
       column: 0,
       subRow: 0,
+      offsetX: 0,
+      offsetY: 0,
       description: '',
       userStories: [],
       traceLinks: [],
