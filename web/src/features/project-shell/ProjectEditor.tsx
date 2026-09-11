@@ -63,7 +63,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
   }
 
   function addPhase() {
-    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0 }
+    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0, icon: '' }
     onChange({ ...project, phases: [...project.phases, phase] })
   }
 
@@ -181,11 +181,19 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       <section>
         <h2>Phases</h2>
         <div className="col-headers">
+          <span className="col-icon">Icône</span>
           <span className="col-name">Nom</span>
         </div>
         <ul>
           {project.phases.map((p) => (
             <li key={p.id}>
+              <input
+                className="phase-icon-input"
+                value={p.icon}
+                onChange={(e) => updatePhase(p.id, { icon: e.target.value })}
+                placeholder="🍽️"
+                title="Emoji illustrant cette phase (mode storyboard du diagramme)"
+              />
               <input value={p.name} onChange={(e) => updatePhase(p.id, { name: e.target.value })} />
               <button type="button" className="danger" onClick={() => removePhase(p.id)}>
                 supprimer

@@ -14,9 +14,18 @@ export function PhaseHeaderNode({ data }: NodeProps) {
   // sur le bouton est géré au niveau de ReactFlow (onNodeClick, voir
   // ProcessDiagram.tsx), qui distingue le bouton du reste de l'en-tête
   // via son élément cible (event.target).
+  const icon = data.icon as string
   return (
     <div className="lane-node phase-header" style={{ width: (data.width as number) - 8, height: PHASE_HEADER_HEIGHT - 8 }}>
-      {data.label as string}
+      {/* Emoji illustrant concrètement la phase (mode storyboard,
+          ADR-059) — absent pour une phase sans icône (jamais générée
+          artificiellement), qui garde simplement son nom centré. */}
+      {icon && (
+        <span className="phase-header-icon" aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      <span className="phase-header-label">{data.label as string}</span>
       <button type="button" className="add-subcolumn-button" title="Ajouter une colonne pour cette phase">
         +
       </button>

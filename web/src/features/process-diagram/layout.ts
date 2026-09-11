@@ -1,7 +1,10 @@
 import type { Project } from '../../api/types'
 
 export const LANE_LABEL_WIDTH = 190
-export const PHASE_HEADER_HEIGHT = 60
+// Assez haut pour l'emoji illustratif d'une phase (mode storyboard,
+// ADR-059) au-dessus de son nom — une phase sans icône garde simplement
+// son nom centré dans cette même hauteur, sans repli visuel forcé.
+export const PHASE_HEADER_HEIGHT = 112
 // Largeur d'une sous-colonne : l'espace réservé à une activité au sein
 // d'une phase. Une phase qui a besoin de plusieurs sous-colonnes (voir
 // computeLayout) voit sa largeur totale — et son en-tête — s'étendre d'un
@@ -223,7 +226,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       id: `phase-header-${phase.id}`,
       type: 'phaseHeader',
       position: { x: phaseOffsets[i], y: 0 },
-      data: { label: phase.name, width: phaseWidths[i], phaseId: phase.id },
+      data: { label: phase.name, icon: phase.icon, width: phaseWidths[i], phaseId: phase.id },
       draggable: false,
       selectable: false,
     })

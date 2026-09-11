@@ -167,6 +167,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
     name: r['Nom'] ?? '',
     order: toNumber(r['Ordre'] ?? '0', i + 1),
     subColumns: toNumber(r['Sous-colonnes'] ?? '0'),
+    icon: r['Icône'] ?? '',
   }))
   const phaseIdByName = new Map(phases.map((p) => [p.name.trim().toLowerCase(), p.id]))
 

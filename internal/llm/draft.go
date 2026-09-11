@@ -67,6 +67,11 @@ type DraftActor struct {
 type DraftPhase struct {
 	Name  string `json:"name"`
 	Order int    `json:"order"`
+	// Icon est un emoji unique proposé pour illustrer concrètement cette
+	// phase (ADR-059) — optionnel, une phase déjà existante n'en reçoit
+	// jamais un via mergeDraft.ts (seules les phases nouvellement créées en
+	// sont dotées, voir ADR-040 sur le comportement additif de la fusion).
+	Icon string `json:"icon,omitempty"`
 }
 
 type DraftActivity struct {

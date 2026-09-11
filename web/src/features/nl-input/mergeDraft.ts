@@ -33,7 +33,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
   const phases: Phase[] = [...project.phases]
   for (const dp of draft.phases) {
     if (!phases.some((p) => sameName(p.name, dp.name))) {
-      phases.push({ id: newId('ph'), name: dp.name, order: dp.order || phases.length + 1, subColumns: 0 })
+      phases.push({ id: newId('ph'), name: dp.name, order: dp.order || phases.length + 1, subColumns: 0, icon: dp.icon ?? '' })
     }
   }
 

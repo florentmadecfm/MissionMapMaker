@@ -27,6 +27,7 @@ func extractProcessToolSpec() ToolSpec {
 		"properties": map[string]any{
 			"name":  stringProp,
 			"order": integerProp,
+			"icon":  stringProp,
 		},
 		"required": []string{"name", "order"},
 	}

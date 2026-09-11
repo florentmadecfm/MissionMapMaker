@@ -461,7 +461,8 @@
   min-width: 0;
 }
 
-.col-headers .col-color {
+.col-headers .col-color,
+.col-headers .col-icon {
   width: 4.4rem;
   flex-shrink: 0;
 }
@@ -469,6 +470,13 @@
 .col-headers .col-name,
 .col-headers .col-select {
   flex: 1;
+}
+
+.phase-icon-input {
+  width: 4.4rem;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 1.1rem;
 }
 
 .col-arrow-spacer {

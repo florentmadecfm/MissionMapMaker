@@ -36,6 +36,10 @@ export interface Phase {
   // colonne), en plus de la répartition automatique portée par
   // Activity.column. Voir layout.ts (computeLayout).
   subColumns: number
+  // Emoji illustrant concrètement cette phase, affiché en grand au-dessus
+  // de son nom dans l'en-tête du diagramme (mode storyboard, ADR-059) —
+  // vide par défaut, aucun repli visuel forcé.
+  icon: string
 }
 
 export interface UserStory {
@@ -174,6 +178,7 @@ export interface DraftActor {
 export interface DraftPhase {
   name: string
   order: number
+  icon?: string
 }
 
 export interface DraftActivity {
