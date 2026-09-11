@@ -72,9 +72,21 @@ type Activity struct {
 	// explicitement déplacée sur une autre ligne, symétrique de Column
 	// mais sur l'axe vertical (partagée par toutes les phases pour cet
 	// acteur, comme Actor.SubLanes).
-	SubRow      int    `json:"subRow"`
-	Description string `json:"description"`
-	SourceText  string `json:"sourceText,omitempty"`
+	SubRow int `json:"subRow"`
+	// OffsetX/OffsetY affinent la position de la carte À L'INTÉRIEUR de sa
+	// case (acteur/phase/sous-ligne/sous-colonne ci-dessus, qui reste seule
+	// à déterminer l'ACTEUR/LA PHASE affectés) — glisser-déposer sur le
+	// diagramme d'une petite distance, sans traverser toute la largeur/
+	// hauteur d'une case. 0 (valeur par défaut, y compris pour les projets
+	// enregistrés avant l'introduction de ce champ) : position par défaut
+	// dans la case, comme avant. Bornés à l'espace encore libre dans la
+	// case (voir MAX_OFFSET_X/Y, layout.ts) pour ne jamais chevaucher une
+	// case voisine — un décalage plus grand doit passer par un vrai
+	// changement de case (voir ADR-051).
+	OffsetX     float64 `json:"offsetX"`
+	OffsetY     float64 `json:"offsetY"`
+	Description string  `json:"description"`
+	SourceText  string  `json:"sourceText,omitempty"`
 
 	UserStories []UserStory `json:"userStories"`
 	TraceLinks  []string    `json:"traceLinks"` // specification IDs

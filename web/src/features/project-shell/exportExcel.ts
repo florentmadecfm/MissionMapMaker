@@ -88,6 +88,8 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Spécifications liées', key: 'specs', width: 30 },
       { header: 'Sous-colonne', key: 'sousColonne', width: 12 },
       { header: 'Sous-ligne', key: 'sousLigne', width: 12 },
+      { header: 'Décalage X', key: 'decalageX', width: 12 },
+      { header: 'Décalage Y', key: 'decalageY', width: 12 },
     ],
     project.activities.map((act) => ({
       nom: act.name,
@@ -101,6 +103,8 @@ export async function exportProjectToExcel(project: Project) {
         .join(', '),
       sousColonne: act.column,
       sousLigne: act.subRow,
+      decalageX: act.offsetX,
+      decalageY: act.offsetY,
     })),
   )
 

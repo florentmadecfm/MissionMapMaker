@@ -182,6 +182,8 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
       order: 0,
       column: toNumber(r['Sous-colonne'] ?? '0'),
       subRow: toNumber(r['Sous-ligne'] ?? '0'),
+      offsetX: toNumber(r['Décalage X'] ?? '0'),
+      offsetY: toNumber(r['Décalage Y'] ?? '0'),
       description: r['Description'] ?? '',
       sourceText: r['Texte source'] || undefined,
       userStories: [],

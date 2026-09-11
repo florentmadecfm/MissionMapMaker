@@ -48,6 +48,10 @@ diagramme, il permet de le modifier directement :
   phase) crée une sous-ligne/sous-colonne de plus pour cet acteur/cette
   phase plutôt que de basculer sur l'acteur/la phase suivant(e) — un
   dépôt plus franc continue de réassigner comme avant (ADR-049, ADR-050).
+  Un dépôt qui reste dans la même case nudge légèrement la carte à
+  l'intérieur de celle-ci (mémorisé par activité, borné pour ne jamais
+  chevaucher une case voisine) plutôt que de toujours retomber
+  exactement au même coin (ADR-051).
 - **Glisser depuis le bord d'une carte vers une autre** crée une
   interaction entre les deux activités — cliquer ensuite sur la flèche
   permet de la nommer directement, sans passer par l'onglet Édition

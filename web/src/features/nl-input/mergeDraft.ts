@@ -55,6 +55,8 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
       order: activities.length + 1,
       column: 0,
       subRow: 0,
+      offsetX: 0,
+      offsetY: 0,
       description: da.description ?? '',
       sourceText: da.name,
       userStories: [],
