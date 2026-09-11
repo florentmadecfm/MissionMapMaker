@@ -2002,3 +2002,68 @@ API — bug purement frontend, reproductible sans appel LLM réel) : texte
 tapé dans la barre "Générer" ET dans la barre de mise à jour du
 diagramme pour une mission A, vérifié absent en ouvrant une mission B
 juste après (chaînes vides sur les deux barres), aucune erreur console.
+
+## ADR-049 — Glisser-déposer : une sous-ligne de plus pour SON acteur plutôt qu'un saut vers l'acteur suivant ; nommer une interaction directement dans le diagramme
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : deux demandes explicites utilisateur sur le diagramme.
+
+1. « quand je sélectionne une activité pour la déplacer sur la grille, je
+   ne peux la déplacer que [de la taille d'une rangée]. Je souhaite
+   pouvoir la déplacer que d'une case de la grille et non une rangée. »
+   Cause : `computeDropTarget` (`layout.ts`) associe la position lâchée à
+   l'acteur dont la bande (hauteur = `subLanes` actuel × `SUBLANE_HEIGHT`)
+   contient le point de dépose. Les bandes d'acteurs étant contiguës
+   (aucun espace entre elles), dépasser même légèrement le bas de sa
+   propre bande fait immédiatement basculer sur la sous-ligne 0 de
+   l'acteur SUIVANT : impossible de viser "une sous-ligne de plus pour
+   MON acteur" (une case) sans réserver au préalable via le bouton "+" de
+   l'en-tête — le seul geste de glisser-déposer, lui, ne pouvait que
+   réassigner à un autre acteur (une rangée entière).
+2. « depuis le diagramme, quand on ajoute une interaction, il faut
+   pouvoir cliquer dessus et la nommer pour que ce soit sauvegardé
+   ensuite. » Une interaction créée par glisser-déposer entre deux cartes
+   (`handleConnect`) ne portait qu'un texte générique ("Information
+   échangée"), à préciser — mais seulement depuis l'onglet Édition,
+   aucune interaction possible directement sur la flèche du diagramme.
+
+**Décision** :
+1. `computeDropTarget` accepte un paramètre optionnel `ownActorId` (l'acteur
+   ACTUEL de la carte glissée, transmis par `ProcessDiagram.tsx` dans
+   `handleNodeDrag`/`handleNodeDragStop`). Si le point de dépose reste dans
+   la bande déjà réservée à cet acteur OU déborde d'au plus une
+   `SUBLANE_HEIGHT` en dessous, la carte reste sur SON acteur (nouvelle
+   sous-ligne, une case de plus) ; au-delà, le comportement existant
+   (bascule vers l'acteur dont la bande contient réellement le point)
+   s'applique sans changement — un glisser franc jusqu'à un acteur plus
+   loin continue de réassigner normalement. Alternative écartée : une
+   zone de tolérance plus petite qu'une `SUBLANE_HEIGHT` (ex. quelques
+   dizaines de pixels) — écartée pour rester cohérente avec le modèle de
+   grille existant (une tolérance de exactement une case, ni plus ni
+   moins, est le choix le plus simple à justifier et à documenter).
+   Compromis assumé : sur un acteur suivant qui n'a par défaut qu'une
+   seule sous-ligne, toute sa bande tombe dans cette zone de tolérance —
+   le réassigner directement par un glisser modéré n'est plus possible
+   (il faut glisser plus loin, au-delà de sa bande) ; passer par l'onglet
+   Édition reste toujours possible pour une réassignation directe.
+2. Nouveau composant `InteractionDetailModal.tsx` (éditable, contrairement
+   à `ActivityDetailModal.tsx` en lecture seule) : ouvert au clic sur une
+   flèche (`onEdgeClick` sur `<ReactFlow>`), affiche l'acteur/l'activité
+   de départ et d'arrivée, un champ texte pré-rempli avec l'information
+   actuelle, "Valider" (met à jour `project.interactions` en état local,
+   comme le reste du diagramme — encore à confirmer via "Sauvegarder")
+   et "Supprimer".
+
+**Conséquences** : `tsc -b`, `npm run lint`, `npm run build` verts (aucun
+changement backend). Playwright bout en bout, avec de vrais événements
+souris (`mouse.down`/`mouse.move`/`mouse.up`, pas d'API haut niveau) :
+(a) un glisser modéré d'une carte juste sous sa propre ligne d'acteur (2
+acteurs de 1 sous-ligne chacun) aboutit bien à `actorId` inchangé et
+`subRow: 1` après sauvegarde ; (b) un glisser franc jusqu'à un 3e acteur
+plus loin réassigne bien `actorId` à ce 3e acteur, comme avant ; (c)
+glisser depuis la poignée d'une carte vers une autre crée l'interaction,
+cliquer sur la flèche ouvre la modale, et le texte saisi est bien
+persisté après "Valider" + "Sauvegarder". Aucune erreur console dans les
+trois cas.
