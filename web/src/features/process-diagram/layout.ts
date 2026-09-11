@@ -363,10 +363,23 @@ export interface DropTarget {
 // se rabat sur la ligne/colonne la plus proche plutôt que d'ignorer le
 // geste — glisser une carte franchement à gauche ou à droite du canevas
 // revient ainsi à la déposer dans la première ou la dernière phase.
+//
+// ownActorId (optionnel, l'acteur ACTUEL de la carte qu'on glisse) : sans
+// lui, les bandes d'acteurs étant contiguës (aucun espace entre elles),
+// dépasser même légèrement le bas de sa propre ligne fait immédiatement
+// basculer sur la sous-ligne 0 de l'acteur SUIVANT — un simple geste pour
+// créer une nouvelle sous-ligne à SON acteur (une seule "case" de plus)
+// reassignait donc la carte à un acteur entièrement différent (toute une
+// "rangée" plus loin). Avec ownActorId, un dépôt qui déborde d'au plus une
+// SUBLANE_HEIGHT sous la zone déjà réservée par cet acteur reste sur cet
+// acteur, sur la nouvelle sous-ligne qui vient d'apparaître sous le
+// curseur — un dépôt plus franc dans la ligne suivante continue de
+// basculer sur cet autre acteur comme avant (voir ADR-049).
 export function computeDropTarget(
   project: Project,
   nodes: LayoutNode[],
   dropPosition: { x: number; y: number },
+  ownActorId?: string,
 ): DropTarget | null {
   const actorHeaders = nodes.filter((n) => n.type === 'actorHeader')
   const phaseHeaders = nodes.filter((n) => n.type === 'phaseHeader')
@@ -377,9 +390,16 @@ export function computeDropTarget(
   const centerX = dropPosition.x + CARD_WIDTH / 2
   const centerY = dropPosition.y + CARD_HEIGHT_ESTIMATE / 2
 
-  const actorRow =
-    actorHeaders.find((n) => centerY >= n.position.y && centerY < n.position.y + (n.data.height as number)) ??
-    (centerY < actorHeaders[0].position.y ? actorHeaders[0] : actorHeaders[actorHeaders.length - 1])
+  const ownHeader = ownActorId ? actorHeaders.find((n) => n.id === `actor-header-${ownActorId}`) : undefined
+  const staysOwnActor =
+    ownHeader !== undefined &&
+    centerY >= ownHeader.position.y &&
+    centerY < ownHeader.position.y + (ownHeader.data.height as number) + SUBLANE_HEIGHT
+
+  const actorRow = staysOwnActor
+    ? ownHeader
+    : (actorHeaders.find((n) => centerY >= n.position.y && centerY < n.position.y + (n.data.height as number)) ??
+      (centerY < actorHeaders[0].position.y ? actorHeaders[0] : actorHeaders[actorHeaders.length - 1]))
   const phaseColumn =
     phaseHeaders.find((n) => centerX >= n.position.x && centerX < n.position.x + (n.data.width as number)) ??
     (centerX < phaseHeaders[0].position.x ? phaseHeaders[0] : phaseHeaders[phaseHeaders.length - 1])

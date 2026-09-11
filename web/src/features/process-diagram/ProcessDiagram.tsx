@@ -15,6 +15,7 @@ import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActivityDetailModal } from './ActivityDetailModal'
+import { InteractionDetailModal } from './InteractionDetailModal'
 import {
   CARD_HEIGHT_ESTIMATE,
   CARD_WIDTH,
@@ -136,6 +137,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   // de l'endroit où la carte atterrirait si on la lâchait maintenant.
   const [dragTarget, setDragTarget] = useState<DropTarget | null>(null)
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
+  const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null)
   const [updateText, setUpdateText] = useState('')
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
@@ -197,7 +199,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   function handleNodeDrag(_event: unknown, node: Node) {
     const activity = project.activities.find((a) => a.id === node.id)
     if (!activity) return
-    setDragTarget(computeDropTarget(project, nodes, node.position))
+    setDragTarget(computeDropTarget(project, nodes, node.position, activity.actorId))
   }
 
   // Glisser-déposer une carte d'activité la réassigne à l'acteur/la phase
@@ -213,7 +215,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     const activity = project.activities.find((a) => a.id === node.id)
     if (!activity) return // pas une carte d'activité (les en-têtes ne sont pas déplaçables)
 
-    const target = computeDropTarget(project, nodes, node.position)
+    const target = computeDropTarget(project, nodes, node.position, activity.actorId)
     if (!target) return
 
     const targetSubRow = Math.max(target.subRowIndex, 0)
@@ -282,8 +284,11 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   // directement une interaction entre les deux activités, sans repasser
   // par l'onglet Édition. Le texte "Information échangée" (même valeur
   // par défaut que le bouton "+ Ajouter une interaction" de l'onglet
-  // Édition) reste à relire/préciser ensuite — cohérent avec le reste de
-  // l'app, qui ne suppose jamais un texte final généré automatiquement.
+  // Édition) reste à préciser ensuite — cohérent avec le reste de l'app,
+  // qui ne suppose jamais un texte final généré automatiquement. Cliquer
+  // sur la flèche fraîchement créée (InteractionDetailModal, voir
+  // handleEdgeClick) permet de la nommer sans quitter le diagramme, en
+  // plus de l'édition déjà possible dans l'onglet Édition (ADR-049).
   // Les poignées de départ/arrivée réellement utilisées ne sont pas
   // mémorisées : computeLayout choisit le routage (haut/bas ou
   // gauche/droite) à partir de la topologie à chaque rendu, comme pour
@@ -374,6 +379,13 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     }
   }
 
+  // Clic sur une flèche d'interaction : ouvre InteractionDetailModal pour
+  // la nommer/renommer directement depuis le diagramme (voir handleConnect
+  // ci-dessus, qui ne pose qu'un texte générique à préciser ensuite).
+  function handleEdgeClick(_event: React.MouseEvent, edge: Edge) {
+    setSelectedInteractionId(edge.id)
+  }
+
   if (project.actors.length === 0 || project.phases.length === 0) {
     return <p className="placeholder">Ajoutez au moins un acteur et une phase pour voir le diagramme.</p>
   }
@@ -383,9 +395,10 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       <header className="editor-header">
         <p className="nl-hint" style={{ flex: 1 }}>
           Glissez-déposez une carte pour la réassigner, glissez depuis le bord d'une carte vers une autre pour créer
-          une interaction, cliquez sur une carte pour consulter ses spécifications et tests liés, utilisez les
-          boutons "+" après la dernière phase pour ajouter une phase ou une activité, ou le petit "+" en coin d'un
-          en-tête pour ajouter une colonne (phase) ou une ligne (acteur) supplémentaire.
+          une interaction (cliquez ensuite sur la flèche pour la nommer), cliquez sur une carte pour consulter ses
+          spécifications et tests liés, utilisez les boutons "+" après la dernière phase pour ajouter une phase ou
+          une activité, ou le petit "+" en coin d'un en-tête pour ajouter une colonne (phase) ou une ligne (acteur)
+          supplémentaire.
         </p>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Sauvegarde…' : 'Sauvegarder'}
@@ -460,6 +473,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           onNodeDragStop={handleNodeDragStop}
           onConnect={handleConnect}
           onNodeClick={handleNodeClick}
+          onEdgeClick={handleEdgeClick}
         >
           <Background gap={24} />
           <Controls showInteractive={false} />
@@ -472,6 +486,14 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           project={project}
           activityId={selectedActivityId}
           onClose={() => setSelectedActivityId(null)}
+        />
+      )}
+      {selectedInteractionId && (
+        <InteractionDetailModal
+          project={project}
+          interactionId={selectedInteractionId}
+          onChange={onChange}
+          onClose={() => setSelectedInteractionId(null)}
         />
       )}
     </div>

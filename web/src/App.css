@@ -1028,6 +1028,13 @@
   width: 100%;
 }
 
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
 .field-label {
   font-size: 0.8rem;
   font-weight: 500;
