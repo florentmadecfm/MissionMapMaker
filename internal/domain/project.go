@@ -80,6 +80,13 @@ type Phase struct {
 	// seconde colonne avant même d'y avoir une activité (bouton "+" sur
 	// l'en-tête de phase du diagramme).
 	SubColumns int `json:"subColumns"`
+	// Icon est un emoji unique illustrant concrètement cette phase (ex.
+	// "🍽️" pour une phase de repas), affiché en grand au-dessus de son nom
+	// dans l'en-tête du diagramme façon storyboard (ADR-059). Proposé par
+	// le LLM à l'extraction du processus, mais éditable comme le reste
+	// (onglet Édition) ; vide par défaut, y compris pour les phases créées
+	// avant l'introduction de ce champ — aucun repli visuel forcé.
+	Icon string `json:"icon"`
 }
 
 type Activity struct {

@@ -97,11 +97,12 @@ export async function exportProjectToExcel(project: Project) {
     [
       { header: 'Ordre', key: 'ordre', width: 8 },
       { header: 'Nom', key: 'nom', width: 40 },
+      { header: 'Icône', key: 'icone', width: 10 },
       { header: 'Sous-colonnes', key: 'sousColonnes', width: 14 },
     ],
     [...project.phases]
       .sort((a, b) => a.order - b.order)
-      .map((p) => ({ ordre: p.order, nom: p.name, sousColonnes: p.subColumns })),
+      .map((p) => ({ ordre: p.order, nom: p.name, icone: p.icon, sousColonnes: p.subColumns })),
   )
 
   addSheet(

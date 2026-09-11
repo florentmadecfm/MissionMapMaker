@@ -323,7 +323,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   // défaut à préciser ensuite), pour construire le diagramme sans y
   // aller et venir.
   function addPhase() {
-    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0 }
+    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0, icon: '' }
     onChange({ ...project, phases: [...project.phases, phase] })
   }
 

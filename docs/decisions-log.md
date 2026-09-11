@@ -366,3 +366,31 @@ séparée. Les deux listes restent des collections indépendantes (une
 copie de texte, pas une référence) — aucun changement de schéma, l'ajout
 au niveau de l'activité continue d'alimenter `Activity.PainPoints`,
 inchangé pour l'export/import Excel et le badge du diagramme (ADR-053).
+
+## ADR-059 — Icône illustrative par phase (mode storyboard) sur le diagramme
+
+Aucun fournisseur LLM déjà intégré (Anthropic, Mistral) ne génère
+d'images — seulement du texte. Choix validé avec l'utilisateur : plutôt
+qu'ajouter un nouveau fournisseur d'images (coût, latence, clé
+supplémentaire à configurer), le LLM texte déjà utilisé pour extraire le
+processus propose aussi, pour chaque phase, un unique emoji représentatif
+(`Phase.Icon`, nouveau champ) — affiché en grand au-dessus du nom de la
+phase dans l'en-tête du diagramme (`PHASE_HEADER_HEIGHT` élargi de 60 à
+112px pour l'accueillir), façon vignette de storyboard. Une phase sans
+icône (créée manuellement, ou projet antérieur à ce champ) garde
+simplement son nom centré dans cet en-tête plus haut — aucun repli visuel
+forcé, aucune migration nécessaire. Éditable manuellement comme le reste
+(onglet Édition, colonne Icône), et couvert par l'export/import Excel
+(nouvelle colonne "Icône" sur la feuille Phases) au même titre que les
+autres champs de phase.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright, avec un faux serveur
+Mistral local renvoyant des phases avec icône (comme le ferait un vrai
+LLM suivant le prompt mis à jour) : icônes reprises dans l'onglet
+Édition et affichées en grand sur le diagramme, en-tête de phase mesuré
+nettement plus haut, ajout manuel d'une icône sur une phase créée sans
+persisté après sauvegarde, round-trip Excel de la colonne Icône
+vérifié. Non-régression confirmée sur la ligne de synthèse des points de
+friction et le glisser-déposer de sous-colonnes (tous deux dépendants du
+layout des en-têtes de phase).

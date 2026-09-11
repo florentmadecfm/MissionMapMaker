@@ -37,7 +37,8 @@ Ouvrir http://localhost:5173.
   (ou d'un PDF texte) — toujours relu/édité avant sauvegarde.
 - **Diagramme de processus** interactif : glisser-déposer, création
   d'interaction directement sur le diagramme, mise à jour incrémentale en
-  langage naturel, points de friction par activité.
+  langage naturel, points de friction par activité, icône illustrative par
+  phase façon storyboard (proposée par le LLM à la génération, éditable).
 - **Fiche persona** par acteur (à propos, bio, objectifs, points de
   friction du métier) — partagée entre toutes les missions portant un
   acteur du même nom, consultable/éditable depuis le diagramme, l'onglet
