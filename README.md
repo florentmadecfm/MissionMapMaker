@@ -70,7 +70,10 @@ diagramme, il permet de le modifier directement :
   friction d'une activité précise — et rappel des activités du
   processus) en mode CRUD : ajout/suppression d'objectifs et de points de
   friction, texte libre pour à propos/bio. Même fiche accessible depuis
-  l'onglet **Vue par acteur** (bouton "Voir la fiche") (ADR-055).
+  l'onglet **Vue par acteur** (bouton "Voir la fiche") (ADR-055). Cette
+  fiche est **partagée entre toutes les missions** portant un acteur du
+  même nom (à la casse près) : la modifier depuis une mission la met à
+  jour partout ailleurs, sans dupliquer la saisie (ADR-056).
 - Les boutons **"+"** après la dernière phase ajoutent une phase ou une
   activité pour un acteur donné, sans repasser par l'onglet Édition.
 - Le petit **"+"** en coin d'un en-tête de phase ou d'acteur réserve

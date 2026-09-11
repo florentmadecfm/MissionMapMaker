@@ -19,7 +19,8 @@ func main() {
 	dataDir := envOr("MMM_DATA_DIR", "data")
 
 	repo := storage.NewRepository(dataDir)
-	projects := service.NewProjectService(repo)
+	profiles := storage.NewActorProfileStore(dataDir)
+	projects := service.NewProjectService(repo, profiles)
 
 	generate := setupGenerateService()
 

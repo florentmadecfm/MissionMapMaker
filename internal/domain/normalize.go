@@ -30,12 +30,23 @@ func (p *Project) Normalize() {
 	if p.TestScenarios == nil {
 		p.TestScenarios = []TestScenario{}
 	}
+	for i := range p.Actors {
+		if p.Actors[i].Goals == nil {
+			p.Actors[i].Goals = []ActorGoal{}
+		}
+		if p.Actors[i].PainPoints == nil {
+			p.Actors[i].PainPoints = []ActorPainPoint{}
+		}
+	}
 	for i := range p.Activities {
 		if p.Activities[i].UserStories == nil {
 			p.Activities[i].UserStories = []UserStory{}
 		}
 		if p.Activities[i].TraceLinks == nil {
 			p.Activities[i].TraceLinks = []string{}
+		}
+		if p.Activities[i].PainPoints == nil {
+			p.Activities[i].PainPoints = []PainPoint{}
 		}
 	}
 	for i := range p.TestScenarios {

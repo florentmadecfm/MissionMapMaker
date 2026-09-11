@@ -2362,3 +2362,102 @@ persisté via le nouveau bouton "Sauvegarder" de cet onglet) ; round-trip
 Excel complet (about/bio/goals/painPoints) vérifié de bout en bout ;
 non-régression du CRUD des points de friction d'activité (ADR-052)
 rejouée après le renommage des classes CSS partagées.
+
+---
+
+## ADR-056 — Fiche persona partagée entre missions par nom d'acteur
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : demande explicite — "il faut agrandir la modale de la
+fiche d'un acteur. Un même acteur doit partager sa fiche entre
+différentes missions". Jusqu'ici, la fiche persona (About/Bio/Goals/
+PainPoints, ADR-055) était un champ ordinaire d'`Actor`, propre à chaque
+projet : un "Serveur" dans la mission Restaurant et un "Serveur" dans la
+mission Hôtel de luxe (déjà rapprochés par nom en LECTURE SEULE pour
+`ListActors`/l'écran Acteurs transverse, ADR-041) avaient chacun leur
+propre fiche vierge, sans aucun lien. Saisir la fiche dans une mission ne
+la faisait apparaître nulle part ailleurs.
+
+**Décision** :
+- Nouveau store partagé **`internal/storage/actor_profiles.go`** : un
+  seul fichier `data/actor-profiles.json` (par contraste avec le patron
+  existant "un fichier par projet" de `Repository`) associant une clé
+  normalisée (`ProfileKey`, même normalisation que `ListActors` : casse
+  et espaces de bord ignorés) à un `domain.ActorProfile{About, Bio,
+  Goals, PainPoints}`. Un seul fichier plutôt qu'un fichier par acteur :
+  le volume attendu (acteurs nommés) reste faible, et ça simplifie la
+  lecture-modification-écriture atomique (verrou `sync.Mutex` en mémoire
+  — nécessaire ici, contrairement à `Repository.Save`, car ce fichier
+  UNIQUE peut être touché par la sauvegarde de deux PROJETS différents en
+  parallèle, alors que deux requêtes ne touchent jamais le même fichier
+  projet en même temps).
+- `ProjectService` orchestre la fusion de façon transparente, sans
+  toucher à la forme de l'API ni introduire de DTO séparé (le projet
+  entier est déjà sérialisé tel quel disque ↔ HTTP) :
+  - `Get` charge le projet puis écrase About/Bio/Goals/PainPoints de
+    chaque acteur par la fiche partagée correspondante, quand elle
+    existe (`mergeActorProfiles`).
+  - `Update` republie la fiche de chaque acteur dans le store partagé
+    AVANT `Repository.Save` (pour ne jamais désynchroniser store et
+    projet enregistré si `Save` rejette pour une autre raison — ex.
+    validation), puis refusionne depuis le store après un `Save` réussi
+    (cas limite : deux acteurs de même nom dans un même projet doivent
+    repartir avec exactement la même fiche, "dernier écrit gagne").
+  - Résultat : la copie de ces 4 champs à l'intérieur du fichier JSON
+    d'un projet devient un instantané jamais fiable en lui-même —
+    toujours réécrasée par la version partagée au prochain chargement.
+- **Bug trouvé et corrigé avant toute mise en prod** (capturé par un test
+  Go écrit en premier, `TestGet_SharesActorProfileAcrossMissionsByName`,
+  qui a échoué avant le correctif) : une première implémentation naïve
+  republiait sans condition les champs ACTUELS de chaque acteur à chaque
+  `Update`. Or un acteur nouvellement créé côté client
+  (`ProjectEditor.addActor()`) a des champs de fiche vides par
+  construction (jamais passé par `Get`) — créer un acteur "Serveur" dans
+  une nouvelle mission aurait donc silencieusement ÉCRASÉ la fiche déjà
+  remplie pour "Serveur" ailleurs. Corrigé en distinguant, via
+  `syncActorProfiles(p, existing)`, les acteurs dont l'ID était déjà
+  connu du projet chargé (`existing`, avant modification — republiés tels
+  quels) de ceux dont l'ID est nouveau dans cette requête (fiche du store
+  ADOPTÉE dans l'acteur local plutôt que publiée depuis un brouillon
+  vide). Verrouillé par un second test dédié,
+  `TestGet_NewActorAdoptsExistingSharedProfileInstead`.
+- Gap préexistant comblé à cette occasion dans
+  `domain.Project.Normalize()` (ADR-022) : `Activity.PainPoints`
+  (ADR-052) et les nouveaux `Actor.Goals`/`Actor.PainPoints` n'y étaient
+  pas encore gardés contre une désérialisation `null` (slice Go nil →
+  `null` JSON, qui fait planter le frontend qui présuppose un tableau) —
+  ajouté au même patron que les autres collections déjà couvertes.
+- **Modale agrandie** (`ActorProfileModal`, ADR-055) : `.actor-profile-modal`
+  passe de la largeur par défaut de `.modal` (420px) à 1040px avec
+  `max-height`/`overflow-y: auto`, pour accueillir confortablement la
+  section "Activités du processus" (réutilisation d'`ActorDetail`, assez
+  large avec sa timeline par phase). Bug de cascade CSS rencontré et
+  corrigé au passage : `.actor-profile-modal` et `.modal` ont la même
+  spécificité (une classe chacune) — la règle placée EN DERNIER dans la
+  feuille de style l'emporte, indépendamment de l'intention logique.
+  `.actor-profile-modal` était définie avant `.modal` dans `App.css`,
+  donc `.modal` gagnait silencieusement et la largeur ne changeait
+  jamais malgré la règle "1040px" bien présente. Corrigé en déplaçant le
+  bloc juste après `.modal` dans le même fichier.
+
+**Alternative écartée** : un catalogue d'acteurs global avec un ID
+partagé (au lieu du rapprochement par nom déjà en place pour ADR-041) —
+écartée pour rester cohérent avec la convention déjà établie et pour ne
+pas exiger de migration de données ni de nouvel écran de gestion
+d'identité d'acteur ; le rapprochement par nom suffit au besoin exprimé
+et le prix (deux acteurs homonymes non liés partageant accidentellement
+une fiche) était déjà accepté par ADR-041 pour la vue de consultation.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...` verts (dont les
+deux nouveaux tests de partage). `tsc -b`, `npm run lint`, `npm run
+build` verts. Playwright (`test-actor-profile-shared.mjs`) : largeur de
+la modale mesurée à 1040px ; fiche saisie dans la mission Restaurant sur
+un acteur "Serveur" visible immédiatement dans la mission Hôtel de luxe
+sur un acteur "Serveur" DIFFÉRENT (autre ID), sans passer par aucune
+sauvegarde locale côté Hôtel ; modification faite depuis l'Hôtel
+répercutée vers le Restaurant après rechargement. Non-régression
+confirmée par un rejeu complet de la suite Playwright originale
+d'ADR-055 (`test-actor-profile.mjs`, deux points d'entrée + round-trip
+Excel) en base propre.
