@@ -1957,3 +1957,48 @@ Playwright bout en bout possible dans cet environnement : aucune clé API
 Anthropic/Mistral n'y est configurée pour déclencher un vrai appel LLM ;
 les tests Go ci-dessus couvrent la régression au niveau où elle se
 produit réellement (parsing de la réponse du fournisseur).
+
+## ADR-048 — Onglets d'un projet non remontés au changement de mission : texte/messages d'une mission visibles sur une autre
+
+**Date** : 2026-09-11
+**Statut** : Retenu
+
+**Contexte** : rapport utilisateur — un texte tapé dans la barre de mise à
+jour en langage naturel (onglet "Générer" ou barre de mise à jour du
+diagramme, `ProcessDiagram.tsx`) pour la mission 1 restait affiché tel
+quel en naviguant vers la mission 2, alors que rien n'avait été généré ni
+appliqué à cette seconde mission — juste affiché à tort. Même risque pour
+"Idem pour la génération des SSS et tests" : les messages
+`generateInfo`/`generateError` de `SpecificationsPanel.tsx` (ex. "3 SSS
+proposées"), ou `savedAt`/`saveError` de `ProjectEditor.tsx`/
+`ProcessDiagram.tsx`, auraient pu rester affichés en changeant de mission
+sans avoir jamais rien sauvegardé/généré pour celle-ci.
+
+**Cause racine** : `ProjectShell.tsx` rend `<NlInput project={project}
+.../>`, `<ProcessDiagram project={project} .../>`,
+`<SpecificationsPanel project={project} .../>`, etc. sans prop `key`.
+Changer de mission dans la sidebar ne fait que changer la prop `project`
+reçue par le composant déjà monté pour l'onglet actif — React réutilise
+la même instance plutôt que d'en créer une nouvelle, donc tout l'état
+local du composant (`useState` : texte de saisie, drapeaux
+`generating`/`saving`, messages de résultat...) survit au changement de
+mission, alors qu'il décrivait la mission précédente.
+
+**Décision** : ajouter `key={project.id}` sur les 5 composants d'onglet
+rendus par `ProjectShell.tsx` (`NlInput`, `ProjectEditor`, `ProcessDiagram`,
+`SpecificationsPanel`, `ActorView`). React démonte/remonte alors le
+composant entier à chaque changement de mission (mais pas à un simple
+changement d'onglet pour la même mission), ce qui réinitialise tout son
+état local d'un coup — plutôt que de traquer et réinitialiser
+individuellement chaque `useState` concerné dans chacun des 5 composants
+(texte de saisie, drapeaux de chargement, messages de résultat...), une
+solution plus fragile : tout nouveau state local ajouté plus tard dans
+l'un de ces composants aurait pu réintroduire le même bug s'il fallait
+penser à le réinitialiser manuellement à chaque fois.
+
+**Conséquences** : `tsc -b`, `npm run lint`, `npm run build` verts
+(aucun changement backend). Playwright bout en bout (pas besoin de clé
+API — bug purement frontend, reproductible sans appel LLM réel) : texte
+tapé dans la barre "Générer" ET dans la barre de mise à jour du
+diagramme pour une mission A, vérifié absent en ouvrant une mission B
+juste après (chaînes vides sur les deux barres), aucune erreur console.

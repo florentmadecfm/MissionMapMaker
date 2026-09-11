@@ -255,17 +255,30 @@ export function ProjectShell() {
                   n'importe quel onglet du projet ouvert (ADR-046). */}
               <ExportImportMenu project={project} onChange={setProject} />
             </div>
+            {/* key={project.id} sur chaque onglet : sans lui, passer d'un
+                projet à un autre en restant sur le même onglet ne
+                démonte/remonte pas le composant (seule sa prop `project`
+                change), donc son état local (texte de la demande en
+                langage naturel, message "Sauvegardé à...", erreur de
+                génération...) restait affiché tel quel — décrivant encore
+                le projet précédent alors que l'écran affiche déjà le
+                nouveau. Remonter le composant à chaque changement de
+                projet réinitialise tout son état local d'un coup, plutôt
+                que de traquer et réinitialiser chaque state individuellement
+                (voir ADR-048). */}
             {tab === 'generer' && (
-              <NlInput project={project} onChange={setProject} onGenerated={() => setTab('edition')} />
+              <NlInput key={project.id} project={project} onChange={setProject} onGenerated={() => setTab('edition')} />
             )}
-            {tab === 'edition' && <ProjectEditor project={project} onChange={setProject} onSaved={handleSaved} />}
+            {tab === 'edition' && (
+              <ProjectEditor key={project.id} project={project} onChange={setProject} onSaved={handleSaved} />
+            )}
             {tab === 'diagramme' && (
-              <ProcessDiagram project={project} onChange={setProject} onSaved={handleSaved} />
+              <ProcessDiagram key={project.id} project={project} onChange={setProject} onSaved={handleSaved} />
             )}
             {tab === 'specifications' && (
-              <SpecificationsPanel project={project} onChange={setProject} onSaved={handleSaved} />
+              <SpecificationsPanel key={project.id} project={project} onChange={setProject} onSaved={handleSaved} />
             )}
-            {tab === 'acteur' && <ActorView project={project} initialActorId={initialActorId} />}
+            {tab === 'acteur' && <ActorView key={project.id} project={project} initialActorId={initialActorId} />}
           </>
         ) : (
           <p className="placeholder">Créez ou ouvrez un projet pour commencer.</p>
