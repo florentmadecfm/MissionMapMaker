@@ -1,10 +1,20 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
 import type { Project, TestScenario, TestStep } from '../../api/types'
+import { ListFilterInput } from '../../components/ListFilterInput'
 import { mergeTestScenarioDrafts } from './mergeTestScenarioDrafts'
 
 function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
+}
+
+// Voir la même constante dans ProjectEditor.tsx.
+const FILTER_THRESHOLD = 8
+
+function filterByQuery<T>(items: T[], query: string, fields: (item: T) => string[]): T[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return items
+  return items.filter((item) => fields(item).some((f) => f.toLowerCase().includes(q)))
 }
 
 interface Props {
@@ -24,9 +34,14 @@ export function TestScenariosPanel({ project, onChange }: Props) {
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
   const [generateInfo, setGenerateInfo] = useState<string | null>(null)
+  const [testFilter, setTestFilter] = useState('')
 
   const sssSpecs = project.specifications.filter((s) => s.type === 'StakeholderNeed')
   const specsWithoutTest = sssSpecs.filter((s) => !project.testScenarios.some((t) => t.specificationId === s.id))
+  const filteredScenarios = filterByQuery(project.testScenarios, testFilter, (t) => {
+    const linkedSpec = project.specifications.find((s) => s.id === t.specificationId)
+    return [t.code, t.title, linkedSpec?.code ?? '', linkedSpec?.text ?? '']
+  })
 
   async function handleGenerateTests() {
     if (specsWithoutTest.length === 0) return
@@ -126,8 +141,14 @@ export function TestScenariosPanel({ project, onChange }: Props) {
       {generateError && <p className="error">{generateError}</p>}
       {generateInfo && <p className="generate-info">{generateInfo}</p>}
 
+      {project.testScenarios.length > FILTER_THRESHOLD && (
+        <ListFilterInput value={testFilter} onChange={setTestFilter} placeholder="Rechercher un scénario de test…" />
+      )}
       <ul className="spec-list">
-        {project.testScenarios.map((scenario) => {
+        {filteredScenarios.length === 0 && testFilter.trim() && (
+          <li className="empty">Aucun scénario ne correspond à « {testFilter} ».</li>
+        )}
+        {filteredScenarios.map((scenario) => {
           const linkedSpec = project.specifications.find((s) => s.id === scenario.specificationId)
           return (
             <li key={scenario.id} className="spec-card">

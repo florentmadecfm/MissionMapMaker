@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
 import type { Project, Specification, SpecificationType } from '../../api/types'
+import { ListFilterInput } from '../../components/ListFilterInput'
 import { mergeSpecDrafts } from './mergeSpecDrafts'
 import { mergeTestScenarioDrafts } from './mergeTestScenarioDrafts'
 import { TestScenariosPanel } from './TestScenariosPanel'
@@ -8,6 +9,16 @@ import { TraceabilityMatrix } from './TraceabilityMatrix'
 
 function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
+}
+
+// Voir la même constante dans ProjectEditor.tsx : n'affiche le champ de
+// recherche qu'au-delà de ce nombre de spécifications.
+const FILTER_THRESHOLD = 8
+
+function filterByQuery<T>(items: T[], query: string, fields: (item: T) => string[]): T[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return items
+  return items.filter((item) => fields(item).some((f) => f.toLowerCase().includes(q)))
 }
 
 const SPEC_TYPES: { value: SpecificationType; label: string }[] = [
@@ -34,7 +45,16 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
   const [generateInfo, setGenerateInfo] = useState<string | null>(null)
+  const [specFilter, setSpecFilter] = useState('')
   const unspecifiedCount = project.activities.filter((a) => a.traceLinks.length === 0).length
+
+  const specTypeLabel = (type: SpecificationType) => SPEC_TYPES.find((t) => t.value === type)?.label ?? type
+  const filteredSpecs = filterByQuery(project.specifications, specFilter, (s) => [
+    s.code,
+    s.text,
+    specTypeLabel(s.type),
+    s.status,
+  ])
 
   async function handleGenerateSss() {
     if (unspecifiedCount === 0) return
@@ -188,8 +208,14 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
             {generateError && <p className="error">{generateError}</p>}
             {generateInfo && <p className="generate-info">{generateInfo}</p>}
 
+            {project.specifications.length > FILTER_THRESHOLD && (
+              <ListFilterInput value={specFilter} onChange={setSpecFilter} placeholder="Rechercher une spécification…" />
+            )}
             <ul className="spec-list">
-              {project.specifications.map((spec) => (
+              {filteredSpecs.length === 0 && specFilter.trim() && (
+                <li className="empty">Aucune spécification ne correspond à « {specFilter} ».</li>
+              )}
+              {filteredSpecs.map((spec) => (
                 <li key={spec.id} className="spec-card">
                   <div className="spec-card-meta">
                     <input

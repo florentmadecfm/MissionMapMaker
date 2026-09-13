@@ -2,9 +2,21 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Activity, Actor, Interaction, Phase, Project } from '../../api/types'
+import { ListFilterInput } from '../../components/ListFilterInput'
 
 function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
+}
+
+// Le champ de recherche d'une liste ne s'affiche qu'au-delà de ce nombre
+// d'éléments : sur un petit projet (le cas le plus courant), il n'aurait
+// rien à filtrer et ne ferait qu'encombrer l'écran.
+const FILTER_THRESHOLD = 8
+
+function filterByQuery<T>(items: T[], query: string, fields: (item: T) => string[]): T[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return items
+  return items.filter((item) => fields(item).some((f) => f.toLowerCase().includes(q)))
 }
 
 interface Props {
@@ -17,6 +29,10 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [actorFilter, setActorFilter] = useState('')
+  const [phaseFilter, setPhaseFilter] = useState('')
+  const [activityFilter, setActivityFilter] = useState('')
+  const [interactionFilter, setInteractionFilter] = useState('')
 
   async function handleSave() {
     setSaving(true)
@@ -177,6 +193,36 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
     onChange({ ...project, interactions: project.interactions.filter((i) => i.id !== id) })
   }
 
+  const filteredActors = filterByQuery(project.actors, actorFilter, (a) => [a.name])
+
+  // Triée AVANT filtrage : les boutons ‹/› de réordonnancement ont besoin
+  // de la position de chaque phase dans la séquence COMPLÈTE (sortedPhases),
+  // pas dans la liste affichée après recherche — sans quoi une phase
+  // filtrée hors de vue serait sautée par erreur lors du réordonnancement
+  // de ses voisines.
+  const sortedPhases = [...project.phases].sort((a, b) => a.order - b.order)
+  const filteredPhases = filterByQuery(sortedPhases, phaseFilter, (p) => [p.name])
+
+  const filteredActivities = filterByQuery(project.activities, activityFilter, (act) => [
+    act.name,
+    project.actors.find((a) => a.id === act.actorId)?.name ?? '',
+    project.phases.find((p) => p.id === act.phaseId)?.name ?? '',
+  ])
+
+  const filteredInteractions = filterByQuery(project.interactions, interactionFilter, (i) => {
+    const from = project.activities.find((a) => a.id === i.fromActivityId)
+    const to = project.activities.find((a) => a.id === i.toActivityId)
+    return [
+      i.information,
+      i.condition ?? '',
+      i.physicalEvidence ?? '',
+      from?.name ?? '',
+      to?.name ?? '',
+      project.actors.find((a) => a.id === from?.actorId)?.name ?? '',
+      project.actors.find((a) => a.id === to?.actorId)?.name ?? '',
+    ]
+  })
+
   return (
     <div className="editor">
       <header className="editor-header">
@@ -194,12 +240,18 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
 
       <section>
         <h2>Acteurs</h2>
+        {project.actors.length > FILTER_THRESHOLD && (
+          <ListFilterInput value={actorFilter} onChange={setActorFilter} placeholder="Rechercher un acteur…" />
+        )}
         <div className="col-headers">
           <span className="col-color">Couleur</span>
           <span className="col-name">Nom</span>
         </div>
         <ul>
-          {project.actors.map((a) => (
+          {filteredActors.length === 0 && actorFilter.trim() && (
+            <li className="empty">Aucun acteur ne correspond à « {actorFilter} ».</li>
+          )}
+          {filteredActors.map((a) => (
             <li key={a.id}>
               <input type="color" value={a.color} onChange={(e) => updateActor(a.id, { color: e.target.value })} />
               <input value={a.name} onChange={(e) => updateActor(a.id, { name: e.target.value })} />
@@ -230,6 +282,9 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
 
       <section>
         <h2>Phases</h2>
+        {project.phases.length > FILTER_THRESHOLD && (
+          <ListFilterInput value={phaseFilter} onChange={setPhaseFilter} placeholder="Rechercher une phase…" />
+        )}
         <div className="col-headers">
           <span className="col-icon">Icône</span>
           <span className="col-name">Nom</span>
@@ -257,9 +312,12 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           </button>
         </div>
         <ul>
-          {[...project.phases]
-            .sort((a, b) => a.order - b.order)
-            .map((p, index, sorted) => (
+          {filteredPhases.length === 0 && phaseFilter.trim() && (
+            <li className="empty">Aucune phase ne correspond à « {phaseFilter} ».</li>
+          )}
+          {filteredPhases.map((p) => {
+            const index = sortedPhases.findIndex((x) => x.id === p.id)
+            return (
             <li key={p.id}>
               <input
                 className="phase-icon-input"
@@ -313,7 +371,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
                   type="button"
                   className="reorder-btn"
                   onClick={() => movePhase(p.id, 1)}
-                  disabled={index === sorted.length - 1}
+                  disabled={index === sortedPhases.length - 1}
                   title="Déplacer plus tard dans la séquence"
                   aria-label={`Déplacer la phase « ${p.name} » plus tard`}
                 >
@@ -324,7 +382,8 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
                 supprimer
               </button>
             </li>
-          ))}
+            )
+          })}
         </ul>
         <button type="button" onClick={addPhase}>
           + Ajouter une phase
@@ -333,6 +392,13 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
 
       <section>
         <h2>Activités</h2>
+        {project.activities.length > FILTER_THRESHOLD && (
+          <ListFilterInput
+            value={activityFilter}
+            onChange={setActivityFilter}
+            placeholder="Rechercher une activité, un acteur ou une phase…"
+          />
+        )}
         <div className="col-headers">
           <span className="col-name">Nom</span>
           <span className="col-select">Acteur</span>
@@ -344,7 +410,10 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           </button>
         </div>
         <ul>
-          {project.activities.map((act) => (
+          {filteredActivities.length === 0 && activityFilter.trim() && (
+            <li className="empty">Aucune activité ne correspond à « {activityFilter} ».</li>
+          )}
+          {filteredActivities.map((act) => (
             <li key={act.id}>
               <input value={act.name} onChange={(e) => updateActivity(act.id, { name: e.target.value })} />
               <select value={act.actorId} onChange={(e) => updateActivity(act.id, { actorId: e.target.value })}>
@@ -374,6 +443,13 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
 
       <section>
         <h2>Interactions</h2>
+        {project.interactions.length > FILTER_THRESHOLD && (
+          <ListFilterInput
+            value={interactionFilter}
+            onChange={setInteractionFilter}
+            placeholder="Rechercher une interaction…"
+          />
+        )}
         <div className="col-headers">
           <span className="col-select">Depuis</span>
           <span className="col-arrow-spacer" aria-hidden="true" />
@@ -388,7 +464,10 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           </button>
         </div>
         <ul>
-          {project.interactions.map((i) => (
+          {filteredInteractions.length === 0 && interactionFilter.trim() && (
+            <li className="empty">Aucune interaction ne correspond à « {interactionFilter} ».</li>
+          )}
+          {filteredInteractions.map((i) => (
             <li key={i.id}>
               <select value={i.fromActivityId} onChange={(e) => updateInteraction(i.id, { fromActivityId: e.target.value })}>
                 {project.activities.map((a) => (

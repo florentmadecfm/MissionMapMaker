@@ -826,6 +826,50 @@
   font-style: italic;
 }
 
+/* Champ de recherche d'une liste longue (ListFilterInput.tsx) — n'affiché
+   que par les sections dont la liste dépasse un seuil (voir
+   FILTER_THRESHOLD, ProjectEditor.tsx/SpecificationsPanel.tsx/
+   TestScenariosPanel.tsx), jamais en permanence sur une petite liste. */
+.list-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 320px;
+  margin-bottom: 0.6rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.list-filter input {
+  flex: 1;
+  border: none;
+  padding: 0;
+  background: none;
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+.list-filter input:focus {
+  outline: none;
+}
+
+.list-filter-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 0.1rem;
+  color: var(--color-text-muted);
+}
+
+.list-filter-clear:hover {
+  color: var(--color-text);
+}
+
 /* ---------- Génération par langage naturel ---------- */
 
 .nl-input {
