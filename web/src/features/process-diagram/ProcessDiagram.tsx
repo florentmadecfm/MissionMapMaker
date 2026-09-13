@@ -460,7 +460,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
       </div>
       {updateNotConfigured && (
         <div className="nl-warning">
-          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas de
+          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
           la barre latérale pour en saisir une, ou utilisez l'édition manuelle.
         </div>
       )}

@@ -178,7 +178,7 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
             </div>
             {generateNotConfigured && (
               <div className="nl-warning">
-                Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas
+                Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas
                 de la barre latérale pour en saisir une, ou ajoutez les spécifications manuellement ci-dessous.
               </div>
             )}

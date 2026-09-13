@@ -431,3 +431,48 @@ condition depuis l'onglet Édition persisté, round-trip Excel de la
 colonne Condition vérifié. Non-régression confirmée sur la fusion
 d'ébauche LLM existante (`mergeDraft`) et l'export/import Excel déjà en
 place.
+
+## ADR-061 — Icônes d'interface standardisées (`lucide-react`), affordance de clic sur un acteur
+
+**Contexte** : demande explicite — s'assurer que les icônes de
+l'interface reposent sur une librairie standard, et que l'UX reste la
+plus intuitive possible. Audit : aucune librairie d'icônes n'était
+utilisée — tous les symboles de l'interface (⚙ Paramètres, 🧑 Acteurs,
+☰ menu, ⚠ points de friction, 🔀 embranchement, ✓/✗ traçabilité)
+étaient des caractères Unicode/emoji tapés directement dans le JSX. Ce
+n'est pas non plus une librairie "non standard" à proprement parler
+(Unicode est le standard ultime, zéro dépendance), mais le rendu d'un
+émoji en couleur dépend entièrement de la police emoji installée sur le
+système — inconsistant d'une plateforme à l'autre (Windows/macOS/Linux
+ont chacun leur propre style graphique), et risque de "tofu" (glyphe
+manquant) sur un système sans police emoji, un vrai risque pour un
+binaire distribué sur les 3 plateformes (ADR-031/033).
+
+**Décision** :
+- `lucide-react` (MIT, sans dépendance de version Node particulière,
+  compatible React 19) remplace les emoji utilisés comme **chrome
+  d'interface** : `Settings`/`Users`/`Menu`/`TriangleAlert`/`GitBranch`/
+  `Check`/`X` — un rendu SVG monochrome pixel-identique sur toutes les
+  plateformes, cohérent avec la couleur du texte environnant
+  (`currentColor`), sans dépendre d'aucune police système.
+- L'icône de phase (ADR-059, `Phase.icon`) reste un emoji en texte
+  libre, délibérément : c'est le cœur de la fonctionnalité ("mode
+  storyboard", un emoji choisi librement par le LLM ou l'utilisateur
+  pour illustrer concrètement une phase) — une bibliothèque d'icônes,
+  même large, ne pourrait jamais égaler l'expressivité de l'ensemble
+  emoji complet pour cet usage précis. Seul le chrome d'interface
+  (navigation, badges, statuts) est concerné par ce changement.
+- Affordance de clic ajoutée sur `.actor-header` (curseur + survol) :
+  cliquer le nom d'un acteur ouvre sa fiche persona (ADR-055) sans
+  qu'aucun indice visuel ne le suggère jusqu'ici — trouvé en auditant
+  l'intuitivité de l'interface à cette occasion.
+
+**Conséquences** : `tsc -b`, `npm run lint`, `npm run build` verts
+(+~2 Ko gzippé, `lucide-react` étant tree-shakeable — seules les 7
+icônes utilisées sont incluses dans le bundle). `go build`/`go vet`/
+`go test ./...` inchangés (aucun changement backend). Playwright :
+badges/menus/boutons affichent bien les icônes SVG attendues,
+non-régression complète sur les suites de fiche persona, points de
+friction et embranchements conditionnels déjà en place. Vérifié
+visuellement (captures d'écran) sur la barre latérale, le diagramme, la
+matrice de traçabilité et la Vue par acteur.

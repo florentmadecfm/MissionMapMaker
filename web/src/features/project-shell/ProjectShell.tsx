@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Settings, Users } from 'lucide-react'
 import { api } from '../../api/client'
 import type { ActorSummary, Project, ProjectSummary } from '../../api/types'
 import { ActorView } from '../actor-view/ActorView'
@@ -201,7 +202,8 @@ export function ProjectShell() {
             onClick={() => setView('actors')}
             title="Acteurs — consulter un acteur à travers toutes les missions"
           >
-            {sidebarCollapsed ? '🧑' : '🧑 Acteurs (toutes missions)'}
+            <Users size={16} aria-hidden="true" />
+            {!sidebarCollapsed && 'Acteurs (toutes missions)'}
           </button>
           <button
             type="button"
@@ -209,7 +211,8 @@ export function ProjectShell() {
             onClick={() => setSettingsOpen(true)}
             title={llmConfigured === false ? 'Paramètres — aucun fournisseur LLM configuré' : 'Paramètres'}
           >
-            {sidebarCollapsed ? '⚙' : '⚙ Paramètres'}
+            <Settings size={16} aria-hidden="true" />
+            {!sidebarCollapsed && 'Paramètres'}
             {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
           </button>
         </div>

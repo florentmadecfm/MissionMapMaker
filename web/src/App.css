@@ -80,12 +80,20 @@
 .sidebar-actors,
 .sidebar-settings {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   width: 100%;
   background: none;
   border: 1px solid transparent;
   color: var(--color-text-muted);
   text-align: left;
   font-size: 0.85rem;
+}
+
+.sidebar-actors svg,
+.sidebar-settings svg {
+  flex-shrink: 0;
 }
 
 .sidebar-actors {
@@ -106,7 +114,7 @@
 
 .shell-sidebar.collapsed .sidebar-actors,
 .shell-sidebar.collapsed .sidebar-settings {
-  text-align: center;
+  justify-content: center;
   padding: 0.45rem 0;
 }
 
@@ -328,8 +336,8 @@
 }
 
 .header-menu-trigger {
-  font-size: 1.05rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
   padding: 0.4rem 0.65rem;
 }
 
@@ -696,7 +704,9 @@
 }
 
 .coverage-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
   margin-top: 0.2rem;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
@@ -887,6 +897,16 @@
   gap: 0.15rem;
   color: var(--color-warning);
   font-size: 0.82rem;
+}
+
+.actor-pain-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.actor-pain-points li svg {
+  flex-shrink: 0;
 }
 
 /* Liste éditable générique (ajout/suppression d'entrées en texte libre) :
