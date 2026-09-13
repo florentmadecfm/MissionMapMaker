@@ -54,6 +54,13 @@ type GenerateService struct {
 	promptSpecContext         string
 	promptTestScenario        string
 	promptTestScenarioContext string
+	// promptPainPointSolutions/promptPainPointSolutionsContext (ADR-067) :
+	// 4e paire personnalisable, même patron que les 3 ci-dessus. La 2e
+	// étape du flux (GeneratePainPointResolution) reste volontairement
+	// fixe — voir le commentaire sur DefaultPainPointResolutionPrompt,
+	// prompts.go.
+	promptPainPointSolutions        string
+	promptPainPointSolutionsContext string
 }
 
 // PromptInfo est le texte actuellement utilisé pour un skill ou un prompt
@@ -81,17 +88,23 @@ type PromptOverrides struct {
 	SpecificationContext string
 	TestScenario         string
 	TestScenarioContext  string
+	// PainPointSolutions/PainPointSolutionsContext (ADR-067) : 4e paire
+	// personnalisable, voir le champ correspondant sur GenerateService.
+	PainPointSolutions        string
+	PainPointSolutionsContext string
 }
 
-// PromptSet est l'état actuel (texte effectif + personnalisé ou non) des 3
+// PromptSet est l'état actuel (texte effectif + personnalisé ou non) des 4
 // paires prompt/skill, pour l'écran Paramètres.
 type PromptSet struct {
-	Process              PromptInfo
-	ProcessContext       PromptInfo
-	Specification        PromptInfo
-	SpecificationContext PromptInfo
-	TestScenario         PromptInfo
-	TestScenarioContext  PromptInfo
+	Process                   PromptInfo
+	ProcessContext            PromptInfo
+	Specification             PromptInfo
+	SpecificationContext      PromptInfo
+	TestScenario              PromptInfo
+	TestScenarioContext       PromptInfo
+	PainPointSolutions        PromptInfo
+	PainPointSolutionsContext PromptInfo
 }
 
 // effectiveSystemPrompt concatène la couche "Prompt" (contexte + objectif)
@@ -165,7 +178,7 @@ func (s *GenerateService) currentGenerator() llm.Generator {
 	return s.generator
 }
 
-// SetPrompts surcharge le texte des 3 skills et des 3 prompts (contexte)
+// SetPrompts surcharge le texte des 4 skills et des 4 prompts (contexte)
 // de génération assistée — une valeur vide revient au texte par défaut
 // correspondant. N'affecte pas le générateur actif (contrairement à
 // SetProvider) : prompts et skills sont indépendants du fournisseur/de la
@@ -179,20 +192,24 @@ func (s *GenerateService) SetPrompts(overrides PromptOverrides) {
 	s.promptSpecContext = overrides.SpecificationContext
 	s.promptTestScenario = overrides.TestScenario
 	s.promptTestScenarioContext = overrides.TestScenarioContext
+	s.promptPainPointSolutions = overrides.PainPointSolutions
+	s.promptPainPointSolutionsContext = overrides.PainPointSolutionsContext
 }
 
 // Prompts renvoie l'état actuel (texte effectif + personnalisé ou non) des
-// 3 skills et des 3 prompts, pour l'écran Paramètres.
+// 4 skills et des 4 prompts, pour l'écran Paramètres.
 func (s *GenerateService) Prompts() PromptSet {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return PromptSet{
-		Process:              resolvePrompt(s.promptProcess, llm.DefaultProcessPrompt),
-		ProcessContext:       resolvePrompt(s.promptProcessContext, llm.DefaultProcessContextPrompt),
-		Specification:        resolvePrompt(s.promptSpec, llm.DefaultSpecPrompt),
-		SpecificationContext: resolvePrompt(s.promptSpecContext, llm.DefaultSpecContextPrompt),
-		TestScenario:         resolvePrompt(s.promptTestScenario, llm.DefaultTestScenarioPrompt),
-		TestScenarioContext:  resolvePrompt(s.promptTestScenarioContext, llm.DefaultTestScenarioContextPrompt),
+		Process:                   resolvePrompt(s.promptProcess, llm.DefaultProcessPrompt),
+		ProcessContext:            resolvePrompt(s.promptProcessContext, llm.DefaultProcessContextPrompt),
+		Specification:             resolvePrompt(s.promptSpec, llm.DefaultSpecPrompt),
+		SpecificationContext:      resolvePrompt(s.promptSpecContext, llm.DefaultSpecContextPrompt),
+		TestScenario:              resolvePrompt(s.promptTestScenario, llm.DefaultTestScenarioPrompt),
+		TestScenarioContext:       resolvePrompt(s.promptTestScenarioContext, llm.DefaultTestScenarioContextPrompt),
+		PainPointSolutions:        resolvePrompt(s.promptPainPointSolutions, llm.DefaultPainPointSolutionsPrompt),
+		PainPointSolutionsContext: resolvePrompt(s.promptPainPointSolutionsContext, llm.DefaultPainPointSolutionsContextPrompt),
 	}
 }
 
@@ -247,9 +264,46 @@ func (s *GenerateService) GenerateTestScenarios(ctx context.Context, specificati
 	return generator.GenerateTestScenarios(ctx, specifications, effectiveSystemPrompt(prompts.TestScenarioContext, prompts.TestScenario))
 }
 
+// GeneratePainPointSolutions (ADR-066/ADR-067) résout un éventuel override
+// de prompt/skill via s.Prompts(), comme Generate/GenerateSpecifications/
+// GenerateTestScenarios ci-dessus.
+func (s *GenerateService) GeneratePainPointSolutions(ctx context.Context, painPoint llm.PainPointContext) ([]llm.DraftPainPointSolution, error) {
+	if strings.TrimSpace(painPoint.PainPointText) == "" {
+		return nil, errEmptyPainPoint
+	}
+	generator := s.currentGenerator()
+	if generator == nil {
+		return nil, llm.ErrNotConfigured
+	}
+	prompts := s.Prompts()
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
+	return generator.GeneratePainPointSolutions(ctx, painPoint, effectiveSystemPrompt(prompts.PainPointSolutionsContext, prompts.PainPointSolutions))
+}
+
+// GeneratePainPointResolution (ADR-066) : 2e étape, toujours fixe (voir le
+// commentaire sur DefaultPainPointResolutionPrompt, prompts.go).
+func (s *GenerateService) GeneratePainPointResolution(ctx context.Context, painPoint llm.PainPointContext, chosen llm.DraftPainPointSolution) (*llm.PainPointResolution, error) {
+	if strings.TrimSpace(painPoint.PainPointText) == "" {
+		return nil, errEmptyPainPoint
+	}
+	if strings.TrimSpace(chosen.Description) == "" {
+		return nil, errEmptySolution
+	}
+	generator := s.currentGenerator()
+	if generator == nil {
+		return nil, llm.ErrNotConfigured
+	}
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
+	return generator.GeneratePainPointResolution(ctx, painPoint, chosen, llm.DefaultPainPointResolutionPrompt)
+}
+
 var errEmptyText = &validationError{"le texte à analyser est vide"}
 var errNoActivities = &validationError{"aucune activité à traiter"}
 var errNoSpecifications = &validationError{"aucune spécification à traiter"}
+var errEmptyPainPoint = &validationError{"le point de friction est vide"}
+var errEmptySolution = &validationError{"la solution choisie est vide"}
 var errTextTooLong = &validationError{fmt.Sprintf("le texte dépasse la longueur maximale autorisée (%d caractères)", maxTextLength)}
 var errTooManyActivities = &validationError{fmt.Sprintf("trop d'activités à traiter en une seule fois (maximum %d)", maxActivityRefs)}
 var errTooManySpecifications = &validationError{fmt.Sprintf("trop de spécifications à traiter en une seule fois (maximum %d)", maxSpecRefs)}

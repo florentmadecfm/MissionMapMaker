@@ -36,6 +36,8 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("POST /api/generate", h.generateProcess)
 	mux.HandleFunc("POST /api/generate-specifications", h.generateSpecifications)
 	mux.HandleFunc("POST /api/generate-test-scenarios", h.generateTestScenarios)
+	mux.HandleFunc("POST /api/generate-painpoint-solutions", h.generatePainPointSolutions)
+	mux.HandleFunc("POST /api/generate-painpoint-resolution", h.generatePainPointResolution)
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.saveSettings)
 	mux.HandleFunc("DELETE /api/settings", h.deleteSettings)
@@ -196,6 +198,51 @@ func (h *Handler) generateTestScenarios(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, drafts)
 }
 
+// generatePainPointSolutions (ADR-066) : 1re étape du flux de résolution
+// d'un point de friction — 5 propositions de solutions structurelles.
+func (h *Handler) generatePainPointSolutions(w http.ResponseWriter, r *http.Request) {
+	var body llm.PainPointContext
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	solutions, err := h.generate.GeneratePainPointSolutions(r.Context(), body)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, solutions)
+}
+
+// generatePainPointResolution (ADR-066) : 2e étape — une fois une solution
+// choisie côté frontend, génère la SSS + le scénario de test correspondant.
+func (h *Handler) generatePainPointResolution(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		llm.PainPointContext
+		ChosenSolution llm.DraftPainPointSolution `json:"chosenSolution"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	resolution, err := h.generate.GeneratePainPointResolution(r.Context(), body.PainPointContext, body.ChosenSolution)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resolution)
+}
+
 func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"configured": h.generate.Configured(),
@@ -305,12 +352,14 @@ func (h *Handler) getPrompts(w http.ResponseWriter, r *http.Request) {
 // "Réinitialiser".
 func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Process              string `json:"process"`
-		ProcessContext       string `json:"processContext"`
-		Specification        string `json:"specification"`
-		SpecificationContext string `json:"specificationContext"`
-		TestScenario         string `json:"testScenario"`
-		TestScenarioContext  string `json:"testScenarioContext"`
+		Process                   string `json:"process"`
+		ProcessContext            string `json:"processContext"`
+		Specification             string `json:"specification"`
+		SpecificationContext      string `json:"specificationContext"`
+		TestScenario              string `json:"testScenario"`
+		TestScenarioContext       string `json:"testScenarioContext"`
+		PainPointSolutions        string `json:"painPointSolutions"`
+		PainPointSolutionsContext string `json:"painPointSolutionsContext"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -318,12 +367,14 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	overrides := service.PromptOverrides{
-		Process:              normalizePromptOverride(body.Process, llm.DefaultProcessPrompt),
-		ProcessContext:       normalizePromptOverride(body.ProcessContext, llm.DefaultProcessContextPrompt),
-		Specification:        normalizePromptOverride(body.Specification, llm.DefaultSpecPrompt),
-		SpecificationContext: normalizePromptOverride(body.SpecificationContext, llm.DefaultSpecContextPrompt),
-		TestScenario:         normalizePromptOverride(body.TestScenario, llm.DefaultTestScenarioPrompt),
-		TestScenarioContext:  normalizePromptOverride(body.TestScenarioContext, llm.DefaultTestScenarioContextPrompt),
+		Process:                   normalizePromptOverride(body.Process, llm.DefaultProcessPrompt),
+		ProcessContext:            normalizePromptOverride(body.ProcessContext, llm.DefaultProcessContextPrompt),
+		Specification:             normalizePromptOverride(body.Specification, llm.DefaultSpecPrompt),
+		SpecificationContext:      normalizePromptOverride(body.SpecificationContext, llm.DefaultSpecContextPrompt),
+		TestScenario:              normalizePromptOverride(body.TestScenario, llm.DefaultTestScenarioPrompt),
+		TestScenarioContext:       normalizePromptOverride(body.TestScenarioContext, llm.DefaultTestScenarioContextPrompt),
+		PainPointSolutions:        normalizePromptOverride(body.PainPointSolutions, llm.DefaultPainPointSolutionsPrompt),
+		PainPointSolutionsContext: normalizePromptOverride(body.PainPointSolutionsContext, llm.DefaultPainPointSolutionsContextPrompt),
 	}
 	h.generate.SetPrompts(overrides)
 
@@ -333,12 +384,14 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 		cfg = &config.Config{}
 	}
 	cfg.Prompts = config.PromptSettings{
-		Process:              overrides.Process,
-		ProcessContext:       overrides.ProcessContext,
-		Specification:        overrides.Specification,
-		SpecificationContext: overrides.SpecificationContext,
-		TestScenario:         overrides.TestScenario,
-		TestScenarioContext:  overrides.TestScenarioContext,
+		Process:                   overrides.Process,
+		ProcessContext:            overrides.ProcessContext,
+		Specification:             overrides.Specification,
+		SpecificationContext:      overrides.SpecificationContext,
+		TestScenario:              overrides.TestScenario,
+		TestScenarioContext:       overrides.TestScenarioContext,
+		PainPointSolutions:        overrides.PainPointSolutions,
+		PainPointSolutionsContext: overrides.PainPointSolutionsContext,
 	}
 	if err := config.Save(cfg); err != nil {
 		log.Printf("sauvegarde de la configuration : %v", err)
@@ -359,27 +412,33 @@ func normalizePromptOverride(value, def string) string {
 func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateService) {
 	p := generate.Prompts()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"process":              p.Process.Value,
-		"processContext":       p.ProcessContext.Value,
-		"specification":        p.Specification.Value,
-		"specificationContext": p.SpecificationContext.Value,
-		"testScenario":         p.TestScenario.Value,
-		"testScenarioContext":  p.TestScenarioContext.Value,
+		"process":                   p.Process.Value,
+		"processContext":            p.ProcessContext.Value,
+		"specification":             p.Specification.Value,
+		"specificationContext":      p.SpecificationContext.Value,
+		"testScenario":              p.TestScenario.Value,
+		"testScenarioContext":       p.TestScenarioContext.Value,
+		"painPointSolutions":        p.PainPointSolutions.Value,
+		"painPointSolutionsContext": p.PainPointSolutionsContext.Value,
 		"customized": map[string]bool{
-			"process":              p.Process.Customized,
-			"processContext":       p.ProcessContext.Customized,
-			"specification":        p.Specification.Customized,
-			"specificationContext": p.SpecificationContext.Customized,
-			"testScenario":         p.TestScenario.Customized,
-			"testScenarioContext":  p.TestScenarioContext.Customized,
+			"process":                   p.Process.Customized,
+			"processContext":            p.ProcessContext.Customized,
+			"specification":             p.Specification.Customized,
+			"specificationContext":      p.SpecificationContext.Customized,
+			"testScenario":              p.TestScenario.Customized,
+			"testScenarioContext":       p.TestScenarioContext.Customized,
+			"painPointSolutions":        p.PainPointSolutions.Customized,
+			"painPointSolutionsContext": p.PainPointSolutionsContext.Customized,
 		},
 		"defaults": map[string]string{
-			"process":              llm.DefaultProcessPrompt,
-			"processContext":       llm.DefaultProcessContextPrompt,
-			"specification":        llm.DefaultSpecPrompt,
-			"specificationContext": llm.DefaultSpecContextPrompt,
-			"testScenario":         llm.DefaultTestScenarioPrompt,
-			"testScenarioContext":  llm.DefaultTestScenarioContextPrompt,
+			"process":                   llm.DefaultProcessPrompt,
+			"processContext":            llm.DefaultProcessContextPrompt,
+			"specification":             llm.DefaultSpecPrompt,
+			"specificationContext":      llm.DefaultSpecContextPrompt,
+			"testScenario":              llm.DefaultTestScenarioPrompt,
+			"testScenarioContext":       llm.DefaultTestScenarioContextPrompt,
+			"painPointSolutions":        llm.DefaultPainPointSolutionsPrompt,
+			"painPointSolutionsContext": llm.DefaultPainPointSolutionsContextPrompt,
 		},
 	})
 }

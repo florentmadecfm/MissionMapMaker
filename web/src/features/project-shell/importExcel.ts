@@ -271,7 +271,16 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
     const activity = activities.find((a) => a.id === activityId)
     const text = (r['Texte'] ?? '').trim()
     if (!activity || !text) continue
-    const painPoint: PainPoint = { id: newId('pp'), text }
+    // Résolu (ADR-066) : le code de SSS est résolu vers son id via
+    // specIdByCode, déjà construit plus haut (les spécifications sont
+    // lues avant les points de friction) — absent si non renseigné ou si
+    // le code ne correspond à aucune spécification du classeur.
+    const resolvedCode = (r['Résolu (SSS)'] ?? '').trim()
+    const painPoint: PainPoint = {
+      id: newId('pp'),
+      text,
+      resolvedBySpecId: resolvedCode ? specIdByCode.get(resolvedCode.toLowerCase()) : undefined,
+    }
     activity.painPoints.push(painPoint)
   }
 

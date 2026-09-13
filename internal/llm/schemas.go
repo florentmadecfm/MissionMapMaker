@@ -109,6 +109,66 @@ func proposeSpecificationsToolSpec() ToolSpec {
 	}
 }
 
+// painPointChangeTypes énumère les 5 natures de changement structurel
+// qu'une solution de point de friction peut décrire (ADR-066) — contraint
+// via "enum" plutôt que laissé en texte libre, pour que le frontend
+// puisse fiablement choisir une icône/étiquette par type.
+var painPointChangeTypes = []string{
+	"add_interaction",
+	"remove_interaction",
+	"add_activity",
+	"remove_activity",
+	"merge_activities",
+}
+
+func proposePainPointSolutionsToolSpec() ToolSpec {
+	stringProp := map[string]any{"type": "string"}
+
+	solutionSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"description": stringProp,
+			"changeType":  map[string]any{"type": "string", "enum": painPointChangeTypes},
+		},
+		"required": []string{"description", "changeType"},
+	}
+
+	return ToolSpec{
+		Name:        "propose_pain_point_solutions",
+		Description: "Enregistre 5 propositions de solutions structurelles pour résoudre un point de friction.",
+		Properties: map[string]any{
+			"solutions": map[string]any{"type": "array", "items": solutionSchema},
+		},
+		Required: []string{"solutions"},
+	}
+}
+
+func proposePainPointResolutionToolSpec() ToolSpec {
+	stringProp := map[string]any{"type": "string"}
+
+	stepSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"action":         stringProp,
+			"expectedResult": stringProp,
+		},
+		"required": []string{"action", "expectedResult"},
+	}
+
+	return ToolSpec{
+		Name:        "propose_pain_point_resolution",
+		Description: "Enregistre la SSS et le scénario de test correspondant à la solution choisie pour un point de friction.",
+		Properties: map[string]any{
+			"specificationText":      stringProp,
+			"specificationRationale": stringProp,
+			"testTitle":              stringProp,
+			"testPreconditions":      stringProp,
+			"testSteps":              map[string]any{"type": "array", "items": stepSchema},
+		},
+		Required: []string{"specificationText", "testTitle", "testSteps"},
+	}
+}
+
 func proposeTestScenariosToolSpec() ToolSpec {
 	stringProp := map[string]any{"type": "string"}
 

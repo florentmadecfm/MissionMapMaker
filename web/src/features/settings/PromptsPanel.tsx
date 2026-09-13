@@ -21,6 +21,11 @@ const PROMPT_FIELDS: PromptFieldDef[] = [
     title: 'Scénarios de test — contexte & objectif',
     description: 'Situe la tâche de rédaction des scénarios de test V&V.',
   },
+  {
+    key: 'painPointSolutionsContext',
+    title: 'Solutions point de friction — contexte & objectif',
+    description: "Situe la tâche de recherche de solutions à un point de friction (posture design créatif / problem solving).",
+  },
 ]
 
 export function PromptsPanel() {

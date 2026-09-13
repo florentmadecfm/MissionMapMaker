@@ -142,3 +142,49 @@ type DraftTestScenario struct {
 	Preconditions     string          `json:"preconditions,omitempty"`
 	Steps             []DraftTestStep `json:"steps"`
 }
+
+// PainPointContext décrit le point de friction à résoudre ainsi que le
+// contexte nécessaire pour proposer des solutions réalistes — l'activité,
+// l'acteur et la phase concernés, et un résumé du reste du processus
+// (activités et interactions déjà existantes) pour ancrer les
+// propositions d'ajout/suppression/fusion dans ce qui existe déjà plutôt
+// que d'inventer des éléments hors contexte (ADR-066).
+type PainPointContext struct {
+	ActivityName  string             `json:"activityName"`
+	ActorName     string             `json:"actorName"`
+	PhaseName     string             `json:"phaseName"`
+	PainPointText string             `json:"painPointText"`
+	Activities    []ActivityRef      `json:"activities"`
+	Interactions  []DraftInteraction `json:"interactions"`
+}
+
+// DraftPainPointSolution est une proposition de résolution STRUCTURELLE
+// d'un point de friction — délibérément pas une SSS directement (ADR-066,
+// à la demande explicite de l'utilisateur) : décrit un changement concret
+// au diagramme (ajout/suppression d'interaction, ajout/suppression/fusion
+// d'activités), à choisir par l'utilisateur avant de générer la
+// spécification correspondante. Le diagramme lui-même n'est jamais modifié
+// automatiquement — seule la description sert de matière à la SSS
+// générée ensuite (voir PainPointResolution).
+type DraftPainPointSolution struct {
+	Description string `json:"description"`
+	// ChangeType classe la solution parmi : add_interaction,
+	// remove_interaction, add_activity, remove_activity, merge_activities
+	// — sert uniquement à l'affichage (icône/étiquette côté frontend), pas
+	// à une application automatique du changement.
+	ChangeType string `json:"changeType"`
+}
+
+// PainPointResolution est la SSS + le scénario de test générés une fois
+// qu'une DraftPainPointSolution a été choisie (ADR-066). Champs à plat
+// plutôt que DraftSpecification/DraftTestScenario imbriqués : pas
+// d'ActivityName/ActorName/SpecificationCode à faire correspondre ensuite
+// (contrairement à une génération en lot, celle-ci vise une seule
+// activité et une seule spécification, déjà connues de l'appelant).
+type PainPointResolution struct {
+	SpecificationText      string          `json:"specificationText"`
+	SpecificationRationale string          `json:"specificationRationale,omitempty"`
+	TestTitle              string          `json:"testTitle"`
+	TestPreconditions      string          `json:"testPreconditions,omitempty"`
+	TestSteps              []DraftTestStep `json:"testSteps"`
+}

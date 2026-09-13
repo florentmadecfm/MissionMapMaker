@@ -100,6 +100,42 @@ export interface Activity {
 export interface PainPoint {
   id: string
   text: string
+  // Référence la spécification (SSS) créée quand une solution proposée
+  // par le LLM pour CE point de friction a été choisie (ADR-066) — absent
+  // tant qu'aucune solution n'a été retenue.
+  resolvedBySpecId?: string
+}
+
+// ChangeType d'une DraftPainPointSolution — sert uniquement à choisir une
+// icône/étiquette d'affichage (voir PainPointSolutionsModal.tsx), jamais à
+// appliquer automatiquement un changement au diagramme (ADR-066).
+export type PainPointChangeType =
+  | 'add_interaction'
+  | 'remove_interaction'
+  | 'add_activity'
+  | 'remove_activity'
+  | 'merge_activities'
+
+export interface DraftPainPointSolution {
+  description: string
+  changeType: PainPointChangeType
+}
+
+export interface PainPointContext {
+  activityName: string
+  actorName: string
+  phaseName: string
+  painPointText: string
+  activities: ActivityRef[]
+  interactions: DraftInteraction[]
+}
+
+export interface PainPointResolution {
+  specificationText: string
+  specificationRationale?: string
+  testTitle: string
+  testPreconditions?: string
+  testSteps: DraftTestStep[]
 }
 
 export interface Interaction {
@@ -233,11 +269,16 @@ export interface Settings {
 // Deux couches distinctes par capacité de génération assistée, concaténées
 // côté serveur au moment de l'appel (voir GenerateService.Prompts,
 // internal/service/generate_service.go) :
-// - process/specification/testScenario : le "skill" (onglet Skills), la
-//   méthode détaillée (étapes, règles de rédaction, format de sortie).
+// - process/specification/testScenario/painPointSolutions : le "skill"
+//   (onglet Skills), la méthode détaillée (étapes, règles de rédaction,
+//   format de sortie).
 // - *Context : le "prompt" (onglet Prompts), le contexte et l'objectif de
 //   la tâche — voir PromptEditor.tsx (partagé par SkillsPanel.tsx et
 //   PromptsPanel.tsx) / internal/llm/prompts.go côté serveur.
+// painPointSolutions* couvre uniquement la 1re étape (proposer des
+// solutions) de la résolution d'un point de friction (ADR-066/ADR-067) —
+// la 2e étape (formaliser la solution choisie en SSS + test) reste fixe,
+// pas de champs correspondants ici.
 export interface PromptSettings {
   process: string
   processContext: string
@@ -245,6 +286,8 @@ export interface PromptSettings {
   specificationContext: string
   testScenario: string
   testScenarioContext: string
+  painPointSolutions: string
+  painPointSolutionsContext: string
 }
 
 export interface PromptSettingsResponse extends PromptSettings {
@@ -255,6 +298,8 @@ export interface PromptSettingsResponse extends PromptSettings {
     specificationContext: boolean
     testScenario: boolean
     testScenarioContext: boolean
+    painPointSolutions: boolean
+    painPointSolutionsContext: boolean
   }
   defaults: PromptSettings
 }

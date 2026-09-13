@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { PainPoint, Project } from '../../api/types'
+import { PainPointSolutionsModal } from './PainPointSolutionsModal'
 
 interface Props {
   project: Project
@@ -35,6 +36,12 @@ function sameText(a: string, b: string) {
 export function ActivityDetailModal({ project, activityId, onChange, onClose }: Props) {
   const [newPainPoint, setNewPainPoint] = useState('')
   const [knownPainPointId, setKnownPainPointId] = useState('')
+  // Point de friction en cours de résolution (ADR-066) — ouvre
+  // PainPointSolutionsModal PAR-DESSUS cette modale : les deux partagent
+  // la même classe .modal-backdrop (position fixed, même z-index), donc
+  // la seconde se superpose naturellement à l'écran, simplement montée
+  // après dans le DOM.
+  const [solvingPainPointId, setSolvingPainPointId] = useState<string | null>(null)
   const activity = project.activities.find((a) => a.id === activityId)
   if (!activity) return null
 
@@ -123,14 +130,32 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose }: 
           <p className="actor-warning">Aucun point de friction pour l'instant.</p>
         ) : (
           <ul className="item-list item-list-warning">
-            {activity.painPoints.map((p) => (
-              <li key={p.id}>
-                <span>{p.text}</span>
-                <button type="button" className="danger" onClick={() => removePainPoint(p.id)}>
-                  supprimer
-                </button>
-              </li>
-            ))}
+            {activity.painPoints.map((p) => {
+              const resolvedSpec = p.resolvedBySpecId
+                ? project.specifications.find((s) => s.id === p.resolvedBySpecId)
+                : undefined
+              return (
+                <li key={p.id}>
+                  <span>{p.text}</span>
+                  {/* Résolu (ADR-066) : la SSS générée fait déjà foi (visible
+                      dans "Spécifications liées" ci-dessous via traceLinks) —
+                      pas de second bouton "Solutions" qui recréerait une SSS
+                      en doublon pour le même point de friction. */}
+                  {resolvedSpec ? (
+                    <span className="painpoint-resolved-badge" title={resolvedSpec.text}>
+                      ✓ résolu ({resolvedSpec.code})
+                    </span>
+                  ) : (
+                    <button type="button" className="painpoint-solve-button" onClick={() => setSolvingPainPointId(p.id)}>
+                      💡 Solutions
+                    </button>
+                  )}
+                  <button type="button" className="danger" onClick={() => removePainPoint(p.id)}>
+                    supprimer
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         )}
         {knownPainPoints.length > 0 && (
@@ -223,6 +248,20 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose }: 
           </ul>
         )}
       </div>
+      {solvingPainPointId &&
+        (() => {
+          const painPoint = activity.painPoints.find((p) => p.id === solvingPainPointId)
+          if (!painPoint) return null
+          return (
+            <PainPointSolutionsModal
+              project={project}
+              activity={activity}
+              painPoint={painPoint}
+              onChange={onChange}
+              onClose={() => setSolvingPainPointId(null)}
+            />
+          )
+        })()}
     </div>
   )
 }

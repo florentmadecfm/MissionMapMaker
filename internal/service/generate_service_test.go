@@ -24,6 +24,14 @@ func (stubGenerator) GenerateTestScenarios(ctx context.Context, specifications [
 	return nil, nil
 }
 
+func (stubGenerator) GeneratePainPointSolutions(ctx context.Context, painPoint llm.PainPointContext, systemPrompt string) ([]llm.DraftPainPointSolution, error) {
+	return nil, nil
+}
+
+func (stubGenerator) GeneratePainPointResolution(ctx context.Context, painPoint llm.PainPointContext, chosen llm.DraftPainPointSolution, systemPrompt string) (*llm.PainPointResolution, error) {
+	return &llm.PainPointResolution{}, nil
+}
+
 func TestGenerate_RejectsTextTooLong(t *testing.T) {
 	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
 	_, err := s.Generate(context.Background(), strings.Repeat("a", maxTextLength+1))
@@ -114,6 +122,14 @@ func (g *recordingGenerator) GenerateSpecifications(ctx context.Context, activit
 func (g *recordingGenerator) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef, systemPrompt string) ([]llm.DraftTestScenario, error) {
 	g.lastTestScenarioPrompt = systemPrompt
 	return nil, nil
+}
+
+func (g *recordingGenerator) GeneratePainPointSolutions(ctx context.Context, painPoint llm.PainPointContext, systemPrompt string) ([]llm.DraftPainPointSolution, error) {
+	return nil, nil
+}
+
+func (g *recordingGenerator) GeneratePainPointResolution(ctx context.Context, painPoint llm.PainPointContext, chosen llm.DraftPainPointSolution, systemPrompt string) (*llm.PainPointResolution, error) {
+	return &llm.PainPointResolution{}, nil
 }
 
 // Le système envoyé au LLM doit être le prompt (contexte/objectif) suivi du

@@ -1,9 +1,12 @@
 import type {
   ActivityRef,
   ActorSummary,
+  DraftPainPointSolution,
   DraftProcess,
   DraftSpecification,
   DraftTestScenario,
+  PainPointContext,
+  PainPointResolution,
   Project,
   ProjectSummary,
   PromptSettings,
@@ -79,6 +82,19 @@ export const api = {
     request<DraftTestScenario[]>('/generate-test-scenarios', {
       method: 'POST',
       body: JSON.stringify({ specifications }),
+    }),
+  // ADR-066 : flux en 2 temps de résolution d'un point de friction — 5
+  // propositions de solutions structurelles, puis (une fois l'une d'elles
+  // choisie) la SSS + le scénario de test correspondant.
+  generatePainPointSolutions: (context: PainPointContext) =>
+    request<DraftPainPointSolution[]>('/generate-painpoint-solutions', {
+      method: 'POST',
+      body: JSON.stringify(context),
+    }),
+  generatePainPointResolution: (context: PainPointContext, chosenSolution: DraftPainPointSolution) =>
+    request<PainPointResolution>('/generate-painpoint-resolution', {
+      method: 'POST',
+      body: JSON.stringify({ ...context, chosenSolution }),
     }),
   getSettings: () => request<Settings>('/settings'),
   saveApiKey: (provider: Provider, apiKey: string, model?: string, baseUrl?: string) =>

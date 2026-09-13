@@ -49,12 +49,14 @@ func setupGenerateService() *service.GenerateService {
 
 	gs := buildGenerateService(cfg)
 	gs.SetPrompts(service.PromptOverrides{
-		Process:              cfg.Prompts.Process,
-		ProcessContext:       cfg.Prompts.ProcessContext,
-		Specification:        cfg.Prompts.Specification,
-		SpecificationContext: cfg.Prompts.SpecificationContext,
-		TestScenario:         cfg.Prompts.TestScenario,
-		TestScenarioContext:  cfg.Prompts.TestScenarioContext,
+		Process:                   cfg.Prompts.Process,
+		ProcessContext:            cfg.Prompts.ProcessContext,
+		Specification:             cfg.Prompts.Specification,
+		SpecificationContext:      cfg.Prompts.SpecificationContext,
+		TestScenario:              cfg.Prompts.TestScenario,
+		TestScenarioContext:       cfg.Prompts.TestScenarioContext,
+		PainPointSolutions:        cfg.Prompts.PainPointSolutions,
+		PainPointSolutionsContext: cfg.Prompts.PainPointSolutionsContext,
 	})
 	return gs
 }
