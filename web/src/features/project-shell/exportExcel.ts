@@ -181,12 +181,14 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Vers', key: 'vers', width: 34 },
       { header: 'Information échangée', key: 'information', width: 40 },
       { header: 'Description', key: 'description', width: 40 },
+      { header: 'Condition (embranchement)', key: 'condition', width: 34 },
     ],
     project.interactions.map((i) => ({
       depuis: activityLabel(project, i.fromActivityId),
       vers: activityLabel(project, i.toActivityId),
       information: i.information,
       description: i.description ?? '',
+      condition: i.condition ?? '',
     })),
   )
 

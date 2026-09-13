@@ -394,3 +394,40 @@ persisté après sauvegarde, round-trip Excel de la colonne Icône
 vérifié. Non-régression confirmée sur la ligne de synthèse des points de
 friction et le glisser-déposer de sous-colonnes (tous deux dépendants du
 layout des en-têtes de phase).
+
+## ADR-060 — Embranchements conditionnels sur une interaction
+
+Premier élément du backlog blueprint priorisé avec l'utilisateur (état de
+l'art story mapping/service blueprint). Plutôt qu'un nouveau type de
+nœud façon porte BPMN (exclusive/parallèle/inclusive), `Interaction`
+gagne un simple champ optionnel `Condition` : une interaction sans
+condition reste un flux normal (comportement inchangé), une interaction
+avec condition devient un embranchement — elle ne se produit que si
+cette condition est vraie (ex. "paiement refusé"). Reste un texte libre,
+jamais une énumération de types de porte : lisible comme une étiquette
+de flèche, cohérent avec le reste du diagramme, sans figer une sémantique
+d'exécution que l'outil n'a de toute façon pas vocation à évaluer.
+
+Rendu sur le diagramme : la flèche d'une interaction conditionnelle est
+tracée en pointillés (`strokeDasharray`) plutôt qu'un trait plein, avec
+son libellé composé "Si `<condition>` — `<information>`" ; l'activité
+d'où partent une ou plusieurs interactions conditionnelles porte un badge
+"🔀" en coin haut-gauche de sa carte (symétrique du badge ⚠ points de
+friction en haut-droit, ADR-053) — un embranchement se repère ainsi sans
+avoir à suivre chaque flèche. `DraftInteraction`/`extract_process`
+gagnent le même champ optionnel : le LLM le remplit quand le texte décrit
+explicitement un cas conditionnel, jamais pour reformuler l'information
+échangée elle-même. Édition possible depuis la modale d'interaction du
+diagramme (ADR-049) et depuis le tableau Interactions de l'onglet
+Édition ; nouvelle colonne "Condition" sur la feuille Excel Interactions
+(export et import).
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright : badge d'embranchement
+affiché sur la bonne carte (jamais sur la carte cible), trait pointillé
+et libellé "Si ..." corrects sur la flèche conditionnelle uniquement,
+modale d'interaction pré-remplit et persiste la condition, ajout d'une
+condition depuis l'onglet Édition persisté, round-trip Excel de la
+colonne Condition vérifié. Non-régression confirmée sur la fusion
+d'ébauche LLM existante (`mergeDraft`) et l'export/import Excel déjà en
+place.

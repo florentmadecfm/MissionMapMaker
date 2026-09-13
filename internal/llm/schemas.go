@@ -49,6 +49,7 @@ func extractProcessToolSpec() ToolSpec {
 			"toActivityName":   stringProp,
 			"toActorName":      stringProp,
 			"information":      stringProp,
+			"condition":        stringProp,
 		},
 		"required": []string{"fromActivityName", "fromActorName", "toActivityName", "toActorName", "information"},
 	}

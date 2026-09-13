@@ -95,6 +95,10 @@ export interface Interaction {
   toActivityId: string
   information: string
   description?: string
+  // Quand renseignée, cette interaction devient un embranchement : elle ne
+  // se produit que si cette condition est vraie (ex. "paiement refusé"),
+  // au lieu de toujours suivre l'activité de départ (ADR-060).
+  condition?: string
 }
 
 export type SpecificationType =
@@ -194,6 +198,7 @@ export interface DraftInteraction {
   toActivityName: string
   toActorName: string
   information: string
+  condition?: string
 }
 
 export type Provider = 'anthropic' | 'mistral'

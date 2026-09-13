@@ -119,7 +119,13 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
     if (interactions.some((i) => i.fromActivityId === fromId && i.toActivityId === toId && sameName(i.information, di.information))) {
       continue
     }
-    interactions.push({ id: newId('int'), fromActivityId: fromId, toActivityId: toId, information: di.information })
+    interactions.push({
+      id: newId('int'),
+      fromActivityId: fromId,
+      toActivityId: toId,
+      information: di.information,
+      condition: di.condition || undefined,
+    })
   }
 
   return { ...project, actors, phases, activities, interactions }

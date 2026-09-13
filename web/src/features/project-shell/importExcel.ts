@@ -273,6 +273,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
       toActivityId,
       information: r['Information échangée'] ?? '',
       description: r['Description'] || undefined,
+      condition: r['Condition (embranchement)'] || undefined,
     })
   }
 

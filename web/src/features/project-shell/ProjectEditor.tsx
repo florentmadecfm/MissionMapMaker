@@ -249,6 +249,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           <span className="col-arrow-spacer" aria-hidden="true" />
           <span className="col-select">Vers</span>
           <span className="col-name">Information échangée</span>
+          <span className="col-name">Condition (embranchement)</span>
         </div>
         <ul>
           {project.interactions.map((i) => (
@@ -272,6 +273,11 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
                 value={i.information}
                 onChange={(e) => updateInteraction(i.id, { information: e.target.value })}
                 placeholder="Information échangée"
+              />
+              <input
+                value={i.condition ?? ''}
+                onChange={(e) => updateInteraction(i.id, { condition: e.target.value || undefined })}
+                placeholder="Ex. paiement refusé"
               />
               <button type="button" className="danger" onClick={() => removeInteraction(i.id)}>
                 supprimer

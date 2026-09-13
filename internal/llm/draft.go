@@ -92,6 +92,9 @@ type DraftInteraction struct {
 	ToActivityName   string `json:"toActivityName"`
 	ToActorName      string `json:"toActorName"`
 	Information      string `json:"information"`
+	// Condition, optionnelle, fait de cette interaction un embranchement :
+	// vide pour un flux normal (voir Interaction.Condition, ADR-060).
+	Condition string `json:"condition,omitempty"`
 }
 
 // ActivityRef identifie une activité par son nom et celui de son acteur,

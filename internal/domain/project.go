@@ -160,6 +160,17 @@ type Interaction struct {
 	ToActivityID   string `json:"toActivityId"`
 	Information    string `json:"information"`
 	Description    string `json:"description,omitempty"`
+	// Condition, quand renseignée, fait de cette interaction un
+	// EMBRANCHEMENT plutôt qu'un flux systématique : elle ne se produit
+	// que si cette condition est vraie (ex. "paiement refusé"), au lieu de
+	// toujours suivre l'activité de départ. Vide par défaut (comportement
+	// inchangé, y compris pour les projets enregistrés avant
+	// l'introduction de ce champ) : une interaction sans condition
+	// continue de représenter un flux normal, pas un embranchement
+	// (ADR-060). Volontairement un simple texte libre plutôt qu'un type de
+	// porte façon BPMN (exclusive/parallèle/inclusive) : reste lisible
+	// comme une étiquette de flèche, cohérent avec le reste du diagramme.
+	Condition string `json:"condition,omitempty"`
 }
 
 type SpecificationType string
