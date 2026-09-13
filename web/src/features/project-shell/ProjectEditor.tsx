@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Activity, Actor, Interaction, Phase, Project } from '../../api/types'
 
@@ -88,6 +89,32 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       ...project,
       phases: project.phases.filter((p) => p.id !== id),
       activities: project.activities.filter((act) => act.phaseId !== id),
+    })
+  }
+
+  // Réordonnancement du backbone (méthode d'extraction du processus,
+  // ADR-027 : acteurs → phases CHRONOLOGIQUES → activités → interactions) —
+  // jusqu'ici l'ordre des phases n'était fixé qu'à la création (dernière
+  // position) et jamais modifiable après coup, seul moyen de corriger une
+  // phase mal placée était de tout supprimer et recréer dans le bon ordre.
+  // Échange l'`order` de la phase avec celui de sa voisine immédiate (dans
+  // l'ordre actuellement affiché) plutôt qu'une renumérotation complète :
+  // reste correct même avec des `order` non contigus (ex. après suppression
+  // d'une phase).
+  function movePhase(id: string, direction: -1 | 1) {
+    const sorted = [...project.phases].sort((a, b) => a.order - b.order)
+    const index = sorted.findIndex((p) => p.id === id)
+    const swapIndex = index + direction
+    if (index === -1 || swapIndex < 0 || swapIndex >= sorted.length) return
+    const current = sorted[index]
+    const swapWith = sorted[swapIndex]
+    onChange({
+      ...project,
+      phases: project.phases.map((p) => {
+        if (p.id === current.id) return { ...p, order: swapWith.order }
+        if (p.id === swapWith.id) return { ...p, order: current.order }
+        return p
+      }),
     })
   }
 
@@ -208,20 +235,31 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           <span className="col-name">Nom</span>
           <span className="col-duration">Durée</span>
           <span className="col-satisfaction">Satisfaction</span>
-          {/* Fantôme du bouton "supprimer" de chaque ligne (masqué,
-              inerte) : sans lui, "Nom" (seule colonne flex: 1 de cet
-              en-tête) grandirait plus que son homologue dans les lignes
-              en dessous — qui, elles, ont ce bouton en plus — et
-              décalerait Durée/Satisfaction vers la droite par rapport aux
-              champs qu'ils sont censés surmonter. Réutilise le même texte/
-              classe que le vrai bouton pour garder exactement la même
-              largeur, plutôt qu'un espaceur à largeur devinée. */}
+          {/* Fantômes (masqués, inertes) des boutons de réordonnancement et
+              de suppression de chaque ligne : sans eux, "Nom" (seule
+              colonne flex: 1 de cet en-tête) grandirait plus que son
+              homologue dans les lignes en dessous — qui, elles, ont ces
+              boutons en plus — et décalerait Durée/Satisfaction vers la
+              droite par rapport aux champs qu'ils sont censés surmonter.
+              Réutilisent le même contenu que les vrais boutons pour garder
+              exactement la même largeur, plutôt qu'un espaceur à largeur
+              devinée. */}
+          <span className="reorder-buttons col-headers-ghost" aria-hidden="true">
+            <button type="button" className="reorder-btn" tabIndex={-1}>
+              <ChevronLeft size={14} />
+            </button>
+            <button type="button" className="reorder-btn" tabIndex={-1}>
+              <ChevronRight size={14} />
+            </button>
+          </span>
           <button type="button" className="danger col-headers-ghost" aria-hidden="true" tabIndex={-1}>
             supprimer
           </button>
         </div>
         <ul>
-          {project.phases.map((p) => (
+          {[...project.phases]
+            .sort((a, b) => a.order - b.order)
+            .map((p, index, sorted) => (
             <li key={p.id}>
               <input
                 className="phase-icon-input"
@@ -254,6 +292,34 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
                 <option value={4}>🙂 Satisfait</option>
                 <option value={5}>😄 Très satisfait</option>
               </select>
+              {/* Réordonnancement du backbone (ADR-069) : déplace la phase
+                  dans la séquence chronologique du diagramme, qui en
+                  découle directement (Phase.order pilote l'ordre des
+                  colonnes — voir layout.ts). Toujours visible (contrairement
+                  à "supprimer" ci-dessous) : un contrôle de navigation
+                  fréquent, pas une action destructrice rare. */}
+              <span className="reorder-buttons">
+                <button
+                  type="button"
+                  className="reorder-btn"
+                  onClick={() => movePhase(p.id, -1)}
+                  disabled={index === 0}
+                  title="Déplacer plus tôt dans la séquence"
+                  aria-label={`Déplacer la phase « ${p.name} » plus tôt`}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="reorder-btn"
+                  onClick={() => movePhase(p.id, 1)}
+                  disabled={index === sorted.length - 1}
+                  title="Déplacer plus tard dans la séquence"
+                  aria-label={`Déplacer la phase « ${p.name} » plus tard`}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </span>
               <button type="button" className="danger" onClick={() => removePhase(p.id)}>
                 supprimer
               </button>

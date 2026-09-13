@@ -45,7 +45,9 @@ Ouvrir http://localhost:5173.
   (onglet Édition) : regroupé sous une **ligne de visibilité**, séparé des
   acteurs en contact direct avec le client. Chaque phase peut aussi porter
   une **durée** libre et un **score de satisfaction** (1-5) : affichés
-  au-dessus du diagramme sous forme de courbe.
+  au-dessus du diagramme sous forme de courbe. L'ordre chronologique des
+  phases (le "backbone" du processus) se réordonne avec les boutons ‹/›
+  de l'onglet Édition.
 - **Fiche persona** par acteur (à propos, bio, objectifs, points de
   friction du métier) — partagée entre toutes les missions portant un
   acteur du même nom, consultable/éditable depuis le diagramme, l'onglet

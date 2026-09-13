@@ -739,6 +739,39 @@
   flex: 0 0 10.5rem;
 }
 
+/* Boutons ‹/› de réordonnancement du backbone (phases, ADR-069) — groupe
+   compact, toujours visible (contrairement à .danger ci-dessus : c'est un
+   contrôle de navigation fréquent, pas une action destructrice rare). */
+.reorder-buttons {
+  display: flex;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.reorder-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.reorder-btn:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.reorder-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .col-headers .col-duration {
   width: 7rem;
   flex-shrink: 0;

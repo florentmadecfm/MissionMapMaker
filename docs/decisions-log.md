@@ -863,3 +863,45 @@ focus, replié par défaut puis dépliable) sur les captures du parcours
 complet, sans régression constatée sur les fonctionnalités déjà
 couvertes par les suites précédentes (variantes, comparaison, points de
 friction).
+
+## ADR-069 — Réordonnancement du backbone (phases)
+
+Backlog blueprint #5. `Phase.order` pilote déjà la séquence chronologique
+des colonnes du diagramme (`layout.ts`), mais n'était fixé qu'à la
+création (dernière position) — aucun moyen de corriger une phase mal
+placée sans tout supprimer et recréer dans le bon ordre. Les activités,
+elles, se réordonnent déjà par glisser-déposer directement sur le
+diagramme (`ProcessDiagram.tsx`), ce qui les sortait du périmètre : seul
+le "backbone" au sens propre (la séquence de phases chronologiques,
+terminologie de la méthode d'extraction du processus, ADR-027) manquait
+d'un moyen de réordonnancement.
+
+**Choix** : deux boutons ‹/› par ligne de phase dans l'onglet Édition
+(`ProjectEditor.tsx`), plutôt qu'un glisser-déposer sur cette liste —
+volontairement noté hors scope lors de l'audit UX/UI (ADR-068) comme un
+chantier plus structurant méritant sa propre décision. Les boutons
+échangent l'`order` de la phase avec celui de sa voisine immédiate (dans
+l'ordre actuellement affiché), pas une renumérotation complète : reste
+correct même avec des `order` non contigus (ex. après suppression d'une
+phase). Toujours visibles (contrairement aux boutons "supprimer" révélés
+au survol depuis ADR-068) : un contrôle de navigation fréquent, pas une
+action destructrice rare — et accessibles au clavier nativement (ce sont
+de vrais `<button>`, désactivés en butée de séquence plutôt que masqués).
+La liste des phases de l'onglet Édition, jusqu'ici affichée dans l'ordre
+d'insertion du tableau JSON (qui coïncidait par hasard avec `order` tant
+qu'aucun réordonnancement n'existait), est maintenant explicitement
+triée par `order` avant affichage — condition nécessaire pour que les
+boutons déplacent visuellement la bonne ligne.
+
+Aucun changement backend : l'ensemble du projet est déjà réécrit en un
+seul `PUT /api/projects/{id}` par "Sauvegarder", `order` n'est qu'un champ
+parmi d'autres du JSON déjà transporté tel quel.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...` verts (aucun
+changement backend). `tsc -b`, `npm run lint`, `npm run build` verts.
+Playwright, projet de test à 3 phases : clic "plus tôt" sur la 2e phase
+la fait passer en 1ère position (ordre affiché ET valeur `order`
+persistée après sauvegarde + rechargement complet de la page) ; bouton
+"plus tôt" désactivé sur la 1ère ligne, "plus tard" désactivé sur la
+dernière ; le diagramme de processus reflète bien le nouvel ordre des
+colonnes après sauvegarde.
