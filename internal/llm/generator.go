@@ -19,6 +19,12 @@ type Generator interface {
 	GenerateProcess(ctx context.Context, text, systemPrompt string) (*DraftProcess, error)
 	GenerateSpecifications(ctx context.Context, activities []ActivityRef, systemPrompt string) ([]DraftSpecification, error)
 	GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error)
+	// GeneratePainPointSolutions/GeneratePainPointResolution (ADR-066)
+	// soutiennent le flux en 2 temps résolution d'un point de friction :
+	// 5 propositions de solutions structurelles, puis la SSS + le
+	// scénario de test correspondant à celle choisie par l'utilisateur.
+	GeneratePainPointSolutions(ctx context.Context, painPoint PainPointContext, systemPrompt string) ([]DraftPainPointSolution, error)
+	GeneratePainPointResolution(ctx context.Context, painPoint PainPointContext, chosen DraftPainPointSolution, systemPrompt string) (*PainPointResolution, error)
 }
 
 // Provider identifie un fournisseur LLM supporté. Ajouter un fournisseur

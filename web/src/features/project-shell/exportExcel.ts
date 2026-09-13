@@ -175,12 +175,16 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Activité', key: 'activite', width: 40 },
       { header: 'Acteur', key: 'acteur', width: 24 },
       { header: 'Texte', key: 'texte', width: 60 },
+      { header: 'Résolu (SSS)', key: 'resolu', width: 14 },
     ],
     project.activities.flatMap((act) =>
       act.painPoints.map((pp) => ({
         activite: act.name,
         acteur: actorName(project, act.actorId),
         texte: pp.text,
+        // Code de la SSS générée pour la solution choisie (ADR-066) —
+        // vide tant qu'aucune solution n'a été retenue.
+        resolu: project.specifications.find((s) => s.id === pp.resolvedBySpecId)?.code ?? '',
       })),
     ),
   )

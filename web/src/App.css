@@ -1153,6 +1153,110 @@
   background: var(--color-warning-bg);
 }
 
+/* Le texte du point de friction prend l'espace disponible (flex: 1) : sans
+   ça, le bouton "Solutions"/l'étiquette "résolu" (voir ADR-066) flotterait
+   au milieu de la ligne (justify-content: space-between sur 3 enfants)
+   plutôt que d'être groupé avec "supprimer" à droite. */
+.item-list-warning li > span:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Bouton "Solutions" (point de friction pas encore résolu) / étiquette
+   "résolu" (ADR-066) — largeur de contenu, jamais étirés. */
+.painpoint-solve-button {
+  flex-shrink: 0;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.76rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+}
+
+.painpoint-solve-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.painpoint-resolved-badge {
+  flex-shrink: 0;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- Solutions pour un point de friction (ADR-066) ---------- */
+
+.painpoint-solutions-modal {
+  width: 560px;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+.painpoint-solutions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.painpoint-solution-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.painpoint-solution-card p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+/* Étiquette de type de changement — une teinte par nature (ajout/
+   suppression d'interaction ou d'activité, fusion), pour repérer d'un
+   coup d'œil la variété des 5 propositions sans lire chaque description. */
+.painpoint-solution-type {
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.painpoint-solution-type-add_interaction,
+.painpoint-solution-type-add_activity {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.painpoint-solution-type-remove_interaction,
+.painpoint-solution-type-remove_activity {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.painpoint-solution-type-merge_activities {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.painpoint-solution-done {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
 .item-add {
   display: flex;
   gap: 0.4rem;

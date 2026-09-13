@@ -36,6 +36,8 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("POST /api/generate", h.generateProcess)
 	mux.HandleFunc("POST /api/generate-specifications", h.generateSpecifications)
 	mux.HandleFunc("POST /api/generate-test-scenarios", h.generateTestScenarios)
+	mux.HandleFunc("POST /api/generate-painpoint-solutions", h.generatePainPointSolutions)
+	mux.HandleFunc("POST /api/generate-painpoint-resolution", h.generatePainPointResolution)
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.saveSettings)
 	mux.HandleFunc("DELETE /api/settings", h.deleteSettings)
@@ -194,6 +196,51 @@ func (h *Handler) generateTestScenarios(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, drafts)
+}
+
+// generatePainPointSolutions (ADR-066) : 1re étape du flux de résolution
+// d'un point de friction — 5 propositions de solutions structurelles.
+func (h *Handler) generatePainPointSolutions(w http.ResponseWriter, r *http.Request) {
+	var body llm.PainPointContext
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	solutions, err := h.generate.GeneratePainPointSolutions(r.Context(), body)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, solutions)
+}
+
+// generatePainPointResolution (ADR-066) : 2e étape — une fois une solution
+// choisie côté frontend, génère la SSS + le scénario de test correspondant.
+func (h *Handler) generatePainPointResolution(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		llm.PainPointContext
+		ChosenSolution llm.DraftPainPointSolution `json:"chosenSolution"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	resolution, err := h.generate.GeneratePainPointResolution(r.Context(), body.PainPointContext, body.ChosenSolution)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resolution)
 }
 
 func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {

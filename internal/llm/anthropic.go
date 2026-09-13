@@ -131,6 +131,87 @@ func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities
 	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
 }
 
+func (c *anthropicClient) GeneratePainPointSolutions(ctx context.Context, painPoint PainPointContext, systemPrompt string) ([]DraftPainPointSolution, error) {
+	input, err := json.Marshal(painPoint)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation du point de friction : %w", err)
+	}
+
+	spec := proposePainPointSolutionsToolSpec()
+	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.Model(c.model),
+		MaxTokens: 4000,
+		System: []anthropic.TextBlockParam{
+			{Text: systemPrompt},
+		},
+		Tools: []anthropic.ToolUnionParam{toAnthropicTool(spec)},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(string(input))),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("appel API Claude : %w", err)
+	}
+
+	for _, block := range resp.Content {
+		if toolUse, ok := block.AsAny().(anthropic.ToolUseBlock); ok && toolUse.Name == spec.Name {
+			var result struct {
+				Solutions []DraftPainPointSolution `json:"solutions"`
+			}
+			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &result); err != nil {
+				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
+			}
+			if result.Solutions == nil {
+				result.Solutions = []DraftPainPointSolution{}
+			}
+			return result.Solutions, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
+}
+
+func (c *anthropicClient) GeneratePainPointResolution(ctx context.Context, painPoint PainPointContext, chosen DraftPainPointSolution, systemPrompt string) (*PainPointResolution, error) {
+	input, err := json.Marshal(struct {
+		PainPoint PainPointContext       `json:"painPoint"`
+		Solution  DraftPainPointSolution `json:"chosenSolution"`
+	}{painPoint, chosen})
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation de la solution choisie : %w", err)
+	}
+
+	spec := proposePainPointResolutionToolSpec()
+	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.Model(c.model),
+		MaxTokens: 4000,
+		System: []anthropic.TextBlockParam{
+			{Text: systemPrompt},
+		},
+		Tools: []anthropic.ToolUnionParam{toAnthropicTool(spec)},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(string(input))),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("appel API Claude : %w", err)
+	}
+
+	for _, block := range resp.Content {
+		if toolUse, ok := block.AsAny().(anthropic.ToolUseBlock); ok && toolUse.Name == spec.Name {
+			var result PainPointResolution
+			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &result); err != nil {
+				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
+			}
+			if result.TestSteps == nil {
+				result.TestSteps = []DraftTestStep{}
+			}
+			return &result, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
+}
+
 func (c *anthropicClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error) {
 	input, err := json.Marshal(specifications)
 	if err != nil {

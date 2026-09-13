@@ -52,7 +52,10 @@ Ouvrir http://localhost:5173.
   Vue par acteur, ou l'écran **🧑 Acteurs (toutes missions)** de la barre
   latérale.
 - **Spécifications** (typées façon INCOSE) et **scénarios de test V&V**,
-  génération assistée et matrice de traçabilité.
+  génération assistée et matrice de traçabilité. Depuis un point de
+  friction, "💡 Solutions" propose 5 pistes de résolution structurelles
+  (interactions/activités) ; en choisir une génère la SSS et le test
+  correspondants, tracés vers le point de friction.
 - **Export/import Excel** complet d'un projet (menu ☰ de la barre d'onglets).
 - **Variantes de mission** (état actuel / cible) : "Créer une variante…"
   (même menu ☰) duplique le contenu de la mission ouverte, permet de

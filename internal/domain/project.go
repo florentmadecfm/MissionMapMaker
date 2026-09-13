@@ -184,6 +184,12 @@ type Activity struct {
 type PainPoint struct {
 	ID   string `json:"id"`
 	Text string `json:"text"`
+	// ResolvedBySpecID référence la spécification (SSS) créée quand une
+	// solution proposée par le LLM pour CE point de friction a été choisie
+	// (ADR-066) — vide tant qu'aucune solution n'a été retenue. Pointe vers
+	// Specification.ID, pas vers un code ("SSS-001") : reste valide même si
+	// des specs sont réordonnées/renumérotées ailleurs.
+	ResolvedBySpecID string `json:"resolvedBySpecId,omitempty"`
 }
 
 type UserStory struct {

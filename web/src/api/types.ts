@@ -100,6 +100,42 @@ export interface Activity {
 export interface PainPoint {
   id: string
   text: string
+  // Référence la spécification (SSS) créée quand une solution proposée
+  // par le LLM pour CE point de friction a été choisie (ADR-066) — absent
+  // tant qu'aucune solution n'a été retenue.
+  resolvedBySpecId?: string
+}
+
+// ChangeType d'une DraftPainPointSolution — sert uniquement à choisir une
+// icône/étiquette d'affichage (voir PainPointSolutionsModal.tsx), jamais à
+// appliquer automatiquement un changement au diagramme (ADR-066).
+export type PainPointChangeType =
+  | 'add_interaction'
+  | 'remove_interaction'
+  | 'add_activity'
+  | 'remove_activity'
+  | 'merge_activities'
+
+export interface DraftPainPointSolution {
+  description: string
+  changeType: PainPointChangeType
+}
+
+export interface PainPointContext {
+  activityName: string
+  actorName: string
+  phaseName: string
+  painPointText: string
+  activities: ActivityRef[]
+  interactions: DraftInteraction[]
+}
+
+export interface PainPointResolution {
+  specificationText: string
+  specificationRationale?: string
+  testTitle: string
+  testPreconditions?: string
+  testSteps: DraftTestStep[]
 }
 
 export interface Interaction {

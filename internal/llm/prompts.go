@@ -72,3 +72,34 @@ Pour CHAQUE spécification fournie, propose au moins un scénario de test qui pe
 - rédigé en français.
 
 Reprends exactement le code de spécification tel que fourni en entrée (ex. "SSS-001"), pour permettre de relier chaque scénario à la spécification qu'il vérifie. Réponds uniquement en appelant l'outil propose_test_scenarios.`
+
+// DefaultPainPointSolutionsPrompt/DefaultPainPointResolutionPrompt
+// (ADR-066) ne sont volontairement PAS exposés dans l'écran Paramètres
+// (pas de couche "Prompt"/"Skill" personnalisable, contrairement aux 3
+// capacités ci-dessus) : la fonctionnalité étant plus récente et de
+// portée plus étroite (une seule activité/un seul point de friction à la
+// fois), doubler la surface de configuration pour 2 capacités
+// supplémentaires n'a pas semblé justifié pour cette première version —
+// à reconsidérer si le besoin de personnalisation se manifeste.
+
+const DefaultPainPointSolutionsPrompt = `Tu assistes un UX designer / Product Owner à trouver des solutions concrètes à un point de friction constaté sur une activité d'un diagramme de processus (story map : acteurs, phases, activités, interactions).
+
+Pour LE point de friction fourni (associé à une activité, un acteur et une phase précis, avec le reste du processus en contexte — activités et interactions déjà existantes), propose EXACTEMENT 5 solutions structurelles DIFFÉRENTES pour le résoudre ou l'atténuer. Chaque solution décrit un changement concret au diagramme, d'un de ces 5 types ("changeType") :
+- add_interaction : ajouter une interaction entre deux activités (ex. prévenir un acteur plus tôt) ;
+- remove_interaction : supprimer une interaction devenue inutile ou source de blocage ;
+- add_activity : ajouter une nouvelle activité (ex. une étape de vérification, une notification) ;
+- remove_activity : supprimer une activité source de friction (ex. une étape redondante) ;
+- merge_activities : fusionner deux activités proches en une seule, pour simplifier le parcours.
+
+Varie les 5 propositions (types différents autant que possible, jamais 5 fois le même changeType) et reste réaliste par rapport au contexte fourni : ne réutilise que des noms d'activités/acteurs déjà listés en contexte (n'invente jamais un acteur), et ne propose une fusion (merge_activities) qu'entre deux activités RÉELLEMENT listées. Rédige chaque "description" comme une phrase concrète et actionnable, jamais vague ("améliorer le processus" n'est pas une solution), en français.
+
+Réponds uniquement en appelant l'outil propose_pain_point_solutions.`
+
+const DefaultPainPointResolutionPrompt = `Tu assistes un ingénieur systèmes / Product Owner à formaliser, en besoin partie prenante (SSS) et scénario de test V&V, une solution déjà choisie pour résoudre un point de friction d'un diagramme de processus.
+
+À partir du point de friction et de la solution retenue fournis en entrée, rédige :
+- specificationText : une exigence SSS unique et atomique (jamais deux besoins combinés par "et"/"ou"), au format "Le système doit permettre à [acteur] de [capacité]" ou "Le système doit [capacité]", vérifiable et non ambiguë (pas de "rapidement", "si possible"), qui formalise la SOLUTION retenue — pas une reformulation du point de friction lui-même ;
+- specificationRationale (optionnel) : en une phrase, pourquoi cette exigence résout le point de friction ;
+- testTitle, testPreconditions (si l'exécution du test nécessite un état initial particulier, sinon vide), testSteps (au moins une étape, chacune avec une action précise ("action") et un résultat attendu observable ("expectedResult"), jamais vague) : un scénario de test qui permette de vérifier objectivement que cette exigence est satisfaite.
+
+Rédige tout en français. Réponds uniquement en appelant l'outil propose_pain_point_resolution.`

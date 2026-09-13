@@ -262,6 +262,53 @@ func (c *mistralClient) GenerateSpecifications(ctx context.Context, activities [
 	return result.Specifications, nil
 }
 
+func (c *mistralClient) GeneratePainPointSolutions(ctx context.Context, painPoint PainPointContext, systemPrompt string) ([]DraftPainPointSolution, error) {
+	input, err := json.Marshal(painPoint)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation du point de friction : %w", err)
+	}
+
+	spec := proposePainPointSolutionsToolSpec()
+	raw, err := c.call(ctx, systemPrompt, string(input), spec)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Solutions []DraftPainPointSolution `json:"solutions"`
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, fmt.Errorf("parsing des arguments de l'outil : %w", err)
+	}
+	if result.Solutions == nil {
+		result.Solutions = []DraftPainPointSolution{}
+	}
+	return result.Solutions, nil
+}
+
+func (c *mistralClient) GeneratePainPointResolution(ctx context.Context, painPoint PainPointContext, chosen DraftPainPointSolution, systemPrompt string) (*PainPointResolution, error) {
+	input, err := json.Marshal(struct {
+		PainPoint PainPointContext       `json:"painPoint"`
+		Solution  DraftPainPointSolution `json:"chosenSolution"`
+	}{painPoint, chosen})
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation de la solution choisie : %w", err)
+	}
+
+	spec := proposePainPointResolutionToolSpec()
+	raw, err := c.call(ctx, systemPrompt, string(input), spec)
+	if err != nil {
+		return nil, err
+	}
+	var result PainPointResolution
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, fmt.Errorf("parsing des arguments de l'outil : %w", err)
+	}
+	if result.TestSteps == nil {
+		result.TestSteps = []DraftTestStep{}
+	}
+	return &result, nil
+}
+
 func (c *mistralClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error) {
 	input, err := json.Marshal(specifications)
 	if err != nil {

@@ -247,9 +247,46 @@ func (s *GenerateService) GenerateTestScenarios(ctx context.Context, specificati
 	return generator.GenerateTestScenarios(ctx, specifications, effectiveSystemPrompt(prompts.TestScenarioContext, prompts.TestScenario))
 }
 
+// GeneratePainPointSolutions/GeneratePainPointResolution (ADR-066) : pas de
+// couche prompt/skill personnalisable (voir le commentaire sur
+// DefaultPainPointSolutionsPrompt, prompts.go) — le texte par défaut est
+// donc toujours celui utilisé, contrairement à Generate/GenerateSpecifications/
+// GenerateTestScenarios ci-dessus qui résolvent un éventuel override via
+// s.Prompts().
+func (s *GenerateService) GeneratePainPointSolutions(ctx context.Context, painPoint llm.PainPointContext) ([]llm.DraftPainPointSolution, error) {
+	if strings.TrimSpace(painPoint.PainPointText) == "" {
+		return nil, errEmptyPainPoint
+	}
+	generator := s.currentGenerator()
+	if generator == nil {
+		return nil, llm.ErrNotConfigured
+	}
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
+	return generator.GeneratePainPointSolutions(ctx, painPoint, llm.DefaultPainPointSolutionsPrompt)
+}
+
+func (s *GenerateService) GeneratePainPointResolution(ctx context.Context, painPoint llm.PainPointContext, chosen llm.DraftPainPointSolution) (*llm.PainPointResolution, error) {
+	if strings.TrimSpace(painPoint.PainPointText) == "" {
+		return nil, errEmptyPainPoint
+	}
+	if strings.TrimSpace(chosen.Description) == "" {
+		return nil, errEmptySolution
+	}
+	generator := s.currentGenerator()
+	if generator == nil {
+		return nil, llm.ErrNotConfigured
+	}
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
+	return generator.GeneratePainPointResolution(ctx, painPoint, chosen, llm.DefaultPainPointResolutionPrompt)
+}
+
 var errEmptyText = &validationError{"le texte à analyser est vide"}
 var errNoActivities = &validationError{"aucune activité à traiter"}
 var errNoSpecifications = &validationError{"aucune spécification à traiter"}
+var errEmptyPainPoint = &validationError{"le point de friction est vide"}
+var errEmptySolution = &validationError{"la solution choisie est vide"}
 var errTextTooLong = &validationError{fmt.Sprintf("le texte dépasse la longueur maximale autorisée (%d caractères)", maxTextLength)}
 var errTooManyActivities = &validationError{fmt.Sprintf("trop d'activités à traiter en une seule fois (maximum %d)", maxActivityRefs)}
 var errTooManySpecifications = &validationError{fmt.Sprintf("trop de spécifications à traiter en une seule fois (maximum %d)", maxSpecRefs)}

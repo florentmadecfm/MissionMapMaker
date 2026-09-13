@@ -1,0 +1,181 @@
+import { useEffect, useState } from 'react'
+import { api } from '../../api/client'
+import type { Activity, DraftPainPointSolution, PainPoint, PainPointChangeType, PainPointContext, Project } from '../../api/types'
+import { mergePainPointResolution } from '../specifications/mergePainPointResolution'
+
+interface Props {
+  project: Project
+  activity: Activity
+  painPoint: PainPoint
+  onChange: (project: Project) => void
+  onClose: () => void
+}
+
+const CHANGE_TYPE_LABELS: Record<PainPointChangeType, string> = {
+  add_interaction: '+ Interaction',
+  remove_interaction: '− Interaction',
+  add_activity: '+ Activité',
+  remove_activity: '− Activité',
+  merge_activities: 'Fusion d’activités',
+}
+
+type Status = 'loading' | 'ready' | 'resolving' | 'done' | 'not-configured'
+
+// Ouverte depuis ActivityDetailModal.tsx sur un point de friction pas
+// encore résolu : flux en 2 temps (ADR-066). D'abord 5 propositions de
+// solutions STRUCTURELLES (le LLM décrit un changement — ajout/suppression
+// d'interaction, ajout/suppression/fusion d'activités — mais ne modifie
+// JAMAIS le diagramme lui-même, cohérent avec le reste de l'app : une
+// proposition à choisir, jamais appliquée automatiquement). Puis, une fois
+// une solution choisie, une SSS + un scénario de test qui la formalisent,
+// ajoutés au projet et reliés à l'activité ET au point de friction
+// (PainPoint.resolvedBySpecId) via mergePainPointResolution.
+export function PainPointSolutionsModal({ project, activity, painPoint, onChange, onClose }: Props) {
+  const [status, setStatus] = useState<Status>('loading')
+  const [solutions, setSolutions] = useState<DraftPainPointSolution[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [addedCodes, setAddedCodes] = useState<{ spec: string; test: string } | null>(null)
+
+  const actor = project.actors.find((a) => a.id === activity.actorId)
+  const phase = project.phases.find((p) => p.id === activity.phaseId)
+
+  function buildContext(): PainPointContext {
+    return {
+      activityName: activity.name,
+      actorName: actor?.name ?? '',
+      phaseName: phase?.name ?? '',
+      painPointText: painPoint.text,
+      activities: project.activities.map((a) => ({
+        name: a.name,
+        actorName: project.actors.find((x) => x.id === a.actorId)?.name ?? '',
+      })),
+      interactions: project.interactions.map((i) => {
+        const from = project.activities.find((a) => a.id === i.fromActivityId)
+        const to = project.activities.find((a) => a.id === i.toActivityId)
+        return {
+          fromActivityName: from?.name ?? '',
+          fromActorName: project.actors.find((x) => x.id === from?.actorId)?.name ?? '',
+          toActivityName: to?.name ?? '',
+          toActorName: project.actors.find((x) => x.id === to?.actorId)?.name ?? '',
+          information: i.information,
+          condition: i.condition,
+        }
+      }),
+    }
+  }
+
+  function fetchSolutions() {
+    setStatus('loading')
+    setError(null)
+    api
+      .generatePainPointSolutions(buildContext())
+      .then((result) => {
+        setSolutions(result)
+        setStatus('ready')
+      })
+      .catch((e) => {
+        const message = String(e)
+        if (message.includes('clé API non configurée')) {
+          setStatus('not-configured')
+        } else {
+          setError(message)
+          setStatus('ready')
+        }
+      })
+  }
+
+  // Chargement au montage uniquement (une solution choisie ne redéclenche
+  // pas une nouvelle liste de propositions) — tableau de dépendances
+  // volontairement vide.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(fetchSolutions, [])
+
+  async function chooseSolution(solution: DraftPainPointSolution) {
+    setStatus('resolving')
+    setError(null)
+    try {
+      const resolution = await api.generatePainPointResolution(buildContext(), solution)
+      const updated = mergePainPointResolution(project, activity.id, painPoint.id, resolution)
+      onChange(updated)
+      setAddedCodes({
+        spec: updated.specifications[updated.specifications.length - 1].code,
+        test: updated.testScenarios[updated.testScenarios.length - 1].code,
+      })
+      setStatus('done')
+    } catch (e) {
+      setError(String(e))
+      setStatus('ready')
+    }
+  }
+
+  return (
+    // Imbriquée dans le fond de ActivityDetailModal.tsx (voir ce fichier) :
+    // stopPropagation sur le clic de CE fond, sans quoi il remonterait au
+    // fond de la modale parente et refermerait les deux d'un coup au lieu
+    // d'une seule.
+    <div
+      className="modal-backdrop"
+      onClick={(e) => {
+        e.stopPropagation()
+        onClose()
+      }}
+    >
+      <div className="modal painpoint-solutions-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="modal-header">
+          <h2>Solutions pour ce point de friction</h2>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Fermer">
+            ×
+          </button>
+        </header>
+        <p className="nl-hint">« {painPoint.text} »</p>
+
+        {status === 'not-configured' && (
+          <div className="nl-warning">
+            Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
+            la barre latérale pour en saisir une.
+          </div>
+        )}
+        {error && <p className="error">{error}</p>}
+        {status === 'loading' && <p>Génération de 5 solutions…</p>}
+        {status === 'ready' && solutions.length === 0 && !error && (
+          <p className="actor-warning">Aucune solution proposée.</p>
+        )}
+
+        {(status === 'ready' || status === 'resolving') && solutions.length > 0 && (
+          <ul className="painpoint-solutions-list">
+            {solutions.map((s, i) => (
+              <li key={i} className="painpoint-solution-card">
+                <span className={`painpoint-solution-type painpoint-solution-type-${s.changeType}`}>
+                  {CHANGE_TYPE_LABELS[s.changeType] ?? s.changeType}
+                </span>
+                <p>{s.description}</p>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => chooseSolution(s)}
+                  disabled={status === 'resolving'}
+                >
+                  Choisir cette solution
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {status === 'resolving' && <p>Génération de la spécification et du test…</p>}
+
+        {status === 'done' && addedCodes && (
+          <div className="painpoint-solution-done">
+            <p className="saved-at">
+              Ajoutés au projet : <strong>{addedCodes.spec}</strong> et <strong>{addedCodes.test}</strong>. N'oubliez
+              pas de sauvegarder pour les conserver.
+            </p>
+            <button type="button" className="btn-primary" onClick={onClose}>
+              Fermer
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -689,3 +689,67 @@ ajoutant, en fin de `.col-headers`, un bouton fantôme identique au vrai
 devinée — garantit un alignement exact même si le style du bouton change
 plus tard. Vérifié par mesure de position/largeur en pixels (Playwright)
 sur les 4 colonnes concernées : écart nul dans les 4 cas.
+
+## ADR-066 — Solutions LLM pour un point de friction, puis SSS + test
+
+Backlog #4, enrichi à la demande explicite de l'utilisateur : plutôt que
+générer directement une SSS pour un point de friction, un flux en 2 temps.
+
+**1. 5 propositions de solutions STRUCTURELLES** (`DraftPainPointSolution`,
+nouvel endpoint `/api/generate-painpoint-solutions`) — chacune classée par
+`changeType` (add_interaction / remove_interaction / add_activity /
+remove_activity / merge_activities, contraint par enum JSON Schema) et
+une description en langage naturel. Le LLM reçoit en contexte l'activité/
+l'acteur/la phase concernés et un résumé du reste du processus (activités
+et interactions déjà existantes), pour ancrer ses propositions dans le
+diagramme réel plutôt que d'inventer. **Le diagramme n'est JAMAIS modifié
+automatiquement** — la description reste une proposition à choisir,
+cohérent avec le principe déjà établi (ADR-002) qu'une génération LLM est
+toujours relue avant d'avoir un effet réel ; ici l'effet réel n'est même
+pas une modification du diagramme mais la génération d'une exigence.
+
+**2. Une fois une solution choisie**, un second appel
+(`/api/generate-painpoint-resolution`) génère la SSS + le scénario de test
+qui la formalisent, en un seul aller-retour (schéma à plat plutôt que les
+types DraftSpecification/DraftTestScenario existants, qui portent des
+champs de correspondance — ActivityName/SpecificationCode — inutiles ici
+puisque l'activité et la future spécification sont déjà connues de
+l'appelant). `mergePainPointResolution.ts` (nouveau, `features/
+specifications/`, même patron de numérotation SSS-.../TC-... que
+`mergeSpecDrafts.ts`/`mergeTestScenarioDrafts.ts`) les transforme en une
+vraie `Specification` + un vrai `TestScenario` ajoutés au projet, reliés à
+l'activité (`traceLinks`, comme toute SSS) ET au point de friction
+lui-même via le nouveau champ `PainPoint.ResolvedBySpecID` — qui n'est
+alors plus proposé en résolution (bouton "💡 Solutions" remplacé par un
+badge "✓ résolu (SSS-00X)" dans `ActivityDetailModal.tsx`).
+
+**Generator étendu** : `GeneratePainPointSolutions`/
+`GeneratePainPointResolution` ajoutées à l'interface `llm.Generator`,
+implémentées côté Anthropic ET Mistral (comme les 3 capacités
+existantes). Contrairement à Generate/GenerateSpecifications/
+GenerateTestScenarios, **pas de couche prompt/skill personnalisable**
+dans l'écran Paramètres pour ces 2 nouvelles capacités : doubler la
+surface de configuration (2 couches de plus × 2 capacités) n'a pas semblé
+justifié pour une fonctionnalité plus récente et de portée plus étroite
+(une seule activité/un seul point de friction à la fois) — à reconsidérer
+si le besoin se manifeste.
+
+Export/import Excel : colonne "Résolu (SSS)" ajoutée à la feuille "Points
+de friction" (code de la spécification, résolu vers son id via la même
+map `specIdByCode` déjà construite pour les colonnes "Parent"/
+"Spécifications liées" — les spécifications sont toujours lues avant les
+points de friction dans le fichier).
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Vérifié en conditions quasi
+réelles : un petit serveur HTTP local imitant l'API Mistral (function
+calling) a été mis en place le temps du test, pour exercer le VRAI
+chemin backend (marshaling JSON, appel HTTP, parsing de la réponse) sans
+dépendre d'une clé API réelle — les deux endpoints ont d'abord été
+vérifiés directement (curl), puis tout le parcours interface : 5
+solutions affichées avec des types variés, choix d'une solution générant
+bien une SSS + un test ajoutés au projet, badge "résolu" affiché et
+bouton "Solutions" alors masqué, spécification et test visibles dans
+"Spécifications liées"/"Tests V&V liés", et persistance confirmée après
+sauvegarde + rechargement (point de friction, spécification, test,
+traceLink, tous retrouvés).
