@@ -70,6 +70,11 @@ export function ReadOnlyProcessDiagram({ project }: Props) {
         elementsSelectable={false}
         panOnScroll
         zoomOnScroll
+        // Voir le même réglage sur ProcessDiagram.tsx (ADR-072) : le zoom
+        // minimal par défaut (0.5) empêchait fitView() de dézoomer assez
+        // pour un diagramme à beaucoup de phases/acteurs, tronquant la
+        // colonne d'acteurs hors du cadre visible.
+        minZoom={0.1}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={24} />

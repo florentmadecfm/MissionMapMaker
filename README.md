@@ -49,7 +49,8 @@ Ouvrir http://localhost:5173.
   phases (le "backbone" du processus) se réordonne avec les boutons ‹/›
   de l'onglet Édition. Une interaction peut aussi porter une **preuve
   physique** (service blueprint, ex. "reçu papier"), affichée derrière une
-  icône 🧾 sur sa flèche.
+  icône 🧾 sur sa flèche. Le diagramme s'exporte en **image PNG** (bouton
+  "Exporter en PNG" au-dessus du canevas).
 - **Fiche persona** par acteur (à propos, bio, objectifs, points de
   friction du métier) — partagée entre toutes les missions portant un
   acteur du même nom, consultable/éditable depuis le diagramme, l'onglet
