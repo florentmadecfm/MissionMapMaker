@@ -186,9 +186,21 @@
   line-height: 1.5;
 }
 
+/* Pastille (pas un lien) : indique un repère à suivre ailleurs à l'écran
+   sans laisser croire, par une couleur/soulignement de lien, qu'elle est
+   elle-même cliquable — elle ne l'est pas (l'action est dans la barre
+   latérale). */
 .empty-state-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--color-primary-bg);
   color: var(--color-primary);
   font-weight: 500;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-primary-border);
 }
 
 /* ---------- New project ---------- */
@@ -221,14 +233,17 @@
   gap: 0.35rem;
   border-radius: var(--radius-sm);
   padding: 0.1rem;
+  border-left: 2px solid transparent;
+  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease);
 }
 
 .project-list li:hover {
-  background: var(--color-surface-muted);
+  background: var(--color-surface-hover);
 }
 
 .project-list li.active {
   background: var(--color-primary-bg);
+  border-left-color: var(--color-primary);
 }
 
 .project-list li.active button:first-child {
@@ -592,6 +607,12 @@
   box-shadow: var(--shadow-sm);
   padding: 1.1rem 1.2rem;
   margin-bottom: 1.1rem;
+  transition: box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+
+.editor section:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 .editor h2 {
@@ -934,6 +955,28 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  background: var(--color-surface-muted);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.spec-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Statut d'une spécification/d'un test — couleur reconnaissable d'un
+   coup d'œil plutôt qu'un texte à lire dans un select uniforme parmi
+   d'autres champs (recognition over recall). "brouillon" reste le style
+   neutre par défaut. */
+.status-select[data-status='approved'] {
+  color: var(--color-success);
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
+  font-weight: 600;
+}
+
+.status-select[data-status='deprecated'] {
+  color: var(--color-text-faint);
   background: var(--color-surface-muted);
 }
 
@@ -1575,23 +1618,39 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(16, 24, 40, 0.45);
+  background: rgba(16, 24, 40, 0.5);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 50;
+  animation: modal-backdrop-in 0.15s var(--ease);
+}
+
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .modal {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   padding: 1.5rem;
   width: 420px;
   max-width: calc(100vw - 2rem);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  animation: modal-in 0.18s var(--ease);
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
 }
 
 /* Doit rester APRÈS .modal ci-dessus : même spécificité (une classe

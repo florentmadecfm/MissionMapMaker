@@ -109,18 +109,30 @@
   position: relative;
   flex-direction: column;
   justify-content: center;
-  gap: 0.2rem;
+  gap: 0.35rem;
   background: var(--color-surface-muted);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   text-align: center;
   padding: 0.3rem;
 }
 
 /* Emoji illustrant la phase (mode storyboard, ADR-059) — grand, au-dessus
    du nom, pour se lire comme la vignette d'un storyboard plutôt qu'une
-   simple icône décorative. */
+   simple icône décorative. Porté par un chip rond plutôt que flottant
+   seul : donne un vrai point focal à chaque colonne, plus proche d'un
+   vrai storyboard que d'un simple emoji posé sur le fond. */
 .phase-header-icon {
-  font-size: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  font-size: 1.4rem;
   line-height: 1;
 }
 
@@ -145,6 +157,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text);
   cursor: pointer;
+  transition: background-color 0.15s var(--ease);
 }
 
 .actor-header:hover {
@@ -346,6 +359,7 @@
   padding: 0.55rem 0.7rem;
   box-shadow: var(--shadow-md);
   font-size: 0.85rem;
+  transition: box-shadow 0.15s var(--ease), transform 0.15s var(--ease);
 }
 
 /* Signale, sans avoir à ouvrir la carte, qu'au moins un point de
@@ -402,6 +416,8 @@
 
 .activity-card:hover {
   cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
 }
 
 /* Aperçu de dépose (voir nodes.tsx, DropShadowNode) : une "ombre" à

@@ -19,6 +19,20 @@ function filterByQuery<T>(items: T[], query: string, fields: (item: T) => string
   return items.filter((item) => fields(item).some((f) => f.toLowerCase().includes(q)))
 }
 
+// Suggestions d'autocomplétion à partir des mêmes champs que le filtre
+// lui-même (fields) : toute suggestion proposée donne donc forcément au
+// moins un résultat une fois choisie.
+function suggestionsFor<T>(items: T[], fields: (item: T) => string[]): string[] {
+  const values = new Set<string>()
+  for (const item of items) {
+    for (const f of fields(item)) {
+      const trimmed = f.trim()
+      if (trimmed) values.add(trimmed)
+    }
+  }
+  return [...values].sort((a, b) => a.localeCompare(b))
+}
+
 interface Props {
   project: Project
   onChange: (project: Project) => void
@@ -193,7 +207,9 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
     onChange({ ...project, interactions: project.interactions.filter((i) => i.id !== id) })
   }
 
-  const filteredActors = filterByQuery(project.actors, actorFilter, (a) => [a.name])
+  const actorFields = (a: Actor) => [a.name]
+  const filteredActors = filterByQuery(project.actors, actorFilter, actorFields)
+  const actorSuggestions = suggestionsFor(project.actors, actorFields)
 
   // Triée AVANT filtrage : les boutons ‹/› de réordonnancement ont besoin
   // de la position de chaque phase dans la séquence COMPLÈTE (sortedPhases),
@@ -201,15 +217,19 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
   // filtrée hors de vue serait sautée par erreur lors du réordonnancement
   // de ses voisines.
   const sortedPhases = [...project.phases].sort((a, b) => a.order - b.order)
-  const filteredPhases = filterByQuery(sortedPhases, phaseFilter, (p) => [p.name])
+  const phaseFields = (p: Phase) => [p.name]
+  const filteredPhases = filterByQuery(sortedPhases, phaseFilter, phaseFields)
+  const phaseSuggestions = suggestionsFor(sortedPhases, phaseFields)
 
-  const filteredActivities = filterByQuery(project.activities, activityFilter, (act) => [
+  const activityFields = (act: Activity) => [
     act.name,
     project.actors.find((a) => a.id === act.actorId)?.name ?? '',
     project.phases.find((p) => p.id === act.phaseId)?.name ?? '',
-  ])
+  ]
+  const filteredActivities = filterByQuery(project.activities, activityFilter, activityFields)
+  const activitySuggestions = suggestionsFor(project.activities, activityFields)
 
-  const filteredInteractions = filterByQuery(project.interactions, interactionFilter, (i) => {
+  const interactionFields = (i: Interaction) => {
     const from = project.activities.find((a) => a.id === i.fromActivityId)
     const to = project.activities.find((a) => a.id === i.toActivityId)
     return [
@@ -221,7 +241,9 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       project.actors.find((a) => a.id === from?.actorId)?.name ?? '',
       project.actors.find((a) => a.id === to?.actorId)?.name ?? '',
     ]
-  })
+  }
+  const filteredInteractions = filterByQuery(project.interactions, interactionFilter, interactionFields)
+  const interactionSuggestions = suggestionsFor(project.interactions, interactionFields)
 
   return (
     <div className="editor">
@@ -241,7 +263,12 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       <section>
         <h2>Acteurs</h2>
         {project.actors.length > FILTER_THRESHOLD && (
-          <ListFilterInput value={actorFilter} onChange={setActorFilter} placeholder="Rechercher un acteur…" />
+          <ListFilterInput
+            value={actorFilter}
+            onChange={setActorFilter}
+            placeholder="Rechercher un acteur…"
+            suggestions={actorSuggestions}
+          />
         )}
         <div className="col-headers">
           <span className="col-color">Couleur</span>
@@ -283,7 +310,12 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       <section>
         <h2>Phases</h2>
         {project.phases.length > FILTER_THRESHOLD && (
-          <ListFilterInput value={phaseFilter} onChange={setPhaseFilter} placeholder="Rechercher une phase…" />
+          <ListFilterInput
+            value={phaseFilter}
+            onChange={setPhaseFilter}
+            placeholder="Rechercher une phase…"
+            suggestions={phaseSuggestions}
+          />
         )}
         <div className="col-headers">
           <span className="col-icon">Icône</span>
@@ -397,6 +429,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
             value={activityFilter}
             onChange={setActivityFilter}
             placeholder="Rechercher une activité, un acteur ou une phase…"
+            suggestions={activitySuggestions}
           />
         )}
         <div className="col-headers">
@@ -448,6 +481,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
             value={interactionFilter}
             onChange={setInteractionFilter}
             placeholder="Rechercher une interaction…"
+            suggestions={interactionSuggestions}
           />
         )}
         <div className="col-headers">

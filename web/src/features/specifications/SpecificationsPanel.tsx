@@ -21,6 +21,19 @@ function filterByQuery<T>(items: T[], query: string, fields: (item: T) => string
   return items.filter((item) => fields(item).some((f) => f.toLowerCase().includes(q)))
 }
 
+// Voir la même fonction dans ProjectEditor.tsx : suggestions d'autocomplétion
+// à partir des mêmes champs que le filtre.
+function suggestionsFor<T>(items: T[], fields: (item: T) => string[]): string[] {
+  const values = new Set<string>()
+  for (const item of items) {
+    for (const f of fields(item)) {
+      const trimmed = f.trim()
+      if (trimmed) values.add(trimmed)
+    }
+  }
+  return [...values].sort((a, b) => a.localeCompare(b))
+}
+
 const SPEC_TYPES: { value: SpecificationType; label: string }[] = [
   { value: 'StakeholderNeed', label: 'Besoin partie prenante (SSS)' },
   { value: 'SystemRequirement', label: 'Exigence système' },
@@ -55,6 +68,11 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
     specTypeLabel(s.type),
     s.status,
   ])
+  // Suggestions volontairement plus courtes que le filtre lui-même
+  // (code/type/statut, jamais le texte complet de l'exigence) : une
+  // autocomplétion doit rester un repère court à reconnaître d'un coup
+  // d'œil, pas une phrase entière à lire.
+  const specSuggestions = suggestionsFor(project.specifications, (s) => [s.code, specTypeLabel(s.type)])
 
   async function handleGenerateSss() {
     if (unspecifiedCount === 0) return
@@ -209,7 +227,12 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
             {generateInfo && <p className="generate-info">{generateInfo}</p>}
 
             {project.specifications.length > FILTER_THRESHOLD && (
-              <ListFilterInput value={specFilter} onChange={setSpecFilter} placeholder="Rechercher une spécification…" />
+              <ListFilterInput
+                value={specFilter}
+                onChange={setSpecFilter}
+                placeholder="Rechercher une spécification…"
+                suggestions={specSuggestions}
+              />
             )}
             <ul className="spec-list">
               {filteredSpecs.length === 0 && specFilter.trim() && (
@@ -241,6 +264,8 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
                         ))}
                     </select>
                     <select
+                      className="status-select"
+                      data-status={spec.status}
                       value={spec.status}
                       onChange={(e) => updateSpec(spec.id, { status: e.target.value as Specification['status'] })}
                     >
