@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { ArrowDownLeft, ArrowUpRight, TriangleAlert } from 'lucide-react'
 import type { Project } from '../../api/types'
 
@@ -13,6 +14,35 @@ interface Props {
 // quel par l'écran transverse "Acteurs" (ActorMissionsScreen.tsx), qui
 // l'affiche une fois par mission où l'acteur sélectionné apparaît.
 export function ActorDetail({ project, actorId }: Props) {
+  // Ombres de bord de la timeline (voir plus bas, .actor-timeline-fade) :
+  // affichées seulement là où il reste vraiment du contenu hors champ,
+  // recalculé à chaque défilement/redimensionnement — jamais un simple
+  // repère permanent qui mentirait une fois arrivé au bout. Les hooks
+  // doivent rester avant le "return null" ci-dessous (règle des hooks),
+  // d'où leur position avant la résolution de `actor`.
+  const timelineRef = useRef<HTMLDivElement>(null)
+  const [scrollFades, setScrollFades] = useState({ left: false, right: false })
+
+  useEffect(() => {
+    const el = timelineRef.current
+    if (!el) return
+    function update() {
+      if (!el) return
+      setScrollFades({
+        left: el.scrollLeft > 1,
+        right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+      })
+    }
+    update()
+    el.addEventListener('scroll', update, { passive: true })
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => {
+      el.removeEventListener('scroll', update)
+      observer.disconnect()
+    }
+  }, [project, actorId])
+
   const actor = project.actors.find((a) => a.id === actorId)
   if (!actor) return null
 
@@ -54,7 +84,23 @@ export function ActorDetail({ project, actorId }: Props) {
         <span className={noTestCount > 0 ? 'summary-warn' : ''}>{noTestCount} sans test lié</span>
       </div>
 
-      <div className="actor-timeline">
+      {/* Enveloppe non scrollable portant les ombres de bord (voir
+          .actor-timeline-fade, App.css) : contrairement à un fond en
+          dégradé posé directement sur .actor-timeline (défilant, donc
+          masqué dès qu'une carte opaque se trouve pile au bord), ces
+          calques restent fixés aux bords gauche/droit indépendamment du
+          défilement — seul moyen fiable de signaler qu'il reste des
+          phases hors champ quand le nombre de phases dépasse la largeur
+          de l'écran (mesuré : largeur de contenu près du double de la
+          largeur visible sur un blueprint réaliste, sans aucun repère
+          visuel avant ce correctif). N'apparaissent que du côté où il
+          reste effectivement du contenu (scrollFades, recalculé au
+          défilement/redimensionnement) : jamais un repère qui mentirait
+          une fois arrivé au bout. */}
+      <div className="actor-timeline-wrap">
+        {scrollFades.left && <div className="actor-timeline-fade actor-timeline-fade-left" aria-hidden="true" />}
+        {scrollFades.right && <div className="actor-timeline-fade actor-timeline-fade-right" aria-hidden="true" />}
+        <div className="actor-timeline" ref={timelineRef}>
         {phases.map((phase) => {
           const activities = actorActivities.filter((a) => a.phaseId === phase.id)
           return (
@@ -149,6 +195,7 @@ export function ActorDetail({ project, actorId }: Props) {
             </div>
           )
         })}
+        </div>
       </div>
     </>
   )
