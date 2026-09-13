@@ -760,6 +760,19 @@
   flex: 0 0 10.5rem;
 }
 
+/* Information échangée reçoit deux fois plus de largeur que Condition/
+   Preuve physique (voir le commentaire dans ProjectEditor.tsx) — même
+   sélecteur qualifié par type que .phase-icon-input ci-dessus, pour la
+   même raison de spécificité. */
+.editor li input.interaction-info-input {
+  flex: 2;
+  min-width: 0;
+}
+
+.col-headers .col-name.col-name-lg {
+  flex: 2;
+}
+
 /* Boutons ‹/› de réordonnancement du backbone (phases, ADR-069) — groupe
    compact, toujours visible (contrairement à .danger ci-dessus : c'est un
    contrôle de navigation fréquent, pas une action destructrice rare). */
@@ -1221,11 +1234,54 @@
   font-weight: 600;
 }
 
+/* Défile horizontalement dès que le nombre de phases dépasse la largeur
+   de l'écran (courant : un blueprint réaliste dépasse vite 4-5 phases) —
+   sans indice visuel, la barre de défilement seule (fine, parfois
+   masquée par le système tant qu'on ne survole pas) ne suffit pas à
+   signaler que des phases entières restent invisibles à droite (trouvé
+   par mesure directe : largeur de contenu près du double de la largeur
+   visible, sans aucun repère à l'écran). Les ombres de bord vivent dans
+   .actor-timeline-wrap (voir ci-dessous), PAS ici : posées directement en
+   fond de .actor-timeline (l'élément qui défile), elles se seraient
+   retrouvées masquées par la première carte opaque venue border le bord. */
 .actor-timeline {
   display: flex;
   gap: 1.1rem;
   overflow-x: auto;
   padding-bottom: 1rem;
+}
+
+.actor-timeline-wrap {
+  position: relative;
+}
+
+/* Calques fixes (hors du flux qui défile, voir ActorDetail.tsx, ref +
+   ResizeObserver) signalant qu'il reste du contenu hors champ de ce
+   côté — affichés seulement là où c'est vrai (jamais un repère qui
+   mentirait une fois arrivé au bout du défilement). Un DÉGRADÉ SOMBRE
+   plutôt qu'un "fondu vers la couleur de fond" : posés AU-DESSUS du
+   contenu (z-index, pas en background DERRIÈRE), ils doivent rester
+   visibles aussi bien sur une carte blanche que sur le fond de page nu —
+   un fondu vers --color-bg s'est avéré invisible dès qu'il n'y avait
+   PAS de carte dessous, le fond de page étant déjà quasiment de cette
+   teinte (trouvé par capture d'écran, pas seulement en théorie). */
+.actor-timeline-fade {
+  position: absolute;
+  top: 0;
+  bottom: 1rem;
+  width: 56px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.actor-timeline-fade-left {
+  left: 0;
+  background: linear-gradient(to right, rgba(16, 24, 40, 0.1), rgba(16, 24, 40, 0));
+}
+
+.actor-timeline-fade-right {
+  right: 0;
+  background: linear-gradient(to left, rgba(16, 24, 40, 0.1), rgba(16, 24, 40, 0));
 }
 
 .actor-phase-column {

@@ -488,7 +488,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           <span className="col-select">Depuis</span>
           <span className="col-arrow-spacer" aria-hidden="true" />
           <span className="col-select">Vers</span>
-          <span className="col-name">Information échangée</span>
+          <span className="col-name col-name-lg">Information échangée</span>
           <span className="col-name">Condition (embranchement)</span>
           <span className="col-name">Preuve(s) physique(s)</span>
           {/* Voir le commentaire équivalent dans la section Phases
@@ -502,7 +502,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
             <li className="empty">Aucune interaction ne correspond à « {interactionFilter} ».</li>
           )}
           {filteredInteractions.map((i) => (
-            <li key={i.id}>
+            <li key={i.id} className="interaction-row">
               <select value={i.fromActivityId} onChange={(e) => updateInteraction(i.id, { fromActivityId: e.target.value })}>
                 {project.activities.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -518,20 +518,33 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
                   </option>
                 ))}
               </select>
+              {/* "Information échangée" reçoit deux fois plus de largeur
+                  que Condition/Preuve physique (voir .interaction-info-input,
+                  App.css) : c'est le seul champ des trois renseigné pour
+                  TOUTE interaction (les deux autres sont optionnels et
+                  souvent vides) — mesuré sur un contenu réaliste : les 3
+                  champs à parts égales tronquaient déjà "Choix des plats
+                  et boissons..." avant ce correctif. title= sur les trois
+                  : un survol suffit à lire la valeur complète sans
+                  cliquer dedans. */}
               <input
+                className="interaction-info-input"
                 value={i.information}
                 onChange={(e) => updateInteraction(i.id, { information: e.target.value })}
                 placeholder="Information échangée"
+                title={i.information || undefined}
               />
               <input
                 value={i.condition ?? ''}
                 onChange={(e) => updateInteraction(i.id, { condition: e.target.value || undefined })}
                 placeholder="Ex. paiement refusé"
+                title={i.condition || undefined}
               />
               <input
                 value={i.physicalEvidence ?? ''}
                 onChange={(e) => updateInteraction(i.id, { physicalEvidence: e.target.value || undefined })}
                 placeholder="Ex. reçu papier"
+                title={i.physicalEvidence || undefined}
               />
               <button type="button" className="danger" onClick={() => removeInteraction(i.id)}>
                 supprimer
