@@ -7,13 +7,11 @@ assisté par LLM, avec traçabilité vers un référentiel de spécifications
 inspiré INCOSE et une vue de cohérence par acteur.
 
 - Dossier d'architecture : [`docs/architecture.md`](docs/architecture.md)
-- Journal de décisions (ADR) : [`docs/decisions-log.md`](docs/decisions-log.md)
 
 ## Développement local
 
 Prérequis : **Go ≥ 1.24** et **Node.js 20.x ou ≥ 22** (voir `go.mod` et
-`web/package.json` → `engines` ; le toolchain frontend est épinglé pour
-rester compatible Node 20.9, voir ADR-032).
+`web/package.json` → `engines`).
 
 Backend (API sur `:8080`, données dans `./data`) :
 
@@ -74,15 +72,17 @@ Ouvrir http://localhost:5173.
   prompts/skills de génération personnalisables — dont le skill dédié aux
   solutions de points de friction, en posture design créatif / creative
   problem solving.
-- Interface auditée de bout en bout (ADR-068) : état vide guidé, boutons
-  de suppression révélés au survol/focus dans l'onglet Édition, astuces du
+- Interface auditée de bout en bout : état vide guidé, boutons de
+  suppression révélés au survol/focus dans l'onglet Édition, astuces du
   diagramme repliables, notation "Reçoit/Envoie" explicite en Vue par
-  acteur.
+  acteur. Les longues listes de l'onglet Édition et des Spécifications
+  (au-delà d'une poignée d'éléments) affichent un champ de recherche pour
+  filtrer par nom/contenu.
 
 ## Empaqueter en binaire autonome
 
 Pour distribuer l'application sans dépendance Node/Go sur le poste
-cible — un seul exécutable, API + interface incluses (voir ADR-031) :
+cible — un seul exécutable, API + interface incluses :
 
 ```sh
 cd web && npm install && npm run build && cd ..
@@ -93,4 +93,4 @@ go build -o bin/missionmapmaker ./cmd/server
 
 Un binaire prêt à l'emploi (sans Go ni Node) peut aussi être récupéré
 depuis les [releases GitHub](../../releases) ou l'onglet **Actions** →
-*Release des binaires autonomes* (voir ADR-033).
+*Release des binaires autonomes*.

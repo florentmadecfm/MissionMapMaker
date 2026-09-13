@@ -1,8 +1,7 @@
-# Build les binaires autonomes (API + interface embarquées via go:embed,
-# voir ADR-031) pour Linux, Windows et macOS, et les publie en pièces
-# jointes de la release GitHub correspondante. Permet de récupérer un
-# exécutable prêt à l'emploi sans avoir Go ni Node.js installés
-# localement (voir ADR-033).
+# Build les binaires autonomes (API + interface embarquées via go:embed)
+# pour Linux, Windows et macOS, et les publie en pièces jointes de la
+# release GitHub correspondante. Permet de récupérer un exécutable prêt à
+# l'emploi sans avoir Go ni Node.js installés localement.
 name: Release des binaires autonomes
 
 on:
