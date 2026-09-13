@@ -1,3 +1,4 @@
+import { TriangleAlert } from 'lucide-react'
 import type { Project } from '../../api/types'
 
 interface Props {
@@ -82,7 +83,9 @@ export function ActorDetail({ project, actorId }: Props) {
                     {act.painPoints.length > 0 && (
                       <ul className="actor-pain-points">
                         {act.painPoints.map((p) => (
-                          <li key={p.id}>⚠ {p.text}</li>
+                          <li key={p.id}>
+                            <TriangleAlert size={13} aria-hidden="true" /> {p.text}
+                          </li>
                         ))}
                       </ul>
                     )}

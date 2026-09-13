@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import { Menu } from 'lucide-react'
 
 interface Props {
   children: React.ReactNode
 }
 
-// Menu "burger" générique : un bouton déclencheur (☰) et un menu déroulant
+// Menu "burger" générique : un bouton déclencheur et un menu déroulant
 // qui se ferme au clic sur un item (ou en dehors). Regroupe les actions
 // fichier (export/import) hors de la barre d'en-tête pour ne pas la
 // surcharger à mesure que de nouvelles actions s'y ajoutent.
@@ -30,7 +31,7 @@ export function HeaderMenu({ children }: Props) {
         aria-label="Menu"
         title="Menu"
       >
-        ☰
+        <Menu size={18} aria-hidden="true" />
       </button>
       {open && (
         <div className="header-menu-dropdown" onClick={() => setOpen(false)}>

@@ -126,7 +126,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
 
       {notConfigured && (
         <div className="nl-warning">
-          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas de
+          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
           la barre latérale pour en saisir une, ou utilisez la saisie manuelle dans l'onglet Édition.
         </div>
       )}

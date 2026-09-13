@@ -115,7 +115,7 @@ export function TestScenariosPanel({ project, onChange }: Props) {
       </div>
       {generateNotConfigured && (
         <div className="nl-warning">
-          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>⚙ Paramètres</strong> en bas de
+          Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
           la barre latérale pour en saisir une, ou ajoutez les scénarios manuellement ci-dessous.
         </div>
       )}

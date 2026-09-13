@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { GitBranch, TriangleAlert } from 'lucide-react'
 import { ADD_LANE_WIDTH, HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT, type PainPointRowEntry } from './layout'
 
 // Points d'ancrage répartis verticalement (25/50/75% par défaut pour 3
@@ -96,7 +97,7 @@ export function ActivityNode({ data }: NodeProps) {
           className="activity-card-warning"
           title={`${painPointCount} point${painPointCount > 1 ? 's' : ''} de friction`}
         >
-          ⚠
+          <TriangleAlert size={13} aria-hidden="true" />
         </span>
       )}
       {/* Signale qu'au moins une interaction sortante ne se produit que
@@ -107,7 +108,7 @@ export function ActivityNode({ data }: NodeProps) {
           className="activity-card-branch"
           title={`${branchCount} embranchement${branchCount > 1 ? 's' : ''} conditionnel${branchCount > 1 ? 's' : ''}`}
         >
-          🔀
+          <GitBranch size={12} aria-hidden="true" />
         </span>
       )}
       {/* Poignées gauche/droite : interactions entre activités de phases différentes. */}
@@ -153,7 +154,7 @@ export function ActivityNode({ data }: NodeProps) {
 export function PainPointRowLabelNode({ data }: NodeProps) {
   return (
     <div className="lane-node pain-point-row-label" style={{ height: (data.height as number) - 8 }}>
-      ⚠ Points de friction
+      <TriangleAlert size={14} aria-hidden="true" /> Points de friction
     </div>
   )
 }

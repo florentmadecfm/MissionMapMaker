@@ -1,3 +1,4 @@
+import { Check, X } from 'lucide-react'
 import type { Project } from '../../api/types'
 
 interface Props {
@@ -39,7 +40,15 @@ export function TraceabilityMatrix({ project, onChange }: Props) {
               <th key={spec.id} title={spec.text}>
                 <div>{spec.code}</div>
                 <span className={`coverage-badge ${isCovered(spec.id) ? 'covered' : 'uncovered'}`}>
-                  {isCovered(spec.id) ? '✓ testée' : '✗ sans test'}
+                  {isCovered(spec.id) ? (
+                    <>
+                      <Check size={12} aria-hidden="true" /> testée
+                    </>
+                  ) : (
+                    <>
+                      <X size={12} aria-hidden="true" /> sans test
+                    </>
+                  )}
                 </span>
               </th>
             ))}
