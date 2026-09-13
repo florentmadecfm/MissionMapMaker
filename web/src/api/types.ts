@@ -148,6 +148,10 @@ export interface Interaction {
   // se produit que si cette condition est vraie (ex. "paiement refusé"),
   // au lieu de toujours suivre l'activité de départ (ADR-060).
   condition?: string
+  // Preuve(s) physique(s) perceptibles par le client lors de cet échange
+  // (ex. "reçu papier", "email de confirmation") — service blueprint,
+  // texte libre (ADR-071).
+  physicalEvidence?: string
 }
 
 export type SpecificationType =

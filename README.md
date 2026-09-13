@@ -47,7 +47,9 @@ Ouvrir http://localhost:5173.
   une **durée** libre et un **score de satisfaction** (1-5) : affichés
   au-dessus du diagramme sous forme de courbe. L'ordre chronologique des
   phases (le "backbone" du processus) se réordonne avec les boutons ‹/›
-  de l'onglet Édition.
+  de l'onglet Édition. Une interaction peut aussi porter une **preuve
+  physique** (service blueprint, ex. "reçu papier"), affichée derrière une
+  icône 🧾 sur sa flèche.
 - **Fiche persona** par acteur (à propos, bio, objectifs, points de
   friction du métier) — partagée entre toutes les missions portant un
   acteur du même nom, consultable/éditable depuis le diagramme, l'onglet

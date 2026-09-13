@@ -137,6 +137,9 @@ export interface LayoutEdge {
   // Condition sous laquelle cette interaction se produit (embranchement,
   // ADR-060) — vide pour un flux normal, systématique.
   condition: string
+  // Preuve(s) physique(s) perceptibles par le client lors de cet échange
+  // (service blueprint, ADR-071) — vide si non renseignée.
+  physicalEvidence: string
   // Couleur de l'acteur au départ (source) et à l'arrivée (target) de
   // l'interaction : les deux bouts de la flèche restent identifiables même
   // quand ils traversent plusieurs acteurs, en écho à la couleur de bordure
@@ -537,6 +540,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         targetHandle,
         label: i.information,
         condition: i.condition ?? '',
+        physicalEvidence: i.physicalEvidence ?? '',
         sourceColor: fromActor?.color ?? '#64748b',
         targetColor: toActor?.color ?? '#64748b',
         gradient,

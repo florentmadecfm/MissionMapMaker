@@ -113,10 +113,16 @@ export function gradientId(edgeId: string) {
 // Une interaction conditionnelle (embranchement, ADR-060) affiche sa
 // condition en préfixe ("Si <condition>"), suivie de l'information
 // échangée si elle est également renseignée — plutôt que deux libellés
-// séparés sur la même flèche.
+// séparés sur la même flèche. Une preuve physique (service blueprint,
+// ADR-071), quand renseignée, s'ajoute en suffixe derrière une icône
+// 🧾 : signale sa présence sans avoir à ouvrir l'interaction, sans pour
+// autant justifier un nouveau badge dédié comme .activity-card-branch
+// (bien plus rare qu'un embranchement, une flèche à la fois suffit).
 function edgeLabel(e: LayoutEdge): string {
-  if (!e.condition) return e.label
-  return e.label ? `Si ${e.condition} — ${e.label}` : `Si ${e.condition}`
+  const base = !e.condition ? e.label : e.label ? `Si ${e.condition} — ${e.label}` : `Si ${e.condition}`
+  if (!e.physicalEvidence) return base
+  const evidence = `🧾 ${e.physicalEvidence}`
+  return base ? `${base} · ${evidence}` : evidence
 }
 
 export function toFlowEdge(e: LayoutEdge): Edge {

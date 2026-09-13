@@ -380,6 +380,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           <span className="col-select">Vers</span>
           <span className="col-name">Information échangée</span>
           <span className="col-name">Condition (embranchement)</span>
+          <span className="col-name">Preuve(s) physique(s)</span>
           {/* Voir le commentaire équivalent dans la section Phases
               ci-dessus : même correction d'alignement. */}
           <button type="button" className="danger col-headers-ghost" aria-hidden="true" tabIndex={-1}>
@@ -413,6 +414,11 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
                 value={i.condition ?? ''}
                 onChange={(e) => updateInteraction(i.id, { condition: e.target.value || undefined })}
                 placeholder="Ex. paiement refusé"
+              />
+              <input
+                value={i.physicalEvidence ?? ''}
+                onChange={(e) => updateInteraction(i.id, { physicalEvidence: e.target.value || undefined })}
+                placeholder="Ex. reçu papier"
               />
               <button type="button" className="danger" onClick={() => removeInteraction(i.id)}>
                 supprimer

@@ -952,3 +952,37 @@ d'une version ancienne affiche le bon contenu (acteur et nombre de phases
 d'alors), la restauration ramène l'état courant du projet à ce contenu
 (vérifié dans l'onglet Édition) ET ajoute elle-même une 4e entrée à
 l'historique (l'état d'avant restauration, conservé).
+
+## ADR-071 — Preuves physiques par interaction
+
+Backlog blueprint #8. Pratique de service blueprint : les artefacts
+tangibles perceptibles par le client à un échange donné (reçu papier,
+email de confirmation, étiquette...). Ajouté comme
+`Interaction.PhysicalEvidence`, texte libre — même philosophie que
+`Interaction.Condition` (ADR-060) et `Phase.Duration` (ADR-065) : un
+utilisateur qui veut plusieurs preuves les sépare lui-même, pas de liste
+structurée à gérer.
+
+**Choix de périmètre** : volontairement MANUEL uniquement, absent des
+schémas de génération LLM (`llm/schemas.go`, `llm/draft.go`) — en écho au
+précédent le plus récent (`Phase.Duration`/`SatisfactionScore`, ADR-065,
+eux aussi manuels), pas à `Condition` (ADR-060), qui lui est
+LLM-générable. Une preuve physique réaliste (quel document, quel canal)
+tient d'une connaissance du terrain que le LLM n'a pas à l'extraction
+d'un texte libre — mieux vaut un champ vide qu'une preuve inventée.
+
+**Frontend** : champ ajouté à `InteractionDetailModal.tsx` (clic sur une
+flèche du diagramme) et à la section Interactions de l'onglet Édition,
+colonnes Export/Import Excel. Sur le diagramme, affiché en suffixe du
+libellé de la flèche derrière une icône 🧾 (`ProcessDiagram.tsx,
+edgeLabel`) plutôt qu'un nouveau badge dédié sur la carte d'activité
+(contrairement à l'embranchement conditionnel, bien plus rare — une seule
+flèche à la fois suffit à porter l'info).
+
+**Conséquences** : `go build`/`go vet`/`go test ./...` verts (champ texte
+libre, aucune validation ni migration nécessaire). `tsc -b`, `npm run
+lint`, `npm run build` verts. Playwright : preuve physique saisie via
+l'API apparaît bien sur la flèche du diagramme (icône + texte), la
+modale d'interaction la pré-remplit et la modification s'y sauvegarde
+correctement, la valeur mise à jour se retrouve à l'identique dans
+l'onglet Édition puis de nouveau sur le diagramme après sauvegarde.
