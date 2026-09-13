@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Settings, Users } from 'lucide-react'
+import { Map, Settings, Users } from 'lucide-react'
 import { api } from '../../api/client'
 import type { ActorSummary, Project, ProjectSummary } from '../../api/types'
 import { ActorView } from '../actor-view/ActorView'
@@ -355,7 +355,24 @@ export function ProjectShell() {
             )}
           </>
         ) : (
-          <p className="placeholder">Créez ou ouvrez un projet pour commencer.</p>
+          // Premier écran vu par un nouvel utilisateur (aucun projet créé
+          // ni ouvert) : une simple phrase perdue au milieu d'un grand
+          // espace vide ne donnait aucune première impression ni indice
+          // d'action (trouvé lors de l'audit UX/UI, ADR-068) — remplacé
+          // par un repère visuel (icône, titre, ce que fait l'outil) qui
+          // pointe explicitement vers le SEUL vrai point d'entrée de cet
+          // écran, le champ "Nom du nouveau projet" de la barre latérale.
+          <div className="empty-state">
+            <Map size={44} aria-hidden="true" />
+            <h2>Bienvenue dans MissionMapMaker</h2>
+            <p>
+              Cartographiez un processus métier — acteurs, étapes, échanges — en langage naturel ou à la main, avec
+              traçabilité vers vos exigences et vos tests.
+            </p>
+            <p className="empty-state-hint">
+              Donnez un nom à votre première mission dans la barre latérale, puis cliquez sur « Créer ».
+            </p>
+          </div>
         )}
       </main>
     </div>

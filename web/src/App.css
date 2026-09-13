@@ -149,6 +149,48 @@
   font-size: 0.9rem;
 }
 
+/* Écran vide (aucun projet créé ni ouvert, ProjectShell.tsx, ADR-068) :
+   centré dans l'espace disponible plutôt qu'aligné en haut à gauche comme
+   .placeholder — c'est la toute première chose vue à l'ouverture de
+   l'outil, elle mérite un vrai repère visuel plutôt qu'une phrase isolée. */
+.empty-state {
+  height: 100%;
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.6rem;
+  max-width: 480px;
+  margin: 0 auto;
+  color: var(--color-text-muted);
+}
+
+.empty-state svg {
+  color: var(--color-primary);
+  opacity: 0.6;
+  margin-bottom: 0.4rem;
+}
+
+.empty-state h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.empty-state-hint {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
 /* ---------- New project ---------- */
 
 .new-project {
@@ -499,7 +541,11 @@
 .header-menu-dropdown {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
+  /* Ancré à droite du déclencheur (pas à gauche) : celui-ci est en haut à
+     droite de l'écran (barre d'onglets), un dropdown ancré à gauche
+     s'étendait donc hors de la fenêtre et rendait ses items illisibles
+     (trouvé lors de l'audit UX/UI, ADR-068). */
+  right: 0;
   z-index: 20;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -562,6 +608,24 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+/* Le bouton "supprimer" de chaque ligne (Acteurs/Phases/Activités/
+   Interactions) ne s'affiche qu'au survol de SA ligne — même patron que
+   .project-list (barre latérale) : une dizaine de boutons rouges toujours
+   visibles à l'écran créait un bruit visuel et une "fatigue d'alerte"
+   permanente sans rapport avec une vraie alerte (trouvé lors de l'audit
+   UX/UI, ADR-068). Ne s'applique qu'aux boutons de ligne (.editor li),
+   jamais aux boutons "Supprimer"/"Retirer la clé" autonomes d'une modale
+   ou d'un panneau, qui doivent rester visibles en permanence. */
+.editor li button.danger {
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.editor li:hover button.danger,
+.editor li:focus-within button.danger {
+  opacity: 1;
 }
 
 .editor li {
@@ -810,6 +874,21 @@
   background: var(--color-surface);
 }
 
+/* Largeur de contenu minimale plutôt que la taille par défaut du
+   navigateur (qui peut se retrouver écrasée sous celle des champs
+   voisins dans .spec-card-meta, flex par défaut) : le libellé le plus
+   long ("Besoin partie prenante (SSS)") se retrouvait tronqué avant ce
+   correctif (trouvé lors de l'audit UX/UI, ADR-068). Sélecteur à 2
+   classes (".editor .spec-card-meta select") pour dépasser sans ambiguïté
+   la spécificité de ".editor li select { min-width: 0 }" ci-dessus (une
+   classe + 2 types) — même technique déjà utilisée pour
+   .phase-icon-input etc., un sélecteur à spécificité SEULEMENT égale
+   s'était déjà révélé fragile (départagé par l'ordre dans la feuille). */
+.editor .spec-card-meta select {
+  flex: 0 1 auto;
+  min-width: fit-content;
+}
+
 .spec-text,
 .spec-rationale {
   width: 100%;
@@ -838,9 +917,14 @@
 
 /* ---------- Tests V&V (scénarios de vérification/validation) ---------- */
 
-.test-title {
+/* Sélecteur à 2 classes (".editor .test-title"), même raison que
+   ".editor .spec-card-meta select" ci-dessus : sans lui, ".editor li
+   input { min-width: 0 }" l'emportait et laissait ce champ se réduire
+   bien en-deçà de 260px, tronquant des titres pourtant courants
+   (trouvé lors de l'audit UX/UI, ADR-068). */
+.editor .test-title {
   flex: 1;
-  min-width: 160px;
+  min-width: 260px;
   font-weight: 600;
   background: var(--color-surface);
 }
@@ -1083,6 +1167,21 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+}
+
+.actor-io li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.actor-io li svg {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.actor-io-label {
+  font-weight: 600;
 }
 
 .actor-io-in {

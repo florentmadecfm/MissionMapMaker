@@ -1,4 +1,4 @@
-import { TriangleAlert } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, TriangleAlert } from 'lucide-react'
 import type { Project } from '../../api/types'
 
 interface Props {
@@ -90,11 +90,17 @@ export function ActorDetail({ project, actorId }: Props) {
                       </ul>
                     )}
 
+                    {/* "Reçoit"/"Envoie" en toutes lettres plutôt qu'un
+                        simple glyphe ←/→ (trop cryptique pour qui découvre
+                        l'écran — trouvé lors de l'audit UX/UI, ADR-068) :
+                        l'icône reprend le sens de la flèche, le mot lève
+                        l'ambiguïté sans avoir à la déduire. */}
                     {incoming.length > 0 && (
                       <ul className="actor-io actor-io-in">
                         {incoming.map((i) => (
                           <li key={i.id}>
-                            ← {i.information}
+                            <ArrowDownLeft size={13} aria-hidden="true" />
+                            <span className="actor-io-label">Reçoit :</span> {i.information}
                             {actorNameOf(i.fromActivityId) && <span className="actor-io-from"> ({actorNameOf(i.fromActivityId)})</span>}
                           </li>
                         ))}
@@ -104,7 +110,8 @@ export function ActorDetail({ project, actorId }: Props) {
                       <ul className="actor-io actor-io-out">
                         {outgoing.map((i) => (
                           <li key={i.id}>
-                            → {i.information}
+                            <ArrowUpRight size={13} aria-hidden="true" />
+                            <span className="actor-io-label">Envoie :</span> {i.information}
                             {actorNameOf(i.toActivityId) && <span className="actor-io-from"> ({actorNameOf(i.toActivityId)})</span>}
                           </li>
                         ))}

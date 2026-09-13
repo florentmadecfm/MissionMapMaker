@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { CircleHelp } from 'lucide-react'
 import {
   ReactFlow,
   Background,
@@ -155,6 +156,12 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  // Astuces d'utilisation du diagramme (glisser-déposer, boutons "+"...) :
+  // repliées par défaut plutôt qu'un paragraphe dense toujours affiché en
+  // haut de l'écran — trouvé lors de l'audit UX/UI (ADR-068), c'était le
+  // premier élément vu à chaque ouverture de l'onglet, sur tout projet,
+  // même pour un utilisateur qui connaît déjà l'outil.
+  const [hintOpen, setHintOpen] = useState(false)
   // Cellule (acteur, phase) visée par le glisser en cours, recalculée à
   // chaque déplacement (onNodeDrag) : sert à afficher un aperçu ("ombre")
   // de l'endroit où la carte atterrirait si on la lâchait maintenant.
@@ -436,7 +443,23 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   return (
     <div className="process-diagram-page">
       <header className="editor-header">
-        <p className="nl-hint" style={{ flex: 1 }}>
+        <button
+          type="button"
+          className="diagram-hint-toggle"
+          onClick={() => setHintOpen((v) => !v)}
+          aria-expanded={hintOpen}
+        >
+          <CircleHelp size={14} aria-hidden="true" />
+          Comment utiliser ce diagramme
+        </button>
+        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+        </button>
+        {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
+        {saveError && <span className="error">{saveError}</span>}
+      </header>
+      {hintOpen && (
+        <p className="nl-hint diagram-hint-text">
           Glissez-déposez une carte pour la réassigner, glissez depuis le bord d'une carte vers une autre pour créer
           une interaction (cliquez ensuite sur la flèche pour la nommer), cliquez sur une carte pour consulter ses
           spécifications et tests liés, cliquez sur le nom d'un acteur pour ouvrir sa fiche (à propos, bio,
@@ -444,12 +467,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           une phase ou une activité, ou le petit "+" en coin d'un en-tête pour ajouter une colonne (phase) ou une
           ligne (acteur) supplémentaire.
         </p>
-        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Sauvegarde…' : 'Sauvegarder'}
-        </button>
-        {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
-        {saveError && <span className="error">{saveError}</span>}
-      </header>
+      )}
       <div className="diagram-nl-update">
         <textarea
           rows={2}
