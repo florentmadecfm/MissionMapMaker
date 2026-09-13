@@ -17,6 +17,18 @@ function filterByQuery<T>(items: T[], query: string, fields: (item: T) => string
   return items.filter((item) => fields(item).some((f) => f.toLowerCase().includes(q)))
 }
 
+// Voir la même fonction dans ProjectEditor.tsx.
+function suggestionsFor<T>(items: T[], fields: (item: T) => string[]): string[] {
+  const values = new Set<string>()
+  for (const item of items) {
+    for (const f of fields(item)) {
+      const trimmed = f.trim()
+      if (trimmed) values.add(trimmed)
+    }
+  }
+  return [...values].sort((a, b) => a.localeCompare(b))
+}
+
 interface Props {
   project: Project
   onChange: (project: Project) => void
@@ -41,6 +53,13 @@ export function TestScenariosPanel({ project, onChange }: Props) {
   const filteredScenarios = filterByQuery(project.testScenarios, testFilter, (t) => {
     const linkedSpec = project.specifications.find((s) => s.id === t.specificationId)
     return [t.code, t.title, linkedSpec?.code ?? '', linkedSpec?.text ?? '']
+  })
+  // Suggestions plus courtes que le filtre (code/titre/code de spec liée,
+  // jamais le texte complet de l'exigence liée) — voir la même remarque
+  // dans SpecificationsPanel.tsx.
+  const testSuggestions = suggestionsFor(project.testScenarios, (t) => {
+    const linkedSpec = project.specifications.find((s) => s.id === t.specificationId)
+    return [t.code, t.title, linkedSpec?.code ?? '']
   })
 
   async function handleGenerateTests() {
@@ -142,7 +161,12 @@ export function TestScenariosPanel({ project, onChange }: Props) {
       {generateInfo && <p className="generate-info">{generateInfo}</p>}
 
       {project.testScenarios.length > FILTER_THRESHOLD && (
-        <ListFilterInput value={testFilter} onChange={setTestFilter} placeholder="Rechercher un scénario de test…" />
+        <ListFilterInput
+          value={testFilter}
+          onChange={setTestFilter}
+          placeholder="Rechercher un scénario de test…"
+          suggestions={testSuggestions}
+        />
       )}
       <ul className="spec-list">
         {filteredScenarios.length === 0 && testFilter.trim() && (
@@ -175,6 +199,8 @@ export function TestScenariosPanel({ project, onChange }: Props) {
                   ))}
                 </select>
                 <select
+                  className="status-select"
+                  data-status={scenario.status}
                   value={scenario.status}
                   onChange={(e) => updateScenario(scenario.id, { status: e.target.value as TestScenario['status'] })}
                 >
