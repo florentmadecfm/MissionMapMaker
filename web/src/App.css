@@ -624,6 +624,16 @@
   min-width: 0;
 }
 
+/* Fantôme invisible du bouton "supprimer" en fin de ligne (voir
+   ProjectEditor.tsx) : présent dans le DOM (même largeur que le vrai
+   bouton, donc alignement garanti même si son padding/texte change plus
+   tard) mais invisible et inerte, pour que les en-têtes flex: 1 qui le
+   précèdent (Nom...) ne grandissent pas plus que leur colonne réelle. */
+.col-headers-ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .col-headers .col-color,
 .col-headers .col-icon {
   width: 4.4rem;

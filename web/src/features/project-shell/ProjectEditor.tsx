@@ -208,6 +208,17 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           <span className="col-name">Nom</span>
           <span className="col-duration">Durée</span>
           <span className="col-satisfaction">Satisfaction</span>
+          {/* Fantôme du bouton "supprimer" de chaque ligne (masqué,
+              inerte) : sans lui, "Nom" (seule colonne flex: 1 de cet
+              en-tête) grandirait plus que son homologue dans les lignes
+              en dessous — qui, elles, ont ce bouton en plus — et
+              décalerait Durée/Satisfaction vers la droite par rapport aux
+              champs qu'ils sont censés surmonter. Réutilise le même texte/
+              classe que le vrai bouton pour garder exactement la même
+              largeur, plutôt qu'un espaceur à largeur devinée. */}
+          <button type="button" className="danger col-headers-ghost" aria-hidden="true" tabIndex={-1}>
+            supprimer
+          </button>
         </div>
         <ul>
           {project.phases.map((p) => (
@@ -260,6 +271,11 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           <span className="col-name">Nom</span>
           <span className="col-select">Acteur</span>
           <span className="col-select">Phase</span>
+          {/* Voir le commentaire équivalent dans la section Phases
+              ci-dessus : même correction d'alignement. */}
+          <button type="button" className="danger col-headers-ghost" aria-hidden="true" tabIndex={-1}>
+            supprimer
+          </button>
         </div>
         <ul>
           {project.activities.map((act) => (
@@ -298,6 +314,11 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           <span className="col-select">Vers</span>
           <span className="col-name">Information échangée</span>
           <span className="col-name">Condition (embranchement)</span>
+          {/* Voir le commentaire équivalent dans la section Phases
+              ci-dessus : même correction d'alignement. */}
+          <button type="button" className="danger col-headers-ghost" aria-hidden="true" tabIndex={-1}>
+            supprimer
+          </button>
         </div>
         <ul>
           {project.interactions.map((i) => (

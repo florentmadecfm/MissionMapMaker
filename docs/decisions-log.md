@@ -674,3 +674,18 @@ créée (confirmant qu'aucune donnée structurelle de phase/acteur n'est
 perdue lors de la création d'une variante), largeur des champs Icône/
 Durée/Satisfaction vérifiée visuellement après correction du bug CSS
 ci-dessus.
+
+**Correctif additionnel (même ADR)** : l'utilisateur a signalé que les
+en-têtes de colonnes "Durée"/"Satisfaction" n'étaient pas alignés
+au-dessus des bons champs. Cause : la ligne d'en-têtes (`.col-headers`)
+n'a pas de bouton "supprimer" contrairement à chaque ligne de données —
+avec une seule colonne flex: 1 ("Nom") avant les colonnes fixes, tout
+l'espace manquant se reportait sur elle, décalant les colonnes suivantes
+vers la droite. Même défaut latent identifié dans Activités (en-tête
+"Phase") et Interactions (en-tête "Condition"), moins visible car
+partagé entre plusieurs colonnes flex: 1. Corrigé dans les 3 sections en
+ajoutant, en fin de `.col-headers`, un bouton fantôme identique au vrai
+(même texte/classe, `visibility: hidden`) plutôt qu'un espaceur à largeur
+devinée — garantit un alignement exact même si le style du bouton change
+plus tard. Vérifié par mesure de position/largeur en pixels (Playwright)
+sur les 4 colonnes concernées : écart nul dans les 4 cas.
