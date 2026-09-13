@@ -61,6 +61,7 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Couleur', key: 'couleur', width: 12 },
       { header: 'Description', key: 'description', width: 50 },
       { header: 'Sous-lignes', key: 'sousLignes', width: 12 },
+      { header: 'Back-stage', key: 'backstage', width: 12 },
       { header: 'À propos', key: 'about', width: 40 },
       { header: 'Bio', key: 'bio', width: 50 },
     ],
@@ -69,6 +70,7 @@ export async function exportProjectToExcel(project: Project) {
       couleur: a.color,
       description: a.description,
       sousLignes: a.subLanes,
+      backstage: a.backstage ? 'Oui' : 'Non',
       about: a.about,
       bio: a.bio,
     })),
@@ -99,10 +101,19 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Nom', key: 'nom', width: 40 },
       { header: 'Icône', key: 'icone', width: 10 },
       { header: 'Sous-colonnes', key: 'sousColonnes', width: 14 },
+      { header: 'Durée', key: 'duree', width: 14 },
+      { header: 'Satisfaction (1-5)', key: 'satisfaction', width: 16 },
     ],
     [...project.phases]
       .sort((a, b) => a.order - b.order)
-      .map((p) => ({ ordre: p.order, nom: p.name, icone: p.icon, sousColonnes: p.subColumns })),
+      .map((p) => ({
+        ordre: p.order,
+        nom: p.name,
+        icone: p.icon,
+        sousColonnes: p.subColumns,
+        duree: p.duration ?? '',
+        satisfaction: p.satisfactionScore ? p.satisfactionScore : '',
+      })),
   )
 
   addSheet(

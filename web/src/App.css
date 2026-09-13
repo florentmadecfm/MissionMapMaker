@@ -624,6 +624,16 @@
   min-width: 0;
 }
 
+/* Fantôme invisible du bouton "supprimer" en fin de ligne (voir
+   ProjectEditor.tsx) : présent dans le DOM (même largeur que le vrai
+   bouton, donc alignement garanti même si son padding/texte change plus
+   tard) mais invisible et inerte, pour que les en-têtes flex: 1 qui le
+   précèdent (Nom...) ne grandissent pas plus que leur colonne réelle. */
+.col-headers-ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .col-headers .col-color,
 .col-headers .col-icon {
   width: 4.4rem;
@@ -635,17 +645,67 @@
   flex: 1;
 }
 
-.phase-icon-input {
-  width: 4.4rem;
-  flex-shrink: 0;
+/* Sélecteurs qualifiés par le type d'élément (input.../select...), pas
+   seulement la classe : à spécificité égale avec ".editor li input[type=
+   'text'], .editor li > input:not([type])" / ".editor li select"
+   ci-dessus (flex: 1, pensé pour les champs qui DOIVENT s'étirer comme
+   Nom), l'ordre dans la feuille les départageait déjà en pratique, mais
+   de façon fragile — un bug de spécificité CSS a été trouvé ici pendant
+   la vérification de cette fonctionnalité (ADR-065) : l'input Icône,
+   déjà présent, s'étirait lui aussi en flex: 1 malgré sa règle dédiée.
+   Qualifier le sélecteur (input.phase-icon-input) donne une spécificité
+   strictement supérieure, qui gagne quel que soit l'ordre — mais `flex:
+   1` fixe aussi flex-basis à 0% et flex-grow à 1, propriété par
+   propriété : une simple `width` (sans redéfinir flex-grow/flex-basis)
+   reste sans effet même en gagnant la cascade, d'où le raccourci `flex`
+   complet ci-dessous plutôt qu'un mélange de `width`/`flex-shrink`. */
+.editor li input.phase-icon-input {
+  flex: 0 0 4.4rem;
   text-align: center;
   font-size: 1.1rem;
+}
+
+/* Durée + satisfaction d'une phase (ADR-065) — largeur fixe plutôt que
+   flex: 1, pour ne pas rogner l'espace du champ Nom voisin. */
+.editor li input.phase-duration-input {
+  flex: 0 0 7rem;
+}
+
+.editor li select.phase-satisfaction-select {
+  flex: 0 0 10.5rem;
+}
+
+.col-headers .col-duration {
+  width: 7rem;
+  flex-shrink: 0;
+}
+
+.col-headers .col-satisfaction {
+  width: 10.5rem;
+  flex-shrink: 0;
 }
 
 .col-arrow-spacer {
   width: 1.2rem;
   flex-shrink: 0;
   text-align: center;
+}
+
+/* Case à cocher "back-stage" de la ligne d'un acteur (service blueprint,
+   ADR-064) — taille de contenu (flex-shrink: 0) plutôt qu'étirée comme le
+   champ Nom voisin (flex: 1). */
+.actor-backstage-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.actor-backstage-toggle input {
+  margin: 0;
 }
 
 .danger {

@@ -42,6 +42,7 @@ function normalizeProject(project: Project): Project {
       bio: a.bio ?? '',
       goals: a.goals ?? [],
       painPoints: a.painPoints ?? [],
+      backstage: a.backstage ?? false,
     })),
     phases: project.phases ?? [],
     activities: (project.activities ?? []).map((a) => ({
