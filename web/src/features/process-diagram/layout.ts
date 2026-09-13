@@ -93,6 +93,9 @@ export interface LayoutEdge {
   sourceHandle: string
   targetHandle: string
   label: string
+  // Condition sous laquelle cette interaction se produit (embranchement,
+  // ADR-060) — vide pour un flux normal, systématique.
+  condition: string
   // Couleur de l'acteur au départ (source) et à l'arrivée (target) de
   // l'interaction : les deux bouts de la flèche restent identifiables même
   // quand ils traversent plusieurs acteurs, en écho à la couleur de bordure
@@ -313,6 +316,20 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
   // LayoutEdge), rempli au fur et à mesure du placement ci-dessous.
   const activityCenters = new Map<string, { x: number; y: number }>()
 
+  // Nombre d'interactions SORTANTES conditionnelles par activité (voir
+  // Interaction.condition, ADR-060) : une activité d'où partent une ou
+  // plusieurs interactions conditionnelles est un embranchement — signalé
+  // sur sa carte (voir ActivityNode, nodes.tsx), avant même de suivre
+  // chaque flèche pour le découvrir.
+  const branchCountByActivity = new Map<string, number>()
+  for (const interaction of project.interactions) {
+    if (!interaction.condition?.trim()) continue
+    branchCountByActivity.set(
+      interaction.fromActivityId,
+      (branchCountByActivity.get(interaction.fromActivityId) ?? 0) + 1,
+    )
+  }
+
   for (const activity of activitiesByOrder) {
     const pi = phaseIndex.get(activity.phaseId)
     const ai = actorIndex.get(activity.actorId)
@@ -343,6 +360,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         storyCount: activity.userStories.length,
         specCount: activity.traceLinks.length,
         painPointCount: activity.painPoints.length,
+        branchCount: branchCountByActivity.get(activity.id) ?? 0,
       },
       draggable: true,
       selectable: true,
@@ -412,6 +430,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         sourceHandle,
         targetHandle,
         label: i.information,
+        condition: i.condition ?? '',
         sourceColor: fromActor?.color ?? '#64748b',
         targetColor: toActor?.color ?? '#64748b',
         gradient,

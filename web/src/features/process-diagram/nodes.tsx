@@ -82,6 +82,7 @@ export function ActivityNode({ data }: NodeProps) {
   const storyCount = data.storyCount as number
   const specCount = data.specCount as number
   const painPointCount = data.painPointCount as number
+  const branchCount = data.branchCount as number
   const color = data.color as string
   return (
     <div
@@ -96,6 +97,17 @@ export function ActivityNode({ data }: NodeProps) {
           title={`${painPointCount} point${painPointCount > 1 ? 's' : ''} de friction`}
         >
           ⚠
+        </span>
+      )}
+      {/* Signale qu'au moins une interaction sortante ne se produit que
+          sous condition (embranchement, ADR-060) — coin haut-gauche pour
+          ne jamais se confondre avec le badge de points de friction. */}
+      {branchCount > 0 && (
+        <span
+          className="activity-card-branch"
+          title={`${branchCount} embranchement${branchCount > 1 ? 's' : ''} conditionnel${branchCount > 1 ? 's' : ''}`}
+        >
+          🔀
         </span>
       )}
       {/* Poignées gauche/droite : interactions entre activités de phases différentes. */}

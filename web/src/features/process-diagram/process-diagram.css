@@ -247,6 +247,26 @@
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 }
 
+/* Signale qu'au moins une interaction sortante de cette activité est
+   conditionnelle (embranchement, voir ActivityNode.tsx, ADR-060) — même
+   patron que .activity-card-warning, coin opposé pour ne jamais se
+   confondre avec le badge de points de friction. */
+.activity-card-branch {
+  position: absolute;
+  top: -9px;
+  left: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  line-height: 1;
+  text-shadow:
+    0 0 3px var(--color-surface),
+    0 0 3px var(--color-surface);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
 .activity-card-title {
   font-weight: 600;
   color: var(--color-text);

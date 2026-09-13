@@ -105,6 +105,15 @@ function gradientId(edgeId: string) {
   return `mmm-grad-${edgeId}`
 }
 
+// Une interaction conditionnelle (embranchement, ADR-060) affiche sa
+// condition en préfixe ("Si <condition>"), suivie de l'information
+// échangée si elle est également renseignée — plutôt que deux libellés
+// séparés sur la même flèche.
+function edgeLabel(e: LayoutEdge): string {
+  if (!e.condition) return e.label
+  return e.label ? `Si ${e.condition} — ${e.label}` : `Si ${e.condition}`
+}
+
 function toFlowEdge(e: LayoutEdge): Edge {
   return {
     id: e.id,
@@ -112,12 +121,19 @@ function toFlowEdge(e: LayoutEdge): Edge {
     target: e.target,
     sourceHandle: e.sourceHandle,
     targetHandle: e.targetHandle,
-    label: e.label,
+    label: edgeLabel(e),
     type: 'smoothstep',
     // Le trait passe de la couleur de l'acteur de départ à celle de
     // l'acteur d'arrivée (voir <defs> ci-dessous) : on peut suivre une
-    // flèche à l'œil même quand elle traverse plusieurs acteurs.
-    style: { stroke: `url(#${gradientId(e.id)})`, strokeWidth: 2 },
+    // flèche à l'œil même quand elle traverse plusieurs acteurs. Une
+    // interaction conditionnelle (embranchement) est en plus tracée en
+    // pointillés, pour la distinguer d'un flux systématique sans avoir à
+    // lire le libellé.
+    style: {
+      stroke: `url(#${gradientId(e.id)})`,
+      strokeWidth: 2,
+      strokeDasharray: e.condition ? '6 4' : undefined,
+    },
     // Point de départ : petit disque plein dans la couleur de l'acteur
     // source. Pointe d'arrivée : flèche pleine dans la couleur de
     // l'acteur cible, plus large que le trait pour bien marquer la fin.

@@ -20,6 +20,7 @@ interface Props {
 export function InteractionDetailModal({ project, interactionId, onChange, onClose }: Props) {
   const interaction = project.interactions.find((i) => i.id === interactionId)
   const [text, setText] = useState(interaction?.information ?? '')
+  const [condition, setCondition] = useState(interaction?.condition ?? '')
 
   if (!interaction) return null
 
@@ -31,7 +32,9 @@ export function InteractionDetailModal({ project, interactionId, onChange, onClo
   function handleSave() {
     onChange({
       ...project,
-      interactions: project.interactions.map((i) => (i.id === interactionId ? { ...i, information: text } : i)),
+      interactions: project.interactions.map((i) =>
+        i.id === interactionId ? { ...i, information: text, condition: condition.trim() || undefined } : i,
+      ),
     })
     onClose()
   }
@@ -64,6 +67,16 @@ export function InteractionDetailModal({ project, interactionId, onChange, onClo
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+        />
+        <label className="field-label" htmlFor="interaction-condition">
+          Condition (optionnelle — fait de cette interaction un embranchement)
+        </label>
+        <input
+          id="interaction-condition"
+          value={condition}
+          onChange={(e) => setCondition(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          placeholder="Ex. paiement refusé"
         />
         <div className="modal-actions">
           <button type="button" className="danger" onClick={handleRemove}>
