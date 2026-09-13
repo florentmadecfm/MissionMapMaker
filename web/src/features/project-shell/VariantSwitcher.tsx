@@ -6,6 +6,7 @@ interface Props {
   summaries: ProjectSummary[]
   onOpen: (id: string) => void
   onLeaveGroup: () => void
+  onCompare: () => void
 }
 
 // Barre de bascule entre variantes d'une même mission (ADR-062) — état
@@ -14,7 +15,7 @@ interface Props {
 // aucun groupe : les résumés (summaries) déjà chargés par ProjectShell
 // pour la barre latérale suffisent, filtrés ici par variantGroupId, sans
 // requête supplémentaire.
-export function VariantSwitcher({ project, summaries, onOpen, onLeaveGroup }: Props) {
+export function VariantSwitcher({ project, summaries, onOpen, onLeaveGroup, onCompare }: Props) {
   if (!project.variantGroupId) return null
 
   const siblings = [...summaries]
@@ -37,6 +38,14 @@ export function VariantSwitcher({ project, summaries, onOpen, onLeaveGroup }: Pr
           {s.variantLabel || s.name}
         </button>
       ))}
+      {/* Comparaison côte à côte (ADR-063) — nécessite au moins 2
+          variantes pour être utile ; en dessous, VariantComparisonScreen
+          l'indique elle-même plutôt que de masquer l'entrée ici, pour
+          rester visible même quand une seule mission du groupe existe
+          encore (avant qu'une 2e variante ne soit créée). */}
+      <button type="button" className="variant-compare" onClick={onCompare} title="Comparer les variantes côte à côte">
+        Comparer
+      </button>
       <button
         type="button"
         className="variant-leave"

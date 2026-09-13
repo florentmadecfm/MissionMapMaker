@@ -311,6 +311,21 @@
   font-weight: 600;
 }
 
+.variant-compare {
+  margin-left: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.variant-compare:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 .variant-leave {
   margin-left: 0.3rem;
   color: var(--color-text-faint);
@@ -320,6 +335,73 @@
 
 .variant-leave:hover {
   color: var(--color-danger);
+}
+
+/* ---------- Comparaison côte à côte entre variantes (ADR-063) ---------- */
+
+.variant-comparison-screen {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px);
+}
+
+.variant-comparison-screen .editor-header {
+  margin-bottom: 1rem;
+}
+
+.variant-comparison-panels {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 1.25rem;
+}
+
+.variant-comparison-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.variant-comparison-radios {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.variant-comparison-radios legend {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  padding: 0;
+}
+
+.variant-comparison-radio {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.variant-comparison-stats {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.variant-comparison-diagram {
+  flex: 1;
+  min-height: 0;
+}
+
+.variant-comparison-diagram .process-diagram {
+  height: 100%;
 }
 
 /* Étiquette de variante dans la liste de projets de la barre latérale

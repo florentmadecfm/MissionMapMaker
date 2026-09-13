@@ -11,14 +11,17 @@ import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
 import { CreateVariantModal } from './CreateVariantModal'
 import { ExportImportMenu } from './ExportImportMenu'
 import { ProjectEditor } from './ProjectEditor'
+import { VariantComparisonScreen } from './VariantComparisonScreen'
 import { VariantSwitcher } from './VariantSwitcher'
 
 type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
 // Vue de la zone principale, indépendante des onglets d'un projet ouvert :
 // 'project' est le fonctionnement habituel (onglets ci-dessus) ; 'actors'
-// est le nouvel écran transverse "Acteurs" (ActorMissionsScreen), qui ne
-// nécessite pas d'avoir ouvert un projet précis (voir ADR-041).
-type View = 'project' | 'actors'
+// est l'écran transverse "Acteurs" (ActorMissionsScreen), qui ne nécessite
+// pas d'avoir ouvert un projet précis (voir ADR-041) ; 'compare' est la
+// vue de comparaison côte à côte entre variantes du projet ouvert
+// (VariantComparisonScreen, ADR-063).
+type View = 'project' | 'actors' | 'compare'
 
 const SIDEBAR_COLLAPSED_KEY = 'mmm-sidebar-collapsed'
 
@@ -272,6 +275,8 @@ export function ProjectShell() {
       <main className="shell-main">
         {view === 'actors' ? (
           <ActorMissionsScreen actors={actors} error={actorsError} onOpenProject={handleOpenFromActorMissions} />
+        ) : view === 'compare' && project ? (
+          <VariantComparisonScreen project={project} summaries={summaries} onClose={() => setView('project')} />
         ) : project ? (
           <>
             <div className="tabs-bar">
@@ -314,6 +319,7 @@ export function ProjectShell() {
               summaries={summaries}
               onOpen={handleOpen}
               onLeaveGroup={handleLeaveVariantGroup}
+              onCompare={() => setView('compare')}
             />
             {/* key={project.id} sur chaque onglet : sans lui, passer d'un
                 projet à un autre en restant sur le même onglet ne
