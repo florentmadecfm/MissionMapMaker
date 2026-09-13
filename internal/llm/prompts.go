@@ -73,25 +73,36 @@ Pour CHAQUE spécification fournie, propose au moins un scénario de test qui pe
 
 Reprends exactement le code de spécification tel que fourni en entrée (ex. "SSS-001"), pour permettre de relier chaque scénario à la spécification qu'il vérifie. Réponds uniquement en appelant l'outil propose_test_scenarios.`
 
-// DefaultPainPointSolutionsPrompt/DefaultPainPointResolutionPrompt
-// (ADR-066) ne sont volontairement PAS exposés dans l'écran Paramètres
-// (pas de couche "Prompt"/"Skill" personnalisable, contrairement aux 3
-// capacités ci-dessus) : la fonctionnalité étant plus récente et de
-// portée plus étroite (une seule activité/un seul point de friction à la
-// fois), doubler la surface de configuration pour 2 capacités
-// supplémentaires n'a pas semblé justifié pour cette première version —
-// à reconsidérer si le besoin de personnalisation se manifeste.
+// DefaultPainPointSolutionsPrompt/DefaultPainPointSolutionsContextPrompt
+// (ADR-066/ADR-067) forment la 4e paire prompt/skill personnalisable
+// depuis l'écran Paramètres, au même titre que process/specification/
+// testScenario ci-dessus — voir PromptsPanel.tsx/SkillsPanel.tsx.
+// DefaultPainPointResolutionPrompt (2e étape, formalisation en SSS + test
+// une fois la solution choisie) reste volontairement fixe : c'est une
+// tâche de rédaction mécanique une fois la solution actée, contrairement
+// au choix créatif de LA solution elle-même, qui bénéficie d'être
+// personnalisable.
 
-const DefaultPainPointSolutionsPrompt = `Tu assistes un UX designer / Product Owner à trouver des solutions concrètes à un point de friction constaté sur une activité d'un diagramme de processus (story map : acteurs, phases, activités, interactions).
+const DefaultPainPointSolutionsContextPrompt = `Contexte : un point de friction a été constaté sur une activité d'un diagramme de processus (story map : acteurs, phases, activités, interactions) déjà construit. La première idée qui vient à l'esprit est rarement la plus intéressante — trouver de bonnes pistes de résolution demande une vraie démarche de design créatif et de résolution de problèmes (creative problem solving), pas une liste de correctifs mécaniques improvisés.
 
-Pour LE point de friction fourni (associé à une activité, un acteur et une phase précis, avec le reste du processus en contexte — activités et interactions déjà existantes), propose EXACTEMENT 5 solutions structurelles DIFFÉRENTES pour le résoudre ou l'atténuer. Chaque solution décrit un changement concret au diagramme, d'un de ces 5 types ("changeType") :
+Objectif : à partir de ce point de friction et du reste du processus déjà construit (fourni en contexte), produire 5 pistes de solutions structurelles diverses, ancrées dans le contexte réel, qui explorent des angles vraiment différents plutôt que 5 variations d'une même idée.`
+
+const DefaultPainPointSolutionsPrompt = `Tu es un designer spécialisé en creative problem solving / design thinking, appelé sur un point de friction constaté sur une activité d'un diagramme de processus (story map : acteurs, phases, activités, interactions).
+
+Procède en 2 temps :
+
+1. DIAGNOSTIC (silencieux, ne fait pas partie de la réponse) — avant de proposer quoi que ce soit, identifie la CAUSE probable du point de friction, pas seulement son symptôme (ex. "le client attend" est un symptôme ; la cause peut être une information qui n'arrive pas assez tôt, une étape superflue, une dépendance à une seule personne...). Une solution qui ne traite que le symptôme n'est qu'un correctif temporaire.
+
+2. IDÉATION DIVERGENTE — à partir de ce diagnostic, explore des angles VRAIMENT différents avant de choisir tes 5 propositions : et si on informait un acteur plus tôt ? et si cette étape n'existait plus ? et si deux étapes n'en faisaient qu'une ? et si l'ordre changeait ? et si un autre acteur s'en chargeait ? Ne t'arrête pas à la première idée venue par angle — creuse jusqu'à une solution qui remette réellement en question une hypothèse implicite du processus actuel, pas juste un ajustement cosmétique.
+
+Propose EXACTEMENT 5 solutions structurelles DIFFÉRENTES, chacune un changement concret au diagramme, d'un de ces 5 types ("changeType") :
 - add_interaction : ajouter une interaction entre deux activités (ex. prévenir un acteur plus tôt) ;
 - remove_interaction : supprimer une interaction devenue inutile ou source de blocage ;
 - add_activity : ajouter une nouvelle activité (ex. une étape de vérification, une notification) ;
 - remove_activity : supprimer une activité source de friction (ex. une étape redondante) ;
 - merge_activities : fusionner deux activités proches en une seule, pour simplifier le parcours.
 
-Varie les 5 propositions (types différents autant que possible, jamais 5 fois le même changeType) et reste réaliste par rapport au contexte fourni : ne réutilise que des noms d'activités/acteurs déjà listés en contexte (n'invente jamais un acteur), et ne propose une fusion (merge_activities) qu'entre deux activités RÉELLEMENT listées. Rédige chaque "description" comme une phrase concrète et actionnable, jamais vague ("améliorer le processus" n'est pas une solution), en français.
+Varie les 5 propositions (types différents autant que possible, jamais 5 fois le même changeType, et jamais 5 idées qui ne sont que des reformulations l'une de l'autre) et reste réaliste par rapport au contexte fourni : ne réutilise que des noms d'activités/acteurs déjà listés en contexte (n'invente jamais un acteur), et ne propose une fusion (merge_activities) qu'entre deux activités RÉELLEMENT listées. Rédige chaque "description" comme une phrase concrète et actionnable, jamais vague ("améliorer le processus" n'est pas une solution), en français.
 
 Réponds uniquement en appelant l'outil propose_pain_point_solutions.`
 

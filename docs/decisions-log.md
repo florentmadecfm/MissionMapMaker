@@ -753,3 +753,38 @@ bouton "Solutions" alors masqué, spécification et test visibles dans
 "Spécifications liées"/"Tests V&V liés", et persistance confirmée après
 sauvegarde + rechargement (point de friction, spécification, test,
 traceLink, tous retrouvés).
+
+## ADR-067 — Prompt/skill personnalisable + posture creative problem solving
+
+Suite d'ADR-066, à la demande explicite de l'utilisateur : la 1re étape
+(proposer 5 solutions) devient la **4e paire prompt/skill** personnalisable
+depuis l'écran Paramètres, au même titre que process/specification/
+testScenario (`PainPointSolutions`/`PainPointSolutionsContext` — mêmes
+champs traversant `GenerateService` → `internal/api/router.go` → `internal/
+config` → `PromptsPanel.tsx`/`SkillsPanel.tsx`, qui sont génériques : une
+entrée `PromptFieldDef` de plus a suffi côté frontend). La 2e étape
+(formaliser la solution choisie en SSS + test) reste volontairement fixe —
+c'est une tâche de rédaction mécanique une fois la solution actée, pas un
+choix créatif, contrairement à la recherche de LA solution elle-même.
+
+Le skill par défaut (`DefaultPainPointSolutionsPrompt`) est réécrit pour
+incarner une posture explicite de **design créatif / creative problem
+solving** plutôt qu'une simple liste de correctifs : un temps DIAGNOSTIC
+(identifier la cause probable du point de friction, pas seulement son
+symptôme, avant de proposer quoi que ce soit) suivi d'une IDÉATION
+DIVERGENTE guidée (explorer des angles vraiment différents — remplacer,
+éliminer, réorganiser, automatiser, changer qui fait quoi — plutôt que de
+s'arrêter à la première idée par angle), avec une consigne explicite
+contre 5 propositions qui ne seraient que des reformulations l'une de
+l'autre. La classification en 5 `changeType` (ADR-066) est conservée telle
+quelle : la créativité porte sur LE CONTENU des propositions, pas sur leur
+structure de sortie.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright (avec le mock Mistral
+local d'ADR-066) : 4e sous-onglet "Résoudre un point de friction" présent
+dans Skills ET dans Prompts, texte par défaut contenant bien la posture
+creative problem solving, personnalisation → "Personnalisé" → persistée
+côté serveur (`GET /api/settings/prompts`) → Réinitialiser → retour au
+texte par défaut, sans régression sur le flux complet de résolution d'un
+point de friction (5 solutions → SSS + test → badge résolu → persistance).

@@ -1,8 +1,8 @@
 import { PromptEditor, type PromptFieldDef } from './PromptEditor'
 
-// Les 3 skills correspondent exactement aux 3 capacités de génération
+// Les 4 skills correspondent exactement aux 4 capacités de génération
 // assistée exposées par le backend (internal/llm/prompts.go) : pas de
-// "création" d'un 4e skill arbitraire, ce sont des emplacements fixes —
+// "création" d'un 5e skill arbitraire, ce sont des emplacements fixes —
 // éditer et réinitialiser leur texte est ce que permet le mode CRUD
 // demandé ici (Read : texte actuel : Update : édition + Enregistrer ;
 // Delete : Réinitialiser retire la personnalisation, revient au texte par
@@ -26,6 +26,12 @@ const SKILL_FIELDS: PromptFieldDef[] = [
     key: 'testScenario',
     title: 'Construire les scénarios de test',
     description: 'Propose des scénarios de test de vérification/validation (V&V) pour les spécifications.',
+  },
+  {
+    key: 'painPointSolutions',
+    title: 'Résoudre un point de friction',
+    description:
+      "Propose 5 solutions structurelles à un point de friction (design créatif / creative problem solving) — la formalisation en SSS + test de la solution choisie, elle, n'est pas personnalisable.",
   },
 ]
 

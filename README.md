@@ -63,7 +63,9 @@ Ouvrir http://localhost:5173.
   (bouton "Comparer", diagrammes en lecture seule, sélection indépendante
   par variante).
 - **Paramètres** : fournisseur LLM (Anthropic/Mistral) et clé API,
-  prompts/skills de génération personnalisables.
+  prompts/skills de génération personnalisables — dont le skill dédié aux
+  solutions de points de friction, en posture design créatif / creative
+  problem solving.
 
 ## Empaqueter en binaire autonome
 
