@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"missionmapmaker/internal/domain"
 )
 
 // Un projet enregistré avant l'ajout d'un champ collection (ex.
@@ -76,5 +79,88 @@ func TestLoad_NormalizesMissingCollectionsFromLegacyFile(t *testing.T) {
 		if string(raw[field]) == "null" {
 			t.Errorf("field %q serialized as null, want []", field)
 		}
+	}
+}
+
+// L'historique des versions (backlog blueprint #7, ADR-070) s'appuie
+// entièrement sur les sauvegardes horodatées déjà écrites par Save
+// (backupExisting) : ce test vérifie que ListVersions/LoadVersion
+// exposent correctement ce mécanisme déjà en place, sans rien y changer.
+func TestListVersions_TracksBackupsAcrossSaves(t *testing.T) {
+	repo := NewRepository(t.TempDir())
+
+	p := &domain.Project{ID: "proj-1", Name: "V1", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	if err := repo.Save(p); err != nil {
+		t.Fatalf("Save v1: %v", err)
+	}
+
+	// La toute première sauvegarde n'a pas d'état antérieur à archiver
+	// (backupExisting ne fait rien si le fichier n'existait pas encore).
+	versions, err := repo.ListVersions("proj-1")
+	if err != nil {
+		t.Fatalf("ListVersions after first save: %v", err)
+	}
+	if len(versions) != 0 {
+		t.Fatalf("expected no backups after the very first save, got %d", len(versions))
+	}
+
+	time.Sleep(2 * time.Millisecond) // garantit un horodatage de backup distinct
+	p.Name = "V2"
+	if err := repo.Save(p); err != nil {
+		t.Fatalf("Save v2: %v", err)
+	}
+
+	versions, err = repo.ListVersions("proj-1")
+	if err != nil {
+		t.Fatalf("ListVersions after second save: %v", err)
+	}
+	if len(versions) != 1 {
+		t.Fatalf("expected 1 backup (the pre-v2 state), got %d", len(versions))
+	}
+
+	restored, err := repo.LoadVersion("proj-1", versions[0].ID)
+	if err != nil {
+		t.Fatalf("LoadVersion: %v", err)
+	}
+	if restored.Name != "V1" {
+		t.Errorf("LoadVersion returned Name %q, want %q (the state saved before the second save)", restored.Name, "V1")
+	}
+
+	time.Sleep(2 * time.Millisecond)
+	p.Name = "V3"
+	if err := repo.Save(p); err != nil {
+		t.Fatalf("Save v3: %v", err)
+	}
+	versions, err = repo.ListVersions("proj-1")
+	if err != nil {
+		t.Fatalf("ListVersions after third save: %v", err)
+	}
+	if len(versions) != 2 {
+		t.Fatalf("expected 2 backups, got %d", len(versions))
+	}
+	if versions[0].SavedAt.Before(versions[1].SavedAt) {
+		t.Error("expected versions sorted most-recent-first")
+	}
+}
+
+func TestListVersions_UnknownProjectReturnsEmpty(t *testing.T) {
+	repo := NewRepository(t.TempDir())
+	versions, err := repo.ListVersions("no-such-project")
+	if err != nil {
+		t.Fatalf("ListVersions: %v", err)
+	}
+	if len(versions) != 0 {
+		t.Errorf("expected empty history for a project with no backups directory, got %d", len(versions))
+	}
+}
+
+// versionID vient de l'URL (r.PathValue côté API) : un format inattendu
+// (ex. tentative de traversée de chemin) doit être rejeté avant toute
+// lecture disque plutôt que silencieusement résolu ailleurs que dans le
+// dossier backups attendu.
+func TestLoadVersion_RejectsInvalidVersionID(t *testing.T) {
+	repo := NewRepository(t.TempDir())
+	if _, err := repo.LoadVersion("proj-1", "../../etc/passwd"); err == nil {
+		t.Error("expected an error for a version id outside the expected timestamp format, got nil")
 	}
 }

@@ -175,6 +175,33 @@ func (s *ProjectService) Delete(id string) error {
 	return s.repo.Delete(id)
 }
 
+// ListVersions renvoie l'historique consultable des sauvegardes passées
+// d'un projet (backlog blueprint #7, ADR-070).
+func (s *ProjectService) ListVersions(id string) ([]storage.ProjectVersion, error) {
+	return s.repo.ListVersions(id)
+}
+
+// GetVersion charge le contenu d'une sauvegarde passée, en lecture seule
+// (pour prévisualisation) — n'affecte jamais l'état courant du projet.
+func (s *ProjectService) GetVersion(id, versionID string) (*domain.Project, error) {
+	return s.repo.LoadVersion(id, versionID)
+}
+
+// RestoreVersion remplace l'état courant du projet par celui d'une
+// sauvegarde passée — réutilise intégralement Update (mêmes règles :
+// CreatedAt préservé, UpdatedAt rafraîchi, fiches persona resynchronisées,
+// validation), ce qui a pour effet que Save sauvegarde d'abord l'état
+// courant (celui remplacé) comme une nouvelle version de l'historique
+// avant d'écrire la version restaurée : une restauration reste donc
+// elle-même réversible, sans logique dédiée.
+func (s *ProjectService) RestoreVersion(id, versionID string) (*domain.Project, error) {
+	version, err := s.repo.LoadVersion(id, versionID)
+	if err != nil {
+		return nil, err
+	}
+	return s.Update(id, version)
+}
+
 // ActorProjectRef identifie une mission (projet) où un acteur donné (par
 // son nom, voir ActorSummary) apparaît, avec les informations propres à
 // cette mission (couleur/description peuvent différer d'une mission à

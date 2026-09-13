@@ -186,6 +186,95 @@ func (r *Repository) backupExisting(path, dir string) error {
 	return os.WriteFile(backupPath, existing, 0o644)
 }
 
+// ProjectVersion identifie une sauvegarde horodatée passée d'un projet
+// (voir backupExisting ci-dessus) — ID est le fragment d'horodatage du nom
+// de fichier (ex. "20260913T165204.123456789"), unique et triable tel
+// quel, jamais un chemin de fichier exposé directement à l'API.
+type ProjectVersion struct {
+	ID      string    `json:"id"`
+	SavedAt time.Time `json:"savedAt"`
+}
+
+var backupFilePattern = regexp.MustCompile(`^project-(\d{8}T\d{6}\.\d{9})\.json$`)
+var validVersionID = regexp.MustCompile(`^\d{8}T\d{6}\.\d{9}$`)
+
+// ListVersions renvoie l'historique des sauvegardes passées d'un projet
+// (dossier "backups", alimenté à chaque Save), les plus récentes en
+// premier. Une mission jamais resauvegardée depuis sa création n'a encore
+// aucune sauvegarde de son état PRÉCÉDENT (la première Save ne déclenche
+// pas de backup, voir backupExisting) : liste vide, pas une erreur.
+func (r *Repository) ListVersions(id string) ([]ProjectVersion, error) {
+	path, err := r.projectFile(id)
+	if err != nil {
+		return nil, err
+	}
+	backupDir := filepath.Join(filepath.Dir(path), "backups")
+
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []ProjectVersion{}, nil
+		}
+		return nil, err
+	}
+
+	versions := make([]ProjectVersion, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		m := backupFilePattern.FindStringSubmatch(e.Name())
+		if m == nil {
+			continue
+		}
+		savedAt, err := time.Parse("20060102T150405.000000000", m[1])
+		if err != nil {
+			continue // nom de fichier inattendu : ignoré plutôt que de faire échouer tout l'historique
+		}
+		versions = append(versions, ProjectVersion{ID: m[1], SavedAt: savedAt})
+	}
+	sort.Slice(versions, func(i, j int) bool { return versions[i].SavedAt.After(versions[j].SavedAt) })
+	return versions, nil
+}
+
+func (r *Repository) versionFile(id, versionID string) (string, error) {
+	path, err := r.projectFile(id) // valide aussi le format de id
+	if err != nil {
+		return "", err
+	}
+	if !validVersionID.MatchString(versionID) {
+		return "", fmt.Errorf("invalid version id %q", versionID)
+	}
+	return filepath.Join(filepath.Dir(path), "backups", fmt.Sprintf("project-%s.json", versionID)), nil
+}
+
+// LoadVersion charge le contenu d'une sauvegarde passée, en LECTURE SEULE
+// (ne modifie jamais le fichier project.json courant ni le dossier
+// backups) — la restauration proprement dite passe par ProjectService,
+// qui réutilise Update (donc Save, qui sauvegarde l'état courant avant de
+// le remplacer : une restauration reste elle-même réversible).
+func (r *Repository) LoadVersion(id, versionID string) (*domain.Project, error) {
+	path, err := r.versionFile(id, versionID)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	var p domain.Project
+	if err := json.Unmarshal(data, &p); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	p.Normalize()
+	return &p, nil
+}
+
 func (r *Repository) Delete(id string) error {
 	path, err := r.projectFile(id)
 	if err != nil {

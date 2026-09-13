@@ -59,6 +59,9 @@ Ouvrir http://localhost:5173.
   (interactions/activités) ; en choisir une génère la SSS et le test
   correspondants, tracés vers le point de friction.
 - **Export/import Excel** complet d'un projet (menu ☰ de la barre d'onglets).
+- **Historique des versions** (même menu ☰) : une version enregistrée à
+  chaque sauvegarde, consultable (aperçu du diagramme en lecture seule) et
+  restaurable — l'état remplacé reste lui-même dans l'historique.
 - **Variantes de mission** (état actuel / cible) : "Créer une variante…"
   (même menu ☰) duplique le contenu de la mission ouverte, permet de
   basculer entre les deux d'un clic, et de les **comparer côte à côte**

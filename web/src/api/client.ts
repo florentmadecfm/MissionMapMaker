@@ -9,6 +9,7 @@ import type {
   PainPointResolution,
   Project,
   ProjectSummary,
+  ProjectVersion,
   PromptSettings,
   PromptSettingsResponse,
   Provider,
@@ -71,6 +72,11 @@ export const api = {
   saveProject: (project: Project) =>
     request<Project>(`/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) }).then(normalizeProject),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
+  listVersions: (id: string) => request<ProjectVersion[]>(`/projects/${id}/versions`),
+  getVersion: (id: string, versionId: string) =>
+    request<Project>(`/projects/${id}/versions/${versionId}`).then(normalizeProject),
+  restoreVersion: (id: string, versionId: string) =>
+    request<Project>(`/projects/${id}/versions/${versionId}/restore`, { method: 'POST' }).then(normalizeProject),
   generateFromText: (text: string) =>
     request<DraftProcess>('/generate', { method: 'POST', body: JSON.stringify({ text }) }),
   generateSpecifications: (activities: ActivityRef[]) =>

@@ -8,6 +8,7 @@ interface Props {
   project: Project
   onChange: (project: Project) => void
   onCreateVariant: () => void
+  onShowHistory: () => void
 }
 
 // Menu burger des actions sur le projet ouvert — export/import Excel et
@@ -17,7 +18,7 @@ interface Props {
 // quand on y est déjà. La modale de création de variante elle-même vit
 // dans ProjectShell (qui détient l'état `project` à mettre à jour après
 // création) : ce composant se contente de déclencher son ouverture.
-export function ExportImportMenu({ project, onChange, onCreateVariant }: Props) {
+export function ExportImportMenu({ project, onChange, onCreateVariant, onShowHistory }: Props) {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -75,6 +76,9 @@ export function ExportImportMenu({ project, onChange, onCreateVariant }: Props) 
         </button>
         <button type="button" onClick={onCreateVariant}>
           Créer une variante…
+        </button>
+        <button type="button" onClick={onShowHistory}>
+          Historique des versions…
         </button>
       </HeaderMenu>
       <input ref={importFileRef} type="file" accept=".xlsx" hidden onChange={handleImportFile} />
