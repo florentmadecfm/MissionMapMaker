@@ -788,3 +788,78 @@ creative problem solving, personnalisation → "Personnalisé" → persistée
 côté serveur (`GET /api/settings/prompts`) → Réinitialiser → retour au
 texte par défaut, sans régression sur le flux complet de résolution d'un
 point de friction (5 solutions → SSS + test → badge résolu → persistance).
+
+## ADR-068 — Audit UX/UI de bout en bout
+
+À la demande explicite de l'utilisateur ("audit UX/UI sur l'ensemble des
+fonctionnalités... puis optimise"). Un jeu de données réaliste (acteurs
+front/back-stage, durées/satisfaction, embranchement, point de friction
+résolu et non résolu, variante) a permis de capturer par Playwright un
+parcours complet — état vide, les 5 onglets d'un projet ouvert, les 6
+modales (activité, interaction, fiche persona, création de variante,
+solutions de point de friction, Paramètres), l'écran transverse Acteurs,
+la comparaison de variantes, la sidebar repliée — plutôt que d'auditer sur
+la seule apparence du code. Deux vrais bugs et plusieurs irritants déjà
+identifiés lors de l'audit ADR-061 mais jamais traités ont été trouvés et
+corrigés :
+
+**Bugs** :
+- **Menu ☰ coupé par le bord de l'écran** — `.header-menu-dropdown`
+  s'ancrait à `left: 0` de son déclencheur ; celui-ci étant en haut à
+  droite de l'écran, le menu s'étendait hors de la fenêtre et rendait
+  "Exporter"/"Importer"/"Créer une variante…" illisibles. Corrigé en
+  `right: 0`.
+- **Champs tronqués dans Spécifications/Tests V&V** — le select Type
+  (ex. "Besoin partie prenante (SSS)") et le champ Titre d'un scénario de
+  test se réduisaient bien en-deçà de leur contenu. Même cause racine que
+  le bug déjà corrigé en ADR-065 (une règle générique ".editor li input,
+  .editor li select { min-width: 0 }" l'emportait sur un correctif à
+  spécificité insuffisante) — corrigé cette fois avec des sélecteurs à 2
+  classes (".editor .spec-card-meta select", ".editor .test-title"),
+  plus robustes qu'une simple qualification par type d'élément puisqu'ils
+  dépassent la spécificité concurrente sans dépendre de l'ordre dans la
+  feuille.
+
+**Irritants identifiés en ADR-061 (jamais traités depuis)** :
+- Bandeau d'instructions du diagramme, dense et **toujours affiché** —
+  remplacé par un bouton "Comment utiliser ce diagramme" replié par
+  défaut (`ProcessDiagram.tsx`, état `hintOpen`).
+- Petits boutons "+" en coin des en-têtes (sous-colonne/sous-ligne),
+  16px et peu contrastés — passés à 22px avec une bordure plus marquée.
+- Notation "←"/"→" cryptique dans Vue par acteur / fiche persona —
+  remplacée par une icône directionnelle + le mot "Reçoit"/"Envoie" en
+  toutes lettres (`ActorDetail.tsx`), sur les mêmes couleurs déjà en
+  place (bleu entrant, vert sortant).
+
+**Nouveaux constats** :
+- **Écran vide** (aucun projet créé ni ouvert) réduit à une phrase isolée
+  dans un grand espace blanc, sans repère ni indication d'action —
+  remplacé par un état vide centré (icône, titre, ce que fait l'outil, et
+  un indice pointant explicitement vers le champ "Nom du nouveau projet"
+  de la barre latérale, seul vrai point d'entrée de cet écran).
+- **Boutons "supprimer" rouges répétés** sur chaque ligne de l'onglet
+  Édition (Acteurs/Phases/Activités/Interactions/Spécifications/Tests) —
+  une dizaine visibles en permanence créaient un bruit visuel et une
+  fatigue d'alerte sans rapport avec une vraie alerte. Repris du patron
+  déjà utilisé par `.project-list` (barre latérale) : masqués par défaut
+  (`opacity: 0`), révélés au survol OU au focus clavier de leur ligne
+  (`:hover`, `:focus-within` — jamais seulement `:hover`, pour rester
+  utilisable au clavier). Portée volontairement limitée à `.editor li` :
+  les boutons "Supprimer" autonomes d'une modale ou d'un panneau restent
+  toujours visibles.
+
+**Délibérément hors scope** (notés pour un futur backlog, pas un oubli) :
+recherche/filtre ou pagination pour de longues listes dans l'onglet
+Édition, réordonnancement par glisser-déposer des phases/activités,
+navigation clavier complète du menu ☰ (Échap, flèches) — des chantiers
+plus structurants que ce qu'un audit-puis-correctifs peut raisonnablement
+couvrir en une passe, qui mériteraient chacun leur propre décision.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...` (aucun changement
+backend), `tsc -b`, `npm run lint`, `npm run build` verts. Playwright :
+chaque correctif vérifié individuellement (position du menu dans le
+viewport, largeur calculée des champs avant/après, opacity 0→1 au survol/
+focus, replié par défaut puis dépliable) sur les captures du parcours
+complet, sans régression constatée sur les fonctionnalités déjà
+couvertes par les suites précédentes (variantes, comparaison, points de
+friction).

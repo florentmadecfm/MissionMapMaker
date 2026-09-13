@@ -66,6 +66,10 @@ Ouvrir http://localhost:5173.
   prompts/skills de génération personnalisables — dont le skill dédié aux
   solutions de points de friction, en posture design créatif / creative
   problem solving.
+- Interface auditée de bout en bout (ADR-068) : état vide guidé, boutons
+  de suppression révélés au survol/focus dans l'onglet Édition, astuces du
+  diagramme repliables, notation "Reçoit/Envoie" explicite en Vue par
+  acteur.
 
 ## Empaqueter en binaire autonome
 

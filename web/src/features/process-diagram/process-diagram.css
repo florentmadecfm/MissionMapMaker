@@ -12,6 +12,32 @@
   flex-shrink: 0;
 }
 
+/* Astuces d'utilisation (ADR-068) : bouton discret plutôt que le
+   paragraphe permanent qu'il remplace (voir ProcessDiagram.tsx,
+   hintOpen) — même famille visuelle que .nl-hint (couleur, taille) mais
+   sans fond/bordure, pour rester une action secondaire à côté du bouton
+   Sauvegarder. flex: 1 comme l'ancien paragraphe : pousse Sauvegarder/
+   l'horodatage à droite de l'en-tête. */
+.diagram-hint-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.diagram-hint-toggle:hover {
+  color: var(--color-primary);
+}
+
+.diagram-hint-text {
+  margin: -0.75rem 0 0.75rem;
+}
+
 /* Zone de mise à jour en langage naturel, sans quitter le diagramme :
    même pipeline génération + fusion additive que l'onglet "Générer"
    (voir ProcessDiagram.tsx, handleGenerateUpdate). Barre compacte (2
@@ -223,22 +249,27 @@
 /* Boutons "+" en coin des en-têtes de phase/acteur : réservent
    manuellement une sous-colonne/sous-ligne supplémentaire (voir
    Phase.subColumns / Actor.subLanes) avant même qu'une activité y soit
-   placée. Petits et discrets (coin de l'en-tête) pour ne pas concurrencer
-   visuellement les boutons "+ Phase"/"+ Activité" de la colonne dédiée. */
+   placée. Discrets (coin de l'en-tête) pour ne pas concurrencer
+   visuellement les boutons "+ Phase"/"+ Activité" de la colonne dédiée,
+   mais assez grands pour rester repérables/cliquables au survol — 16px
+   (trouvé lors de l'audit UX/UI, ADR-068) était en-dessous de la taille
+   de cible tactile/pointeur généralement recommandée (~24px) et la
+   bordure grise sur fond clair les rendait quasi invisibles tant qu'on
+   ne les cherchait pas activement. */
 .add-subcolumn-button,
 .add-sublane-button {
   position: absolute;
   top: 2px;
   right: 2px;
-  width: 16px;
-  height: 16px;
-  line-height: 14px;
+  width: 22px;
+  height: 22px;
+  line-height: 19px;
   padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
   background: var(--color-surface);
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   transition:
