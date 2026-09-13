@@ -13,6 +13,7 @@ import { ExportImportMenu } from './ExportImportMenu'
 import { ProjectEditor } from './ProjectEditor'
 import { VariantComparisonScreen } from './VariantComparisonScreen'
 import { VariantSwitcher } from './VariantSwitcher'
+import { VersionHistoryModal } from './VersionHistoryModal'
 
 type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
 // Vue de la zone principale, indépendante des onglets d'un projet ouvert :
@@ -49,6 +50,7 @@ export function ProjectShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [createVariantOpen, setCreateVariantOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   // null tant que le premier chargement des paramètres n'a pas répondu :
   // évite d'afficher brièvement la pastille d'alerte à chaque démarrage
   // avant de savoir si un fournisseur LLM est réellement configuré.
@@ -272,6 +274,17 @@ export function ProjectShell() {
         />
       )}
 
+      {historyOpen && project && (
+        <VersionHistoryModal
+          project={project}
+          onClose={() => setHistoryOpen(false)}
+          onRestored={(restored) => {
+            setProject(restored)
+            handleSaved()
+          }}
+        />
+      )}
+
       <main className="shell-main">
         {view === 'actors' ? (
           <ActorMissionsScreen actors={actors} error={actorsError} onOpenProject={handleOpenFromActorMissions} />
@@ -312,6 +325,7 @@ export function ProjectShell() {
                 project={project}
                 onChange={setProject}
                 onCreateVariant={() => setCreateVariantOpen(true)}
+                onShowHistory={() => setHistoryOpen(true)}
               />
             </div>
             <VariantSwitcher

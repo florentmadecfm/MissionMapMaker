@@ -905,3 +905,50 @@ persistée après sauvegarde + rechargement complet de la page) ; bouton
 "plus tôt" désactivé sur la 1ère ligne, "plus tard" désactivé sur la
 dernière ; le diagramme de processus reflète bien le nouvel ordre des
 colonnes après sauvegarde.
+
+## ADR-070 — Historique des versions consultable
+
+Backlog blueprint #7. Le backend écrit déjà, à chaque `Save`, une copie
+horodatée de l'état PRÉCÉDENT du projet dans `data/<id>/backups/` (voir
+`Repository.backupExisting`, mécanisme de sécurité déjà en place depuis
+le tout début du projet) — mais rien ne permettait de consulter ni de
+revenir à l'une de ces sauvegardes depuis l'interface. Cette fonctionnalité
+n'ajoute donc aucun nouveau mécanisme de stockage : elle expose ce qui
+existait déjà.
+
+**Backend** : `Repository.ListVersions`/`LoadVersion` (nouveau
+`storage.ProjectVersion{ID, SavedAt}`, ID = le fragment d'horodatage du
+nom de fichier, jamais un chemin exposé tel quel — `versionId` reçu de
+l'API est validé par regexp avant toute lecture disque, pour ne pas
+resauver une traversée de chemin comme identifiant de version).
+`ProjectService.RestoreVersion` ne réimplémente aucune logique : il
+charge la sauvegarde choisie puis appelle `Update` (donc `Save`) exactement
+comme s'il s'agissait d'une nouvelle édition normale — ce qui a pour effet
+que l'état courant, remplacé, est lui-même automatiquement conservé comme
+une nouvelle entrée de l'historique juste avant d'être écrasé : une
+restauration reste donc elle-même réversible, sans code dédié à ce cas.
+Routes : `GET /api/projects/{id}/versions` (liste), `GET
+.../versions/{versionId}` (aperçu en lecture seule), `POST
+.../versions/{versionId}/restore`.
+
+**Frontend** : "Historique des versions…" dans le menu ☰ de la barre
+d'onglets (`ExportImportMenu.tsx`), ouvre `VersionHistoryModal.tsx` — liste
+des versions à gauche (les plus récentes en premier), aperçu du diagramme
+de la version sélectionnée à droite. Réutilise tel quel
+`ReadOnlyProcessDiagram` (déjà bâti pour la comparaison de variantes,
+ADR-063) plutôt qu'un nouveau rendu dédié à l'historique. La restauration
+est confirmée (`window.confirm`, comme l'import Excel) en rappelant
+explicitement que l'état actuel n'est pas perdu.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...` verts — nouveaux
+tests `TestListVersions_TracksBackupsAcrossSaves` (l'historique grandit
+d'une entrée à chaque sauvegarde qui écrase un état déjà présent, jamais à
+la toute première), `TestListVersions_UnknownProjectReturnsEmpty`,
+`TestLoadVersion_RejectsInvalidVersionID` (tentative de traversée de
+chemin rejetée). `tsc -b`, `npm run lint`, `npm run build` verts.
+Playwright, projet de test à 3 sauvegardes successives : historique liste
+bien les 3 états intermédiaires (les plus récents en premier), l'aperçu
+d'une version ancienne affiche le bon contenu (acteur et nombre de phases
+d'alors), la restauration ramène l'état courant du projet à ce contenu
+(vérifié dans l'onglet Édition) ET ajoute elle-même une 4e entrée à
+l'historique (l'état d'avant restauration, conservé).

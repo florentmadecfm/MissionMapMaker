@@ -33,6 +33,9 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("GET /api/projects/{id}", h.getProject)
 	mux.HandleFunc("PUT /api/projects/{id}", h.updateProject)
 	mux.HandleFunc("DELETE /api/projects/{id}", h.deleteProject)
+	mux.HandleFunc("GET /api/projects/{id}/versions", h.listVersions)
+	mux.HandleFunc("GET /api/projects/{id}/versions/{versionId}", h.getVersion)
+	mux.HandleFunc("POST /api/projects/{id}/versions/{versionId}/restore", h.restoreVersion)
 	mux.HandleFunc("POST /api/generate", h.generateProcess)
 	mux.HandleFunc("POST /api/generate-specifications", h.generateSpecifications)
 	mux.HandleFunc("POST /api/generate-test-scenarios", h.generateTestScenarios)
@@ -133,6 +136,53 @@ func (h *Handler) updateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
+}
+
+// listVersions expose l'historique consultable des sauvegardes passées
+// d'un projet (backlog blueprint #7, ADR-070), consommé par
+// VersionHistoryModal.tsx.
+func (h *Handler) listVersions(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	versions, err := h.projects.ListVersions(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, versions)
+}
+
+func (h *Handler) getVersion(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	versionID := r.PathValue("versionId")
+	p, err := h.projects.GetVersion(id, versionID)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	versionID := r.PathValue("versionId")
+	p, err := h.projects.RestoreVersion(id, versionID)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidProject) {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
 }
 
 func (h *Handler) generateProcess(w http.ResponseWriter, r *http.Request) {

@@ -208,6 +208,15 @@ export interface ProjectSummary {
   variantLabel?: string
 }
 
+// Une sauvegarde horodatée passée du projet (voir Repository.backupExisting
+// côté backend, exposée pour consultation par ADR-070) — id est le
+// fragment d'horodatage du nom de fichier, opaque côté frontend, à
+// repasser tel quel à getVersion/restoreVersion.
+export interface ProjectVersion {
+  id: string
+  savedAt: string
+}
+
 // ActorProjectRef identifie une mission (projet) où un acteur d'un nom
 // donné apparaît (voir ActorSummary) — couleur/description propres à
 // cette mission, un même nom d'acteur pouvant être décrit différemment
