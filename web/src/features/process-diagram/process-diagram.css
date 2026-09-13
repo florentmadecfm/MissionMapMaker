@@ -305,6 +305,28 @@
   pointer-events: none;
 }
 
+/* Diagramme en lecture seule (ReadOnlyProcessDiagram.tsx, vue de
+   comparaison de variantes, ADR-063) : les boutons "+" en coin d'un
+   en-tête restent dans le DOM (portés par PhaseHeaderNode/ActorHeaderNode,
+   réutilisés tels quels) mais n'ont ici aucune action — masqués plutôt
+   que désactivés pour ne pas laisser un bouton visible sans effet.
+   Idem pour le curseur "cliquable" d'un en-tête d'acteur (ouverture de la
+   fiche persona en mode édition, ADR-055) et d'une carte d'activité
+   (consultation du détail, ADR-053), qui n'ouvrent rien ici. */
+.diagram-readonly .add-subcolumn-button,
+.diagram-readonly .add-sublane-button {
+  display: none;
+}
+
+.diagram-readonly .actor-header,
+.diagram-readonly .activity-card {
+  cursor: default;
+}
+
+.diagram-readonly .actor-header:hover {
+  background: var(--color-surface-muted);
+}
+
 /* ---------- Modale de détail d'activité (clic sur une carte) ---------- */
 
 .activity-detail-modal {

@@ -17,6 +17,20 @@ type Project struct {
 	Interactions   []Interaction   `json:"interactions"`
 	Specifications []Specification `json:"specifications"`
 	TestScenarios  []TestScenario  `json:"testScenarios"`
+
+	// VariantGroupID, quand renseigné, relie ce projet à d'autres missions
+	// considérées comme des VARIANTES les unes des autres (typiquement un
+	// état actuel et une ou plusieurs cibles — "as-is"/"to-be", ADR-062) :
+	// tous les projets partageant le même VariantGroupID appartiennent au
+	// même groupe. VariantLabel distingue cette variante précise au sein du
+	// groupe (ex. "État actuel", "Cible"). Vide par défaut : un projet créé
+	// normalement n'appartient à aucun groupe — ce n'est qu'en créant
+	// explicitement une variante depuis un projet existant que les deux se
+	// retrouvent liés. Volontairement PAS de champ "parent" unique (aucune
+	// hiérarchie stricte entre variantes) : un groupe peut contenir
+	// plusieurs cibles côte à côte sans qu'aucune ne soit "la référence".
+	VariantGroupID string `json:"variantGroupId,omitempty"`
+	VariantLabel   string `json:"variantLabel,omitempty"`
 }
 
 type Actor struct {

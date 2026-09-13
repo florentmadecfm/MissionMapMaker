@@ -7,13 +7,17 @@ import { importProjectFromExcel } from './importExcel'
 interface Props {
   project: Project
   onChange: (project: Project) => void
+  onCreateVariant: () => void
 }
 
-// Menu burger export/import Excel du projet ouvert — placé au niveau de la
-// barre d'onglets (ProjectShell.tsx) plutôt que dans l'en-tête d'un seul
-// onglet (Édition, avant ADR-046) : disponible depuis n'importe quel
-// onglet, pas seulement quand on y est déjà.
-export function ExportImportMenu({ project, onChange }: Props) {
+// Menu burger des actions sur le projet ouvert — export/import Excel et
+// création d'une variante (ADR-062) — placé au niveau de la barre d'onglets
+// (ProjectShell.tsx) plutôt que dans l'en-tête d'un seul onglet (Édition,
+// avant ADR-046) : disponible depuis n'importe quel onglet, pas seulement
+// quand on y est déjà. La modale de création de variante elle-même vit
+// dans ProjectShell (qui détient l'état `project` à mettre à jour après
+// création) : ce composant se contente de déclencher son ouverture.
+export function ExportImportMenu({ project, onChange, onCreateVariant }: Props) {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -68,6 +72,9 @@ export function ExportImportMenu({ project, onChange }: Props) {
         </button>
         <button type="button" onClick={() => importFileRef.current?.click()} disabled={importing}>
           {importing ? 'Import…' : 'Importer depuis Excel'}
+        </button>
+        <button type="button" onClick={onCreateVariant}>
+          Créer une variante…
         </button>
       </HeaderMenu>
       <input ref={importFileRef} type="file" accept=".xlsx" hidden onChange={handleImportFile} />

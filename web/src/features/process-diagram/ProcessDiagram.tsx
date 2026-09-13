@@ -97,11 +97,15 @@ function AutoFitOnChange({ nodeCount }: { nodeCount: number }) {
 // Id DOM-safe pour un marqueur de départ partagé par toutes les flèches
 // issues d'un acteur de cette couleur (évite de dupliquer un <marker> par
 // flèche alors que la couleur, elle, ne varie que par acteur).
-function dotMarkerId(color: string) {
+// Exportée avec gradientId/toFlowEdge ci-dessous : réutilisées telles
+// quelles par ReadOnlyProcessDiagram.tsx (vue de comparaison de variantes,
+// ADR-063), qui a besoin du même rendu de flèches sans dupliquer cette
+// logique.
+export function dotMarkerId(color: string) {
   return `mmm-dot-${color.replace('#', '')}`
 }
 
-function gradientId(edgeId: string) {
+export function gradientId(edgeId: string) {
   return `mmm-grad-${edgeId}`
 }
 
@@ -114,7 +118,7 @@ function edgeLabel(e: LayoutEdge): string {
   return e.label ? `Si ${e.condition} — ${e.label}` : `Si ${e.condition}`
 }
 
-function toFlowEdge(e: LayoutEdge): Edge {
+export function toFlowEdge(e: LayoutEdge): Edge {
   return {
     id: e.id,
     source: e.source,

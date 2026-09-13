@@ -476,3 +476,102 @@ non-régression complète sur les suites de fiche persona, points de
 friction et embranchements conditionnels déjà en place. Vérifié
 visuellement (captures d'écran) sur la barre latérale, le diagramme, la
 matrice de traçabilité et la Vue par acteur.
+
+## ADR-062 — Variantes de mission (as-is/to-be)
+
+Deuxième élément du backlog blueprint. `Project` gagne deux champs
+optionnels — `VariantGroupID` (partagé par toutes les variantes d'un même
+groupe) et `VariantLabel` (ce qui distingue celle-ci, ex. "État actuel",
+"Cible") — plutôt qu'un champ "parent" unique : aucune hiérarchie stricte
+n'est imposée, un groupe peut contenir plusieurs cibles côte à côte sans
+qu'aucune ne soit "la référence". Exposés sur `ProjectSummary`
+(`Repository.List`) pour que la liste de projets déjà chargée par le
+shell (barre latérale) suffise à regrouper/afficher les variantes sans
+requête supplémentaire.
+
+« Créer une variante… » (menu ☰ de la barre d'onglets, aux côtés
+d'Exporter/Importer Excel) ouvre une petite modale dédiée
+(`CreateVariantModal.tsx`) : demande le nom de la nouvelle variante (et,
+si le projet ouvert n'appartenait encore à aucun groupe, celui à donner
+à CETTE mission au même moment — elle y entre alors elle-même). La
+nouvelle mission est créée via le flux existant (`api.createProject`),
+puis reçoit une copie du contenu de la mission source (acteurs, phases,
+activités, interactions, spécifications, tests — mêmes ids internes,
+sans conséquence puisqu'un projet ne référence jamais les ids d'un
+autre) avant sa première sauvegarde : elle démarre donc identique, prête
+à diverger.
+
+Un projet appartenant à un groupe affiche une barre de bascule
+(`VariantSwitcher.tsx`, sous la barre d'onglets) listant ses variantes en
+pastilles cliquables (celle ouverte mise en évidence), plus un lien
+"Détacher" pour retirer la mission du groupe sans toucher à son contenu.
+La barre latérale affiche aussi l'étiquette de variante à côté du nom de
+chaque mission concernée — pensée pour ne **jamais** se faire tronquer
+par le nom (`.project-name-text` porte seule l'ellipsis, `.variant-badge`
+reste `flex-shrink: 0`) : c'est justement elle qui distingue deux
+missions au nom presque identique, trouvé et corrigé en vérifiant le
+rendu avec un nom de mission long.
+
+**Alternative écartée** : une vue de comparaison côte à côte des deux
+diagrammes (repérée dans l'état de l'art comme pratique blueprint
+courante) — délibérément différée plutôt qu'abandonnée : demanderait un
+mode lecture seule pour `ProcessDiagram` (aujourd'hui pleinement
+interactif), un chantier plus lourd que la bascule instantanée déjà
+livrée, qui couvre déjà l'essentiel du besoin (comparer en quelques
+clics) à bien moindre risque.
+
+Pas de champ variant sur l'export/import Excel : c'est une relation
+ENTRE projets, pas un contenu de mission — l'exporter aurait pu, à
+l'import dans un projet sans rapport, créer un lien de groupe erroné.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright : modale de création
+avec les bons libellés par défaut, contenu fidèlement copié dans la
+nouvelle variante, barre de bascule affichant les deux variantes (la
+bonne mise en évidence), bascule réellement fonctionnelle, badges visibles
+dans la barre latérale, détachement du groupe persisté. Non-régression
+confirmée sur les suites embranchements conditionnels et fiche persona.
+Vérifié visuellement que l'étiquette de variante reste lisible même avec
+un nom de mission très long.
+
+## ADR-063 — Vue de comparaison côte à côte entre variantes
+
+Suite d'ADR-062 : construction de la comparaison alors différée, faute
+d'un mode lecture seule pour le diagramme. `ProcessDiagram.tsx` restant
+pleinement interactif (glisser-déposer, modales d'édition, barre de mise
+à jour en langage naturel), un second rendu dédié était nécessaire plutôt
+que d'y ajouter un mode conditionnel partout : `ReadOnlyProcessDiagram.tsx`
+réutilise tel quel le calcul de disposition (`computeLayout`) et les
+cartes/flèches (`nodeTypes`, `toFlowEdge` — exportés de `ProcessDiagram.tsx`
+pour l'occasion) dans un `<ReactFlow>` sans glisser-déposer, sans connexion,
+sans sélection et sans aucun gestionnaire de clic. Les nœuds "+ Phase"/
+"+ Activité" (colonne d'ajout) sont filtrés avant le rendu — ce sont des
+actions d'édition sans équivalent en lecture seule ; les petits boutons
+"+" en coin des en-têtes de phase/acteur, eux, restent dans le DOM
+(portés par les mêmes composants que la vue interactive) mais sont
+masqués en CSS (`.diagram-readonly`), tout comme le curseur "cliquable"
+d'un en-tête d'acteur ou d'une carte, qui n'ouvrent ici aucune modale.
+
+`VariantComparisonScreen.tsx` (nouvel écran, entré via un bouton
+"Comparer" dans `VariantSwitcher.tsx`, nouvelle valeur `'compare'` du
+`View` de `ProjectShell.tsx`) affiche deux panneaux côte à côte, chacun
+avec son propre groupe de boutons radio (un par variante du groupe,
+même tri que `VariantSwitcher`) pour choisir indépendamment quelle
+variante y afficher — plutôt qu'un sélecteur unique ou une bascule
+« avant/après », pour permettre de comparer deux cibles entre elles aussi
+bien qu'un état actuel à une cible. Les projets complets des variantes
+sélectionnées sont récupérés à la demande (`api.getProject`, mis en cache
+en state le temps de l'écran) ; une ligne de synthèse (nombre d'acteurs,
+phases, activités, points de friction) au-dessus de chaque diagramme
+donne un repère rapide avant même de le lire en détail.
+
+**Conséquences** : aucun changement backend. `tsc -b`, `npm run lint`,
+`npm run build` verts. Playwright : entrée dans la vue via "Comparer",
+deux diagrammes en lecture seule affichés avec le contenu de LEUR
+variante respective (vérifié avec un contenu délibérément différent
+entre les deux), bascule d'un panneau via son bouton radio effectivement
+répercutée sur son diagramme seul, aucune affordance d'édition visible
+(pas de bouton "+", pas de bouton Sauvegarder, pas de barre de mise à
+jour en langage naturel) et un clic sur une carte n'ouvre aucune modale,
+retour à la vue projet via "Fermer la comparaison". Aucune régression
+détectée sur la bascule instantanée entre variantes (ADR-062).
