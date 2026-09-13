@@ -46,6 +46,14 @@ export const MAX_OFFSET_Y = SUBLANE_HEIGHT - CARD_HEIGHT_ESTIMATE - CARD_MARGIN
 // disposition plutôt qu'une hauteur dynamique par cellule.
 export const PAIN_POINT_ROW_HEIGHT = 160
 
+// Hauteur (en pixels internes du canevas) réservée au nœud de la ligne de
+// visibilité (VisibilityLineNode, service blueprint, ADR-064) — le trait
+// lui-même est centré verticalement dans cette hauteur (voir CSS), pour
+// qu'il tombe exactement sur la frontière entre le dernier acteur
+// front-stage et le premier back-stage plutôt que de déborder sur l'un
+// des deux.
+export const VISIBILITY_LINE_HEIGHT = 20
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
@@ -64,7 +72,15 @@ export const HANDLES_PER_SIDE = 3
 
 export interface LayoutNode {
   id: string
-  type: 'phaseHeader' | 'actorHeader' | 'activity' | 'addPhase' | 'addActivity' | 'painPointRowLabel' | 'painPointCell'
+  type:
+    | 'phaseHeader'
+    | 'actorHeader'
+    | 'activity'
+    | 'addPhase'
+    | 'addActivity'
+    | 'painPointRowLabel'
+    | 'painPointCell'
+    | 'visibilityLine'
   position: { x: number; y: number }
   data: Record<string, unknown>
   // Seules les cartes d'activité sont déplaçables (glisser-déposer pour
@@ -173,7 +189,13 @@ function resolveColumns(activities: Project['activities']): Map<string, number> 
 // beaucoup d'activités.
 export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
   const phases = [...project.phases].sort((a, b) => a.order - b.order)
-  const actors = project.actors
+  // Acteurs front-stage (visibles/en interaction directe avec le client)
+  // groupés avant les back-stage (support interne) — tri STABLE, qui
+  // conserve l'ordre relatif au sein de chaque groupe tel qu'il était dans
+  // project.actors, pour ne rien bouleverser d'autre que ce regroupement
+  // (voir Actor.backstage, ADR-064). La ligne de visibilité elle-même est
+  // dessinée plus bas (visibilityLine), une fois actorOffsets connu.
+  const actors = [...project.actors].sort((a, b) => Number(Boolean(a.backstage)) - Number(Boolean(b.backstage)))
 
   const phaseIndex = new Map(phases.map((p, i) => [p.id, i]))
   const actorIndex = new Map(actors.map((a, i) => [a.id, i]))
@@ -240,11 +262,38 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       id: `actor-header-${actor.id}`,
       type: 'actorHeader',
       position: { x: 0, y: actorOffsets[i] },
-      data: { label: actor.name, color: actor.color, height: actorHeights[i], actorId: actor.id },
+      data: {
+        label: actor.name,
+        color: actor.color,
+        height: actorHeights[i],
+        actorId: actor.id,
+        backstage: Boolean(actor.backstage),
+      },
       draggable: false,
       selectable: false,
     })
   })
+
+  // Ligne de visibilité (service blueprint, ADR-064) : séparateur visuel
+  // entre le dernier acteur front-stage et le premier acteur back-stage —
+  // seulement si les deux groupes sont non vides (findIndex renvoie -1 si
+  // aucun acteur n'est back-stage, et 0 si TOUS le sont : les deux cas
+  // n'ont rien à séparer, d'où la condition `> 0` qui les exclut ensemble).
+  const firstBackstageIndex = actors.findIndex((a) => a.backstage)
+  if (firstBackstageIndex > 0) {
+    nodes.push({
+      id: 'visibility-line',
+      type: 'visibilityLine',
+      // Centré verticalement SUR la frontière (voir VISIBILITY_LINE_HEIGHT
+      // en CSS, process-diagram.css) plutôt que posé juste en dessous :
+      // sinon la ligne empiéterait visuellement sur la marge de la
+      // première carte back-stage au lieu de séparer les deux groupes.
+      position: { x: 0, y: actorOffsets[firstBackstageIndex] - VISIBILITY_LINE_HEIGHT / 2 },
+      data: { width: phaseCumulative + ADD_LANE_WIDTH },
+      draggable: false,
+      selectable: false,
+    })
+  }
 
   // Ligne de synthèse des points de friction, tout en bas du diagramme
   // (sous la dernière ligne d'acteur) : une cellule par phase, largeur

@@ -41,7 +41,9 @@ Ouvrir http://localhost:5173.
   phase façon storyboard (proposée par le LLM à la génération, éditable).
   Une interaction peut être conditionnelle (embranchement, ex. "si
   paiement refusé") — tracée en pointillés, avec un badge 🔀 sur
-  l'activité d'où elle part.
+  l'activité d'où elle part. Un acteur peut être marqué **back-stage**
+  (onglet Édition) : regroupé sous une **ligne de visibilité**, séparé des
+  acteurs en contact direct avec le client.
 - **Fiche persona** par acteur (à propos, bio, objectifs, points de
   friction du métier) — partagée entre toutes les missions portant un
   acteur du même nom, consultable/éditable depuis le diagramme, l'onglet

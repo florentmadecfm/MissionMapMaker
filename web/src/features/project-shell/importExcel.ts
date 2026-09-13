@@ -46,6 +46,12 @@ function toNumber(value: string, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+// Écho de "Oui"/"Non" (voir exportExcel.ts) — insensible à la casse et aux
+// espaces, comme le reste de cette lecture par colonne nommée.
+function toBool(value: string): boolean {
+  return value.trim().toLowerCase() === 'oui'
+}
+
 // Une cellule exceljs peut être une valeur brute (ce que l'export écrit
 // toujours) ou, si le fichier a été retouché à la main (texte enrichi,
 // hyperlien, formule...), un objet porteur — on ne garde alors que le
@@ -136,6 +142,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
     color: r['Couleur'] || '#2563eb',
     description: r['Description'] ?? '',
     subLanes: toNumber(r['Sous-lignes'] ?? '0'),
+    backstage: toBool(r['Back-stage'] ?? ''),
     about: r['À propos'] ?? '',
     bio: r['Bio'] ?? '',
     goals: [],

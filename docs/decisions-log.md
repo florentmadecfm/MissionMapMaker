@@ -575,3 +575,43 @@ répercutée sur son diagramme seul, aucune affordance d'édition visible
 jour en langage naturel) et un clic sur une carte n'ouvre aucune modale,
 retour à la vue projet via "Fermer la comparaison". Aucune régression
 détectée sur la bascule instantanée entre variantes (ADR-062).
+
+## ADR-064 — Ligne de visibilité (front-stage / back-stage)
+
+Pratique de service blueprint : séparer les acteurs en contact direct
+avec le client (front-stage) de ceux qui ne le sont jamais (back-stage,
+support interne), avec un repère visuel entre les deux groupes.
+Modélisé au niveau de l'ACTEUR plutôt que de l'activité (`Actor.Backstage
+bool`, `omitempty`, `false` par défaut — y compris pour les acteurs
+enregistrés avant l'introduction du champ, donc front-stage inchangé) :
+plus simple qu'une bascule par activité, et cohérent avec le fait qu'un
+acteur donné (ex. « Support technique ») joue en pratique toujours le
+même rôle vis-à-vis du client d'une mission à l'autre.
+
+`computeLayout` (layout.ts) trie désormais les acteurs — tri STABLE, qui
+conserve l'ordre relatif au sein de chaque groupe — pour regrouper les
+front-stage avant les back-stage, puis calcule la frontière entre les
+deux (premier acteur back-stage après le tri) pour y insérer un nouveau
+nœud `visibilityLine` (trait pointillé pleine largeur + étiquette,
+`VisibilityLineNode`, non interactif) UNIQUEMENT quand les deux groupes
+sont non vides — sinon rien à séparer. Un acteur back-stage porte aussi
+une étiquette discrète sur son en-tête de ligne (là encore, un acteur
+front-stage n'a besoin d'aucune étiquette, c'est le comportement par
+défaut). La bascule elle-même est une case à cocher dans l'onglet
+Édition (liste des acteurs), pas dans la fiche persona partagée
+(ADR-055/056) : c'est un choix structurel de CETTE mission (où l'acteur
+se situe dans CE diagramme), pas un trait de l'acteur en général.
+
+Réutilisé tel quel par `ReadOnlyProcessDiagram.tsx` (ADR-063) — la ligne
+de visibilité apparaît donc aussi dans la vue de comparaison de
+variantes sans code supplémentaire, `nodeTypes` étant partagé.
+
+Champ ajouté aux exports/imports Excel (colonne "Back-stage", "Oui"/"Non"
+— même patron que les autres champs acteur comme "Sous-lignes").
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright : ligne affichée
+seulement avec au moins un acteur de chaque groupe, acteurs effectivement
+regroupés front-stage puis back-stage dans le diagramme, étiquette
+"back-stage" affichée sur le bon en-tête, ligne disparaissant après avoir
+décoché la case dans l'onglet Édition.

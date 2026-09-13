@@ -648,6 +648,23 @@
   text-align: center;
 }
 
+/* Case à cocher "back-stage" de la ligne d'un acteur (service blueprint,
+   ADR-064) — taille de contenu (flex-shrink: 0) plutôt qu'étirée comme le
+   champ Nom voisin (flex: 1). */
+.actor-backstage-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.actor-backstage-toggle input {
+  margin: 0;
+}
+
 .danger {
   color: var(--color-danger);
   background: var(--color-danger-bg);

@@ -39,6 +39,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
       color: '#2563eb',
       description: '',
       subLanes: 0,
+      backstage: false,
       about: '',
       bio: '',
       goals: [],
@@ -167,6 +168,20 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
             <li key={a.id}>
               <input type="color" value={a.color} onChange={(e) => updateActor(a.id, { color: e.target.value })} />
               <input value={a.name} onChange={(e) => updateActor(a.id, { name: e.target.value })} />
+              {/* Ligne de visibilité (service blueprint, ADR-064) : un
+                  acteur back-stage n'interagit jamais directement avec le
+                  client — regroupé après les front-stage dans le
+                  diagramme, séparé par un trait. Front-stage (décoché)
+                  reste le comportement par défaut, y compris pour les
+                  acteurs créés avant l'introduction de ce champ. */}
+              <label className="actor-backstage-toggle" title="Acteur back-stage : jamais en contact direct avec le client (support interne)">
+                <input
+                  type="checkbox"
+                  checked={Boolean(a.backstage)}
+                  onChange={(e) => updateActor(a.id, { backstage: e.target.checked })}
+                />
+                back-stage
+              </label>
               <button type="button" className="danger" onClick={() => removeActor(a.id)}>
                 supprimer
               </button>

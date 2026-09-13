@@ -46,6 +46,17 @@ type Actor struct {
 	// une activité (bouton "+" sur l'en-tête d'acteur du diagramme),
 	// symétrique de Phase.SubColumns sur l'axe vertical.
 	SubLanes int `json:"subLanes"`
+	// Backstage place cet acteur derrière la ligne de visibilité (pratique
+	// de service blueprint) : false (la valeur par défaut, y compris pour
+	// les acteurs enregistrés avant l'introduction de ce champ) signifie
+	// FRONT-STAGE, visible/en interaction directe avec le client — true
+	// signifie BACK-STAGE (support interne, jamais en contact direct). Ne
+	// change aucune donnée, seulement l'ordre d'affichage des lignes du
+	// diagramme (front-stage groupées en haut, back-stage en bas, tri
+	// stable qui conserve l'ordre relatif au sein de chaque groupe — voir
+	// computeLayout, layout.ts) et l'affichage d'une ligne de séparation
+	// entre les deux groupes quand ils sont tous deux non vides (ADR-064).
+	Backstage bool `json:"backstage,omitempty"`
 	// Fiche persona de cet acteur (ADR-055) : About/Bio en texte libre,
 	// Goals/PainPoints en listes d'entrées indépendantes (même patron que
 	// Activity.PainPoints, ADR-052) — PainPoints ici décrit les irritants

@@ -16,6 +16,11 @@ export interface Actor {
   bio: string
   goals: ActorGoal[]
   painPoints: ActorPainPoint[]
+  // Place cet acteur derrière la ligne de visibilité (service blueprint) :
+  // false/absent (front-stage, visible du client) par défaut — true =
+  // back-stage (support interne). Voir layout.ts (computeLayout) pour le
+  // regroupement des lignes et la ligne de séparation, ADR-064.
+  backstage?: boolean
 }
 
 export interface ActorGoal {

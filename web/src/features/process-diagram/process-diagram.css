@@ -163,6 +163,63 @@
   white-space: nowrap;
 }
 
+/* Étiquette discrète sur l'en-tête d'un acteur back-stage (service
+   blueprint, ADR-064) — un acteur front-stage (comportement par défaut)
+   n'a lui aucune étiquette. */
+.actor-header-backstage-tag {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Ligne de visibilité (VisibilityLineNode, ADR-064) : trait pointillé
+   pleine largeur séparant les acteurs front-stage (au-dessus) des
+   back-stage (en dessous), avec une étiquette centrée dans une pastille
+   pour rester lisible même par-dessus le quadrillage du canevas
+   (Background, voir ProcessDiagram.tsx). Hauteur fixe (20px, voir
+   VISIBILITY_LINE_HEIGHT, layout.ts) : le trait lui-même est centré dans
+   cette hauteur (top: 50%) plutôt que collé en haut, pour tomber
+   exactement sur la frontière entre les deux groupes de lignes plutôt que
+   d'empiéter sur l'une d'elles. Non interactif (pointer-events: none) :
+   ce n'est qu'un repère visuel, jamais cliquable/glissable. */
+.visibility-line {
+  position: relative;
+  height: 20px;
+  pointer-events: none;
+}
+
+.visibility-line::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-top: 2px dashed var(--color-border-strong);
+}
+
+.visibility-line-label {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+}
+
 /* Boutons "+" en coin des en-têtes de phase/acteur : réservent
    manuellement une sous-colonne/sous-ligne supplémentaire (voir
    Phase.subColumns / Actor.subLanes) avant même qu'une activité y soit

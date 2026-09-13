@@ -39,15 +39,33 @@ export function ActorHeaderNode({ data }: NodeProps) {
   // besoin de plusieurs sous-lignes (une activité positionnée sur
   // Activity.subRow > 0, ou une réservation manuelle via le bouton "+"
   // ci-dessous) a un en-tête plus haut, symétrique de PhaseHeaderNode.
+  const backstage = data.backstage as boolean
   return (
     <div
       className="lane-node actor-header"
       style={{ width: LANE_LABEL_WIDTH - 8, height: (data.height as number) - 8, borderLeftColor: data.color as string }}
     >
       {data.label as string}
+      {/* Étiquette discrète plutôt qu'une icône : "back-stage" seul, sans
+          nom d'acteur, se lirait mal en un coup d'œil (voir ADR-064) — un
+          acteur front-stage n'a lui aucune étiquette (comportement par
+          défaut, pas besoin d'être signalé). */}
+      {backstage && <span className="actor-header-backstage-tag">back-stage</span>}
       <button type="button" className="add-sublane-button" title="Ajouter une ligne pour cet acteur">
         +
       </button>
+    </div>
+  )
+}
+
+// Séparateur visuel entre acteurs front-stage (au-dessus) et back-stage
+// (en dessous) — service blueprint, ADR-064. Un simple trait pointillé
+// pleine largeur avec une étiquette, sans interaction : positionné par
+// computeLayout uniquement quand les deux groupes sont non vides.
+export function VisibilityLineNode({ data }: NodeProps) {
+  return (
+    <div className="visibility-line" style={{ width: data.width as number }}>
+      <span className="visibility-line-label">Ligne de visibilité</span>
     </div>
   )
 }
@@ -196,4 +214,5 @@ export const nodeTypes = {
   activity: ActivityNode,
   addPhase: AddPhaseNode,
   addActivity: AddActivityNode,
+  visibilityLine: VisibilityLineNode,
 }
