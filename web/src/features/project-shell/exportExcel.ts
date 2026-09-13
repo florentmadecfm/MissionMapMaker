@@ -197,6 +197,7 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Information échangée', key: 'information', width: 40 },
       { header: 'Description', key: 'description', width: 40 },
       { header: 'Condition (embranchement)', key: 'condition', width: 34 },
+      { header: 'Preuve(s) physique(s)', key: 'physicalEvidence', width: 34 },
     ],
     project.interactions.map((i) => ({
       depuis: activityLabel(project, i.fromActivityId),
@@ -204,6 +205,7 @@ export async function exportProjectToExcel(project: Project) {
       information: i.information,
       description: i.description ?? '',
       condition: i.condition ?? '',
+      physicalEvidence: i.physicalEvidence ?? '',
     })),
   )
 

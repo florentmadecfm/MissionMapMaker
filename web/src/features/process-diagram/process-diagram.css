@@ -38,6 +38,31 @@
   margin: -0.75rem 0 0.75rem;
 }
 
+/* Panneau flottant "Exporter en PNG" (ADR-072) — Panel de React Flow,
+   positionné au-dessus du canevas plutôt que dans .editor-header : rendu
+   comme enfant de <ReactFlow> (seul endroit où useReactFlow() est
+   utilisable, voir DownloadPngButton dans ProcessDiagram.tsx). */
+.diagram-export-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.diagram-export-panel button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.diagram-export-panel .error {
+  font-size: 0.75rem;
+  max-width: 220px;
+  text-align: right;
+}
+
 /* Zone de mise à jour en langage naturel, sans quitter le diagramme :
    même pipeline génération + fusion additive que l'onglet "Générer"
    (voir ProcessDiagram.tsx, handleGenerateUpdate). Barre compacte (2

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleHelp } from 'lucide-react'
+import { CircleHelp, ImageDown } from 'lucide-react'
 import {
   ReactFlow,
   Background,
   Controls,
   MarkerType,
+  Panel,
   useReactFlow,
   useViewport,
   type Connection,
@@ -12,6 +13,7 @@ import {
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { toPng } from 'html-to-image'
 import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { generateAndMerge } from '../nl-input/generateUpdate'
@@ -95,6 +97,132 @@ function AutoFitOnChange({ nodeCount }: { nodeCount: number }) {
   return null
 }
 
+// Résolution maximale (plus grand côté) de l'image exportée — assez pour
+// rester lisible une fois imprimé/projeté sans produire un fichier
+// disproportionné pour un diagramme à beaucoup de phases/acteurs. Bornes
+// du facteur d'échelle appliqué à la taille EFFECTIVEMENT affichée à
+// l'écran au moment de l'export (voir pixelRatio ci-dessous) : sans
+// plancher, une fenêtre déjà très large produirait un export à peine plus
+// net que l'écran ; sans plafond, une fenêtre étroite produirait un
+// agrandissement démesuré (texte flou, fichier inutilement lourd).
+const EXPORT_MAX_DIMENSION = 2400
+const EXPORT_MIN_PIXEL_RATIO = 1
+const EXPORT_MAX_PIXEL_RATIO = 4
+
+// Exclut du PNG capturé les éléments de chrome de l'interface, sans
+// équivalent sur une image destinée à être partagée/imprimée :
+// - les nœuds "+ Phase"/"+ Activité" (classe react-flow__node-<type>,
+//   voir @xyflow/react) : affordances d'édition ;
+// - les petits "+" en coin des en-têtes de phase/acteur (add-subcolumn/
+//   add-sublane) — mêmes classes déjà masquées par .diagram-readonly pour
+//   ReadOnlyProcessDiagram (ADR-063), même raison ici ;
+// - les poignées de connexion (classe react-flow__handle) : de petits
+//   ronds toujours dans le DOM (voir HANDLE_OFFSETS, nodes.tsx),
+//   pratiquement invisibles au zoom habituel du diagramme affiché à
+//   l'écran mais qui ressortent nettement une fois le contenu mis à
+//   l'échelle pour occuper toute la résolution d'export ;
+// - les boutons de zoom (Controls), CE panneau d'export lui-même
+//   (react-flow__panel) et le filigrane "React Flow" (attribution) : chrome
+//   de l'outil, pas du diagramme.
+const PNG_EXPORT_EXCLUDED_CLASSES = [
+  'react-flow__handle',
+  'react-flow__node-addPhase',
+  'react-flow__node-addActivity',
+  'add-subcolumn-button',
+  'add-sublane-button',
+  'react-flow__controls',
+  'react-flow__panel',
+  'react-flow__attribution',
+]
+
+function shouldIncludeInPngExport(node: Element): boolean {
+  const classList = (node as HTMLElement).classList
+  if (!classList) return true
+  return !PNG_EXPORT_EXCLUDED_CLASSES.some((c) => classList.contains(c))
+}
+
+// Export PNG du diagramme (backlog blueprint #10, ADR-072) — mêmes
+// contraintes que AutoFitOnChange ci-dessus : useReactFlow() n'est
+// utilisable qu'à l'intérieur de <ReactFlow>, d'où ce composant enfant
+// plutôt qu'un bouton dans l'en-tête (hors de cet arbre).
+//
+// Recadre via fitView() (le même mécanisme, déjà fiable, qu'AutoFitOnChange
+// ci-dessus) plutôt que de recalculer soi-même la transformation à partir
+// de getNodesBounds/getViewportForBounds (approche standard de la
+// documentation React Flow) : ces deux fonctions s'appuient sur les
+// dimensions MESURÉES de chaque nœud (node.measured), qui se sont avérées
+// non renseignées pour ce diagramme au moment de l'export (nœuds
+// personnalisés sans dimension fixe déclarée) — bounds calculées à partir
+// de simples points (position x/y), sans tenir compte de la largeur/hauteur
+// réelle des cartes, ce qui sous-évaluait largement le cadrage et laissait
+// une bande vide disproportionnée sur l'image. fitView(), lui, s'appuie sur
+// la même mesure DOM déjà utilisée pour l'affichage normal du diagramme —
+// donc déjà fiable par construction — plutôt que d'y ajouter une deuxième
+// dépendance.
+function DownloadPngButton({ projectName }: { projectName: string }) {
+  const { fitView } = useReactFlow()
+  const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleExport() {
+    setExporting(true)
+    setError(null)
+    try {
+      const viewportEl = document.querySelector<HTMLElement>('.process-diagram .react-flow__viewport')
+      const transformBefore = viewportEl?.style.transform
+
+      await fitView({ padding: 0.1, duration: 0 })
+
+      // fitView met à jour l'état interne de façon synchrone, mais le style
+      // CSS qui en découle ne se reflète dans le DOM qu'au prochain rendu
+      // React (commit + peinture) — un nombre fixe de frames attendues
+      // s'est avéré insuffisant sur un gros diagramme (colonne d'acteurs
+      // encore tronquée sur l'image capturée) : on attend activement que
+      // le transform ait réellement changé plutôt que de deviner un délai,
+      // borné à 20 frames (~300ms) pour ne jamais bloquer indéfiniment si
+      // le nouveau cadrage recalculé est identique au précédent.
+      for (let i = 0; i < 20; i++) {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+        if (viewportEl && viewportEl.style.transform !== transformBefore) break
+      }
+
+      const containerEl = document.querySelector<HTMLElement>('.process-diagram .react-flow')
+      if (!containerEl) throw new Error('Diagramme introuvable')
+
+      const rect = containerEl.getBoundingClientRect()
+      const pixelRatio = Math.min(
+        EXPORT_MAX_PIXEL_RATIO,
+        Math.max(EXPORT_MIN_PIXEL_RATIO, EXPORT_MAX_DIMENSION / Math.max(rect.width, rect.height, 1)),
+      )
+
+      const dataUrl = await toPng(containerEl, {
+        backgroundColor: '#ffffff',
+        pixelRatio,
+        filter: shouldIncludeInPngExport,
+      })
+
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = `${projectName || 'diagramme'}.png`.replace(/[/\\?%*:|"<>]/g, '_')
+      a.click()
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <Panel position="top-right" className="diagram-export-panel">
+      <button type="button" onClick={handleExport} disabled={exporting}>
+        <ImageDown size={14} aria-hidden="true" />
+        {exporting ? 'Export…' : 'Exporter en PNG'}
+      </button>
+      {error && <span className="error">{error}</span>}
+    </Panel>
+  )
+}
+
 // Id DOM-safe pour un marqueur de départ partagé par toutes les flèches
 // issues d'un acteur de cette couleur (évite de dupliquer un <marker> par
 // flèche alors que la couleur, elle, ne varie que par acteur).
@@ -113,10 +241,16 @@ export function gradientId(edgeId: string) {
 // Une interaction conditionnelle (embranchement, ADR-060) affiche sa
 // condition en préfixe ("Si <condition>"), suivie de l'information
 // échangée si elle est également renseignée — plutôt que deux libellés
-// séparés sur la même flèche.
+// séparés sur la même flèche. Une preuve physique (service blueprint,
+// ADR-071), quand renseignée, s'ajoute en suffixe derrière une icône
+// 🧾 : signale sa présence sans avoir à ouvrir l'interaction, sans pour
+// autant justifier un nouveau badge dédié comme .activity-card-branch
+// (bien plus rare qu'un embranchement, une flèche à la fois suffit).
 function edgeLabel(e: LayoutEdge): string {
-  if (!e.condition) return e.label
-  return e.label ? `Si ${e.condition} — ${e.label}` : `Si ${e.condition}`
+  const base = !e.condition ? e.label : e.label ? `Si ${e.condition} — ${e.label}` : `Si ${e.condition}`
+  if (!e.physicalEvidence) return base
+  const evidence = `🧾 ${e.physicalEvidence}`
+  return base ? `${base} · ${evidence}` : evidence
 }
 
 export function toFlowEdge(e: LayoutEdge): Edge {
@@ -531,6 +665,14 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           elementsSelectable
           panOnScroll
           zoomOnScroll
+          // Le zoom minimal par défaut de React Flow (0.5) empêchait
+          // fitView() de dézoomer suffisamment pour un diagramme à
+          // beaucoup de phases/acteurs — trouvé lors de la vérification de
+          // l'export PNG (ADR-072) : la colonne d'acteurs se retrouvait
+          // partiellement hors du cadre visible (masquée par l'overflow du
+          // conteneur), y compris dans la vue interactive normale, pas
+          // seulement à l'export.
+          minZoom={0.1}
           onNodeDrag={handleNodeDrag}
           onNodeDragStop={handleNodeDragStop}
           onConnect={handleConnect}
@@ -541,6 +683,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           <Controls showInteractive={false} />
           <DropTargetPreview cellPosition={dragTargetPosition} />
           <AutoFitOnChange nodeCount={nodes.length} />
+          <DownloadPngButton projectName={project.name} />
         </ReactFlow>
       </div>
       {selectedActivityId && (

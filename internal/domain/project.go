@@ -217,6 +217,18 @@ type Interaction struct {
 	// porte façon BPMN (exclusive/parallèle/inclusive) : reste lisible
 	// comme une étiquette de flèche, cohérent avec le reste du diagramme.
 	Condition string `json:"condition,omitempty"`
+	// PhysicalEvidence liste les preuves physiques perceptibles par le
+	// client lors de cet échange (ex. "reçu papier", "email de
+	// confirmation", "étiquette bagage") — pratique de service blueprint.
+	// Texte libre plutôt qu'une liste structurée, même philosophie que
+	// Condition ci-dessus et que Phase.Duration (ADR-060/065) : un
+	// utilisateur qui veut plusieurs preuves les sépare lui-même (virgule,
+	// retour à la ligne). Vide par défaut, y compris pour les interactions
+	// enregistrées avant l'introduction de ce champ : aucune preuve
+	// affichée (ADR-071). Volontairement absent des schémas de génération
+	// LLM (llm/schemas.go) — manuel uniquement, comme Duration/
+	// SatisfactionScore de Phase, pas comme Condition (ADR-060), qui l'est.
+	PhysicalEvidence string `json:"physicalEvidence,omitempty"`
 }
 
 type SpecificationType string

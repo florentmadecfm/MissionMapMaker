@@ -21,6 +21,7 @@ export function InteractionDetailModal({ project, interactionId, onChange, onClo
   const interaction = project.interactions.find((i) => i.id === interactionId)
   const [text, setText] = useState(interaction?.information ?? '')
   const [condition, setCondition] = useState(interaction?.condition ?? '')
+  const [physicalEvidence, setPhysicalEvidence] = useState(interaction?.physicalEvidence ?? '')
 
   if (!interaction) return null
 
@@ -33,7 +34,14 @@ export function InteractionDetailModal({ project, interactionId, onChange, onClo
     onChange({
       ...project,
       interactions: project.interactions.map((i) =>
-        i.id === interactionId ? { ...i, information: text, condition: condition.trim() || undefined } : i,
+        i.id === interactionId
+          ? {
+              ...i,
+              information: text,
+              condition: condition.trim() || undefined,
+              physicalEvidence: physicalEvidence.trim() || undefined,
+            }
+          : i,
       ),
     })
     onClose()
@@ -77,6 +85,16 @@ export function InteractionDetailModal({ project, interactionId, onChange, onClo
           onChange={(e) => setCondition(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSave()}
           placeholder="Ex. paiement refusé"
+        />
+        <label className="field-label" htmlFor="interaction-physical-evidence">
+          Preuve(s) physique(s) — optionnel (service blueprint)
+        </label>
+        <input
+          id="interaction-physical-evidence"
+          value={physicalEvidence}
+          onChange={(e) => setPhysicalEvidence(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          placeholder="Ex. reçu papier, email de confirmation"
         />
         <div className="modal-actions">
           <button type="button" className="danger" onClick={handleRemove}>

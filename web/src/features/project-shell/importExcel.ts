@@ -300,6 +300,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
       information: r['Information échangée'] ?? '',
       description: r['Description'] || undefined,
       condition: r['Condition (embranchement)'] || undefined,
+      physicalEvidence: r['Preuve(s) physique(s)'] || undefined,
     })
   }
 

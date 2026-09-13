@@ -952,3 +952,97 @@ d'une version ancienne affiche le bon contenu (acteur et nombre de phases
 d'alors), la restauration ramène l'état courant du projet à ce contenu
 (vérifié dans l'onglet Édition) ET ajoute elle-même une 4e entrée à
 l'historique (l'état d'avant restauration, conservé).
+
+## ADR-071 — Preuves physiques par interaction
+
+Backlog blueprint #8. Pratique de service blueprint : les artefacts
+tangibles perceptibles par le client à un échange donné (reçu papier,
+email de confirmation, étiquette...). Ajouté comme
+`Interaction.PhysicalEvidence`, texte libre — même philosophie que
+`Interaction.Condition` (ADR-060) et `Phase.Duration` (ADR-065) : un
+utilisateur qui veut plusieurs preuves les sépare lui-même, pas de liste
+structurée à gérer.
+
+**Choix de périmètre** : volontairement MANUEL uniquement, absent des
+schémas de génération LLM (`llm/schemas.go`, `llm/draft.go`) — en écho au
+précédent le plus récent (`Phase.Duration`/`SatisfactionScore`, ADR-065,
+eux aussi manuels), pas à `Condition` (ADR-060), qui lui est
+LLM-générable. Une preuve physique réaliste (quel document, quel canal)
+tient d'une connaissance du terrain que le LLM n'a pas à l'extraction
+d'un texte libre — mieux vaut un champ vide qu'une preuve inventée.
+
+**Frontend** : champ ajouté à `InteractionDetailModal.tsx` (clic sur une
+flèche du diagramme) et à la section Interactions de l'onglet Édition,
+colonnes Export/Import Excel. Sur le diagramme, affiché en suffixe du
+libellé de la flèche derrière une icône 🧾 (`ProcessDiagram.tsx,
+edgeLabel`) plutôt qu'un nouveau badge dédié sur la carte d'activité
+(contrairement à l'embranchement conditionnel, bien plus rare — une seule
+flèche à la fois suffit à porter l'info).
+
+**Conséquences** : `go build`/`go vet`/`go test ./...` verts (champ texte
+libre, aucune validation ni migration nécessaire). `tsc -b`, `npm run
+lint`, `npm run build` verts. Playwright : preuve physique saisie via
+l'API apparaît bien sur la flèche du diagramme (icône + texte), la
+modale d'interaction la pré-remplit et la modification s'y sauvegarde
+correctement, la valeur mise à jour se retrouve à l'identique dans
+l'onglet Édition puis de nouveau sur le diagramme après sauvegarde.
+
+## ADR-072 — Export PNG du diagramme
+
+Backlog blueprint #10 (dernier item du backlog blueprint). Dépendance
+ajoutée : `html-to-image` (rasterise un sous-arbre DOM), approche standard
+documentée par React Flow lui-même pour ce besoin.
+
+**Première approche, écartée** : calculer soi-même le cadrage
+(`getNodesBounds`/`getViewportForBounds`, l'exemple officiel de React
+Flow) avant de capturer uniquement `.react-flow__viewport`. Abandonnée
+après vérification : ces deux fonctions s'appuient sur les dimensions
+MESURÉES de chaque nœud (`node.measured`), qui se sont avérées non
+renseignées pour les nœuds personnalisés de ce diagramme au moment de
+l'export — `getNodesBounds` retombait sur de simples points (position x/y
+sans largeur/hauteur), sous-évaluant très largement le cadrage réel
+(bande vide disproportionnée sur l'image, colonnes fantômes "+ Phase"/
+"+ Activité" visibles en plus).
+
+**Approche retenue** : `fitView()` — le même mécanisme, déjà fiable, que
+`AutoFitOnChange` (ADR-043) — recadre le diagramme juste avant capture,
+puis `toPng()` capture le conteneur entier (`.react-flow`, pas seulement
+son `.viewport`) à une résolution mise à l'échelle (`pixelRatio`, borné
+entre 1 et 4) pour rester lisible quelle que soit la taille de fenêtre au
+moment de l'export. Un filtre (`html-to-image`'s `filter`) exclut du
+rendu capturé le chrome d'interface sans équivalent sur une image
+exportée : nœuds "+ Phase"/"+ Activité", petits "+" en coin d'en-tête
+(déjà masqués en CSS pour `ReadOnlyProcessDiagram`, ADR-063, même
+raison), poignées de connexion (`react-flow__handle` — visibles au zoom
+d'export bien plus qu'au zoom habituel de l'écran), boutons de zoom, ce
+panneau d'export lui-même, filigrane "React Flow". `fitView()` étant
+asynchrone à se refléter dans le DOM (état interne mis à jour
+synchroniquement, mais le style CSS n'apparaît qu'au prochain rendu React
+commité), la capture attend activement que le `transform` du viewport ait
+changé (borné à 20 frames) plutôt que de deviner un délai fixe — un délai
+fixe insuffisant a été observé produire une image avec la colonne
+d'acteurs partiellement hors cadre.
+
+**Bug préexistant trouvé et corrigé au passage** : en vérifiant l'export
+sur un diagramme plus large (6 phases × 5 acteurs dont 3 back-stage), les
+libellés d'acteurs se sont retrouvés tronqués — PAS SEULEMENT sur l'image
+exportée mais DÉJÀ dans la vue interactive normale après son propre
+`fitView()` automatique (`AutoFitOnChange`). Cause : aucun `minZoom`
+n'était fixé sur `<ReactFlow>` (ni sur `ReadOnlyProcessDiagram`), donc le
+zoom minimal par défaut de React Flow (0.5) empêchait `fitView()` de
+dézoomer suffisamment pour un diagramme dont le zoom nécessaire pour tout
+montrer est inférieur à 0.5 — le contenu débordait alors du conteneur
+(`overflow: hidden`), rognant la colonne d'acteurs à l'écran, pas
+seulement à l'export. `minZoom={0.1}` ajouté aux deux diagrammes
+(`ProcessDiagram.tsx` et `ReadOnlyProcessDiagram.tsx`) : au-delà d'un
+biais direct dans mon export (la vérification l'a révélé), un vrai
+diagramme aux dimensions comparables aurait souffert du même rognage
+silencieux dans l'usage normal de l'app.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...` verts (aucun
+changement backend). `tsc -b`, `npm run lint`, `npm run build` verts.
+Playwright, deux projets de test (petit : 2 phases/2 acteurs ; grand : 6
+phases/5 acteurs dont back-stage) : PNG valide (signature de fichier),
+contenu cadré sans marge disproportionnée ni chrome d'édition visible, et
+— après le correctif `minZoom` — plus aucun libellé tronqué sur le grand
+diagramme, ni à l'export ni dans la vue interactive normale.
