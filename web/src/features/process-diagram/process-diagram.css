@@ -384,6 +384,59 @@
   background: var(--color-surface-muted);
 }
 
+/* Ligne combinée durée + courbe de satisfaction (SatisfactionRowNode,
+   ADR-065) — placée au-dessus des en-têtes de phase. Étiquette de gauche
+   dans la même largeur que les en-têtes d'acteur (LANE_LABEL_WIDTH,
+   cohérence visuelle avec le reste des lignes du diagramme), tracé SVG
+   pleine largeur par-dessus, libellés de durée par phase en dessous du
+   tracé. */
+.satisfaction-row {
+  position: relative;
+  height: 92px;
+  pointer-events: none;
+}
+
+.satisfaction-row-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  padding-left: 0.7rem;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+}
+
+.satisfaction-row-curve {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.satisfaction-row-polyline {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  opacity: 0.6;
+}
+
+.satisfaction-row-duration {
+  position: absolute;
+  top: 60px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- Modale de détail d'activité (clic sur une carte) ---------- */
 
 .activity-detail-modal {

@@ -112,6 +112,21 @@ type Phase struct {
 	// (onglet Édition) ; vide par défaut, y compris pour les phases créées
 	// avant l'introduction de ce champ — aucun repli visuel forcé.
 	Icon string `json:"icon"`
+	// Duration est un texte libre indiquant la durée typique de cette
+	// étape (ex. "15 min", "2-3 jours") — texte libre plutôt qu'une durée
+	// structurée (unités trop variables d'une mission à l'autre : minutes,
+	// jours, semaines...), même philosophie qu'Interaction.Condition
+	// (ADR-060). Vide par défaut, y compris pour les phases enregistrées
+	// avant l'introduction de ce champ : aucune durée affichée (ADR-065).
+	Duration string `json:"duration,omitempty"`
+	// SatisfactionScore note le ressenti client typique à cette étape, sur
+	// une échelle de 1 (très insatisfait) à 5 (très satisfait) — pratique
+	// de "courbe de satisfaction" en service blueprint. 0 (valeur par
+	// défaut, y compris pour les phases enregistrées avant l'introduction
+	// de ce champ) signifie NON RENSEIGNÉ, distinct d'un score neutre (qui
+	// serait 3) : une phase sans score n'apparaît pas dans la courbe
+	// (ADR-065).
+	SatisfactionScore int `json:"satisfactionScore,omitempty"`
 }
 
 type Activity struct {

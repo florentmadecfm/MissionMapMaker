@@ -45,6 +45,14 @@ export interface Phase {
   // de son nom dans l'en-tête du diagramme (mode storyboard, ADR-059) —
   // vide par défaut, aucun repli visuel forcé.
   icon: string
+  // Durée typique de cette étape, texte libre (ex. "15 min") — absente
+  // par défaut. Voir SatisfactionRowNode (ADR-065).
+  duration?: string
+  // Ressenti client typique à cette étape, de 1 (très insatisfait) à 5
+  // (très satisfait) — 0/absent = non renseigné, distinct d'un score
+  // neutre (3) : n'apparaît alors pas dans la courbe de satisfaction
+  // (ADR-065).
+  satisfactionScore?: number
 }
 
 export interface UserStory {

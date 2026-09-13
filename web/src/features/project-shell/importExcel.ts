@@ -52,6 +52,14 @@ function toBool(value: string): boolean {
   return value.trim().toLowerCase() === 'oui'
 }
 
+// Une valeur hors de l'échelle 1-5 (cellule vide, texte libre laissé par
+// erreur...) retombe sur 0 (non renseigné) plutôt qu'une valeur bornée
+// arbitrairement — mieux vaut l'absence du point dans la courbe qu'un
+// score inventé.
+function clampSatisfaction(value: number): number {
+  return value >= 1 && value <= 5 ? Math.round(value) : 0
+}
+
 // Une cellule exceljs peut être une valeur brute (ce que l'export écrit
 // toujours) ou, si le fichier a été retouché à la main (texte enrichi,
 // hyperlien, formule...), un objet porteur — on ne garde alors que le
@@ -175,6 +183,8 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
     order: toNumber(r['Ordre'] ?? '0', i + 1),
     subColumns: toNumber(r['Sous-colonnes'] ?? '0'),
     icon: r['Icône'] ?? '',
+    duration: r['Durée'] ?? '',
+    satisfactionScore: clampSatisfaction(toNumber(r['Satisfaction (1-5)'] ?? '0')),
   }))
   const phaseIdByName = new Map(phases.map((p) => [p.name.trim().toLowerCase(), p.id]))
 

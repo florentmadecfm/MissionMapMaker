@@ -64,7 +64,15 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
   }
 
   function addPhase() {
-    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0, icon: '' }
+    const phase: Phase = {
+      id: newId('ph'),
+      name: 'Nouvelle phase',
+      order: project.phases.length + 1,
+      subColumns: 0,
+      icon: '',
+      duration: '',
+      satisfactionScore: 0,
+    }
     onChange({ ...project, phases: [...project.phases, phase] })
   }
 
@@ -198,6 +206,8 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
         <div className="col-headers">
           <span className="col-icon">Icône</span>
           <span className="col-name">Nom</span>
+          <span className="col-duration">Durée</span>
+          <span className="col-satisfaction">Satisfaction</span>
         </div>
         <ul>
           {project.phases.map((p) => (
@@ -210,6 +220,29 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
                 title="Emoji illustrant cette phase (mode storyboard du diagramme)"
               />
               <input value={p.name} onChange={(e) => updatePhase(p.id, { name: e.target.value })} />
+              {/* Durée + satisfaction fusionnées dans une même ligne du
+                  diagramme (ADR-065) — vide/"—" par défaut, aucune des
+                  deux n'apparaît alors dans le diagramme. */}
+              <input
+                className="phase-duration-input"
+                value={p.duration ?? ''}
+                onChange={(e) => updatePhase(p.id, { duration: e.target.value })}
+                placeholder="ex. 15 min"
+                title="Durée typique de cette étape (texte libre)"
+              />
+              <select
+                className="phase-satisfaction-select"
+                value={p.satisfactionScore ?? 0}
+                onChange={(e) => updatePhase(p.id, { satisfactionScore: Number(e.target.value) })}
+                title="Ressenti client typique à cette étape (courbe de satisfaction)"
+              >
+                <option value={0}>— satisfaction —</option>
+                <option value={1}>😞 Très insatisfait</option>
+                <option value={2}>😕 Insatisfait</option>
+                <option value={3}>😐 Neutre</option>
+                <option value={4}>🙂 Satisfait</option>
+                <option value={5}>😄 Très satisfait</option>
+              </select>
               <button type="button" className="danger" onClick={() => removePhase(p.id)}>
                 supprimer
               </button>

@@ -615,3 +615,62 @@ seulement avec au moins un acteur de chaque groupe, acteurs effectivement
 regroupés front-stage puis back-stage dans le diagramme, étiquette
 "back-stage" affichée sur le bon en-tête, ligne disparaissant après avoir
 décoché la case dans l'onglet Édition.
+
+## ADR-065 — Durée + courbe de satisfaction par phase (fusion backlog #6/#9)
+
+À la demande explicite de l'utilisateur, les backlog #6 (courbe de
+satisfaction) et #9 (durée par étape) sont livrés ensemble plutôt qu'en
+deux passes séparées : `Phase` gagne `Duration` (texte libre, ex.
+"15 min" — même philosophie qu'`Interaction.Condition`, ADR-060, les
+unités de durée variant trop d'une mission à l'autre pour un type
+structuré) et `SatisfactionScore` (entier 1 à 5, `0`/absent = NON
+RENSEIGNÉ, distinct d'un score neutre qui serait 3 — une phase sans score
+n'apparaît simplement pas dans la courbe).
+
+Rendu comme UN SEUL nouveau nœud pleine largeur, `SatisfactionRowNode`
+(`computeLayout`, layout.ts), positionné en Y NÉGATIF juste au-dessus des
+en-têtes de phase plutôt que d'insérer une vraie ligne (ce qui aurait
+demandé de décaler tous les calculs de position existants — acteurs,
+activités, ligne de visibilité...). Un seul nœud plutôt qu'une cellule
+par phase (comme la ligne de points de friction, ADR-054) : la courbe
+doit tracer un trait CONTINU d'une phase à l'autre, ce qu'un ensemble de
+nœuds React Flow indépendants ne permet pas facilement (chacun ignore la
+position des autres) — un unique `<svg>` interne au nœud, en coordonnées
+locales, dessine le `<polyline>` reliant les phases qui ont un score
+(les phases sans score sont simplement absentes du tracé, sans casser la
+courbe). N'apparaît que si au moins une phase a une donnée renseignée,
+pour ne rien changer aux diagrammes existants.
+
+Réutilisé tel quel par `ReadOnlyProcessDiagram.tsx` (ADR-063, `nodeTypes`
+partagé) : la ligne apparaît donc aussi dans la vue de comparaison de
+variantes sans code supplémentaire — vérifié explicitement (création
+d'une variante depuis une mission avec durées/scores déjà renseignés).
+
+Champs ajoutés à l'onglet Édition (liste des phases : champ durée en
+texte libre, menu déroulant satisfaction 1-5 avec emoji) et aux
+exports/imports Excel (colonnes "Durée" et "Satisfaction (1-5)", valeur
+hors 1-5 ramenée à "non renseigné" plutôt que bornée arbitrairement).
+
+**Bug préexistant trouvé et corrigé pendant la vérification** : les
+champs de largeur fixe de la liste Phases (`.phase-icon-input`, et par
+extension mes nouveaux `.phase-duration-input`/`.phase-satisfaction-select`)
+s'étiraient en pratique comme le champ Nom (flex: 1) malgré leur règle
+CSS dédiée — `.editor li > input:not([type])`/`.editor li select`
+(la règle générique qui fait s'étirer le champ Nom) l'emportait
+propriété par propriété : `flex: 1` fixe flex-grow et flex-basis, qu'une
+simple `width` (sans réécrire flex-grow/flex-basis) ne peut pas
+contrer même en gagnant par ailleurs la cascade CSS. Corrigé en
+qualifiant les sélecteurs par le type d'élément (`input.phase-icon-input`
+etc., spécificité strictement supérieure) ET en remplaçant `width` +
+`flex-shrink` par un raccourci `flex: 0 0 <largeur>` complet.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright : ligne durée/
+satisfaction affichée avec le bon nombre de durées/points/segments de
+tracé, édition (durée + satisfaction) persistée après sauvegarde et
+reflétée dans le diagramme, ligne de visibilité (ADR-064) ET ligne
+durée/satisfaction toutes deux présentes dans une variante nouvellement
+créée (confirmant qu'aucune donnée structurelle de phase/acteur n'est
+perdue lors de la création d'une variante), largeur des champs Icône/
+Durée/Satisfaction vérifiée visuellement après correction du bug CSS
+ci-dessus.

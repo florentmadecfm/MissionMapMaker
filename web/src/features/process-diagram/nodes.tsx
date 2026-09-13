@@ -1,6 +1,14 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { GitBranch, TriangleAlert } from 'lucide-react'
-import { ADD_LANE_WIDTH, HANDLES_PER_SIDE, LANE_LABEL_WIDTH, PHASE_HEADER_HEIGHT, type PainPointRowEntry } from './layout'
+import {
+  ADD_LANE_WIDTH,
+  HANDLES_PER_SIDE,
+  LANE_LABEL_WIDTH,
+  PHASE_HEADER_HEIGHT,
+  SATISFACTION_CURVE_HEIGHT,
+  type PainPointRowEntry,
+  type PhaseMetricEntry,
+} from './layout'
 
 // Points d'ancrage répartis verticalement (25/50/75% par défaut pour 3
 // poignées) plutôt qu'un unique point central, pour que plusieurs liens
@@ -66,6 +74,71 @@ export function VisibilityLineNode({ data }: NodeProps) {
   return (
     <div className="visibility-line" style={{ width: data.width as number }}>
       <span className="visibility-line-label">Ligne de visibilité</span>
+    </div>
+  )
+}
+
+// Un emoji par score de satisfaction (1 = très insatisfait, index 0, à 5 =
+// très satisfait, index 4) — se passe de légende, contrairement à un point
+// de couleur seul.
+const SATISFACTION_EMOJI = ['😞', '😕', '😐', '🙂', '😄']
+const SATISFACTION_LABELS = ['Très insatisfait', 'Insatisfait', 'Neutre', 'Satisfait', 'Très satisfait']
+
+// Mappe un score 1-5 sur une position verticale dans la zone de tracé
+// (SATISFACTION_CURVE_HEIGHT, layout.ts) — 5 en haut, 1 en bas, avec une
+// marge de 8px de chaque côté pour que le point/l'emoji ne touche jamais
+// le bord.
+function satisfactionY(score: number): number {
+  const usable = SATISFACTION_CURVE_HEIGHT - 16
+  return 8 + usable * (1 - (score - 1) / 4)
+}
+
+// Ligne combinée durée + courbe de satisfaction, une par diagramme
+// (ADR-065, fusion des backlog #6 "courbe de satisfaction" et #9 "durée
+// par étape") — placée au-dessus des en-têtes de phase (position en Y
+// négatif, voir computeLayout). Un seul nœud pleine largeur plutôt qu'une
+// cellule par phase : la courbe doit tracer un trait continu d'un point à
+// l'autre, ce qui suppose de connaître la position de TOUTES les phases
+// dans un même repère — impossible à faire proprement avec des nœuds
+// React Flow séparés (chacun ignore la position des autres). Les phases
+// sans score renseigné sont simplement absentes du tracé (le trait relie
+// les points existants, sans casser la courbe sur un simple "non
+// renseigné" — voir PhaseMetricEntry, layout.ts).
+export function SatisfactionRowNode({ data }: NodeProps) {
+  const width = data.width as number
+  const phases = data.phases as PhaseMetricEntry[]
+  const scored = phases.filter((p) => p.satisfactionScore > 0)
+  const points = scored.map((p) => `${p.x + p.width / 2},${satisfactionY(p.satisfactionScore)}`).join(' ')
+
+  return (
+    <div className="satisfaction-row" style={{ width }}>
+      <div className="satisfaction-row-label" style={{ width: LANE_LABEL_WIDTH }}>
+        Durée &amp; satisfaction
+      </div>
+      <svg className="satisfaction-row-curve" width={width} height={SATISFACTION_CURVE_HEIGHT} aria-hidden="true">
+        {scored.length > 1 && <polyline points={points} className="satisfaction-row-polyline" />}
+        {scored.map((p) => (
+          <text
+            key={p.id}
+            x={p.x + p.width / 2}
+            y={satisfactionY(p.satisfactionScore)}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize={17}
+          >
+            <title>{SATISFACTION_LABELS[p.satisfactionScore - 1]}</title>
+            {SATISFACTION_EMOJI[p.satisfactionScore - 1]}
+          </text>
+        ))}
+      </svg>
+      {phases.map(
+        (p) =>
+          p.duration && (
+            <div key={p.id} className="satisfaction-row-duration" style={{ left: p.x, width: p.width }}>
+              ⏱ {p.duration}
+            </div>
+          ),
+      )}
     </div>
   )
 }
@@ -215,4 +288,5 @@ export const nodeTypes = {
   addPhase: AddPhaseNode,
   addActivity: AddActivityNode,
   visibilityLine: VisibilityLineNode,
+  satisfactionRow: SatisfactionRowNode,
 }
