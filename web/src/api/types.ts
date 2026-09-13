@@ -144,12 +144,19 @@ export interface Project {
   interactions: Interaction[]
   specifications: Specification[]
   testScenarios: TestScenario[]
+  // Voir ADR-062 : relie cette mission à d'autres variantes (état actuel /
+  // cible...) partageant le même variantGroupId. Absent tant qu'aucune
+  // variante n'a été créée depuis (ou vers) ce projet.
+  variantGroupId?: string
+  variantLabel?: string
 }
 
 export interface ProjectSummary {
   id: string
   name: string
   updatedAt: string
+  variantGroupId?: string
+  variantLabel?: string
 }
 
 // ActorProjectRef identifie une mission (projet) où un acteur d'un nom

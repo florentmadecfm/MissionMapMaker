@@ -8,8 +8,10 @@ import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { SettingsModal } from '../settings/SettingsModal'
 import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
+import { CreateVariantModal } from './CreateVariantModal'
 import { ExportImportMenu } from './ExportImportMenu'
 import { ProjectEditor } from './ProjectEditor'
+import { VariantSwitcher } from './VariantSwitcher'
 
 type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
 // Vue de la zone principale, indépendante des onglets d'un projet ouvert :
@@ -43,6 +45,7 @@ export function ProjectShell() {
   const [initialActorId, setInitialActorId] = useState<string | undefined>(undefined)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [createVariantOpen, setCreateVariantOpen] = useState(false)
   // null tant que le premier chargement des paramètres n'a pas répondu :
   // évite d'afficher brièvement la pastille d'alerte à chaque démarrage
   // avant de savoir si un fournisseur LLM est réellement configuré.
@@ -146,6 +149,35 @@ export function ProjectShell() {
     }
   }
 
+  // Bascule vers la variante nouvellement créée (CreateVariantModal,
+  // ADR-062), comme handleCreate le fait déjà pour un nouveau projet
+  // ordinaire — sans quoi l'utilisateur devrait la rechercher lui-même
+  // dans la liste juste après l'avoir créée.
+  function handleVariantCreated(variant: Project) {
+    setProject(variant)
+    setInitialActorId(undefined)
+    setView('project')
+    refreshList()
+  }
+
+  async function handleLeaveVariantGroup() {
+    if (!project) return
+    if (
+      !window.confirm(
+        "Détacher cette mission de son groupe de variantes ? Son contenu n'est pas modifié, seul le lien avec les autres variantes est retiré.",
+      )
+    ) {
+      return
+    }
+    try {
+      const updated = await api.saveProject({ ...project, variantGroupId: '', variantLabel: '' })
+      setProject(updated)
+      await refreshList()
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   return (
     <div className="shell">
       <aside className={`shell-sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
@@ -183,7 +215,14 @@ export function ProjectShell() {
               {summaries.map((s) => (
                 <li key={s.id} className={s.id === project?.id ? 'active' : ''}>
                   <button type="button" onClick={() => handleOpen(s.id)}>
-                    {s.name}
+                    <span className="project-name-text">{s.name}</span>
+                    {/* Étiquette de variante (ADR-062) : jamais tronquée
+                        (flex-shrink: 0, voir App.css) — c'est justement
+                        elle qui distingue deux missions au nom presque
+                        identique, donc la seule partie qui NE DOIT PAS
+                        disparaître si la place manque ; c'est le nom qui
+                        cède la place en s'abrégeant. */}
+                    {s.variantLabel && <span className="variant-badge">{s.variantLabel}</span>}
                   </button>
                   <button type="button" className="danger" onClick={() => handleDelete(s.id)}>
                     supprimer
@@ -222,6 +261,14 @@ export function ProjectShell() {
         <SettingsModal onClose={() => setSettingsOpen(false)} onSettingsChange={setLlmConfigured} />
       )}
 
+      {createVariantOpen && project && (
+        <CreateVariantModal
+          project={project}
+          onClose={() => setCreateVariantOpen(false)}
+          onCreated={handleVariantCreated}
+        />
+      )}
+
       <main className="shell-main">
         {view === 'actors' ? (
           <ActorMissionsScreen actors={actors} error={actorsError} onOpenProject={handleOpenFromActorMissions} />
@@ -256,8 +303,18 @@ export function ProjectShell() {
               {/* Menu export/import au niveau de la barre d'onglets (pas
                   dans l'en-tête d'un seul onglet) : disponible depuis
                   n'importe quel onglet du projet ouvert (ADR-046). */}
-              <ExportImportMenu project={project} onChange={setProject} />
+              <ExportImportMenu
+                project={project}
+                onChange={setProject}
+                onCreateVariant={() => setCreateVariantOpen(true)}
+              />
             </div>
+            <VariantSwitcher
+              project={project}
+              summaries={summaries}
+              onOpen={handleOpen}
+              onLeaveGroup={handleLeaveVariantGroup}
+            />
             {/* key={project.id} sur chaque onglet : sans lui, passer d'un
                 projet à un autre en restant sur le même onglet ne
                 démonte/remonte pas le composant (seule sa prop `project`

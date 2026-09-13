@@ -476,3 +476,60 @@ non-régression complète sur les suites de fiche persona, points de
 friction et embranchements conditionnels déjà en place. Vérifié
 visuellement (captures d'écran) sur la barre latérale, le diagramme, la
 matrice de traçabilité et la Vue par acteur.
+
+## ADR-062 — Variantes de mission (as-is/to-be)
+
+Deuxième élément du backlog blueprint. `Project` gagne deux champs
+optionnels — `VariantGroupID` (partagé par toutes les variantes d'un même
+groupe) et `VariantLabel` (ce qui distingue celle-ci, ex. "État actuel",
+"Cible") — plutôt qu'un champ "parent" unique : aucune hiérarchie stricte
+n'est imposée, un groupe peut contenir plusieurs cibles côte à côte sans
+qu'aucune ne soit "la référence". Exposés sur `ProjectSummary`
+(`Repository.List`) pour que la liste de projets déjà chargée par le
+shell (barre latérale) suffise à regrouper/afficher les variantes sans
+requête supplémentaire.
+
+« Créer une variante… » (menu ☰ de la barre d'onglets, aux côtés
+d'Exporter/Importer Excel) ouvre une petite modale dédiée
+(`CreateVariantModal.tsx`) : demande le nom de la nouvelle variante (et,
+si le projet ouvert n'appartenait encore à aucun groupe, celui à donner
+à CETTE mission au même moment — elle y entre alors elle-même). La
+nouvelle mission est créée via le flux existant (`api.createProject`),
+puis reçoit une copie du contenu de la mission source (acteurs, phases,
+activités, interactions, spécifications, tests — mêmes ids internes,
+sans conséquence puisqu'un projet ne référence jamais les ids d'un
+autre) avant sa première sauvegarde : elle démarre donc identique, prête
+à diverger.
+
+Un projet appartenant à un groupe affiche une barre de bascule
+(`VariantSwitcher.tsx`, sous la barre d'onglets) listant ses variantes en
+pastilles cliquables (celle ouverte mise en évidence), plus un lien
+"Détacher" pour retirer la mission du groupe sans toucher à son contenu.
+La barre latérale affiche aussi l'étiquette de variante à côté du nom de
+chaque mission concernée — pensée pour ne **jamais** se faire tronquer
+par le nom (`.project-name-text` porte seule l'ellipsis, `.variant-badge`
+reste `flex-shrink: 0`) : c'est justement elle qui distingue deux
+missions au nom presque identique, trouvé et corrigé en vérifiant le
+rendu avec un nom de mission long.
+
+**Alternative écartée** : une vue de comparaison côte à côte des deux
+diagrammes (repérée dans l'état de l'art comme pratique blueprint
+courante) — délibérément différée plutôt qu'abandonnée : demanderait un
+mode lecture seule pour `ProcessDiagram` (aujourd'hui pleinement
+interactif), un chantier plus lourd que la bascule instantanée déjà
+livrée, qui couvre déjà l'essentiel du besoin (comparer en quelques
+clics) à bien moindre risque.
+
+Pas de champ variant sur l'export/import Excel : c'est une relation
+ENTRE projets, pas un contenu de mission — l'exporter aurait pu, à
+l'import dans un projet sans rapport, créer un lien de groupe erroné.
+
+**Conséquences** : `go build`/`go vet`/`go test ./...`, `tsc -b`,
+`npm run lint`, `npm run build` verts. Playwright : modale de création
+avec les bons libellés par défaut, contenu fidèlement copié dans la
+nouvelle variante, barre de bascule affichant les deux variantes (la
+bonne mise en évidence), bascule réellement fonctionnelle, badges visibles
+dans la barre latérale, détachement du groupe persisté. Non-régression
+confirmée sur les suites embranchements conditionnels et fiche persona.
+Vérifié visuellement que l'étiquette de variante reste lisible même avec
+un nom de mission très long.

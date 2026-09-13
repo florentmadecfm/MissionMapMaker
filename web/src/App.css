@@ -205,6 +205,8 @@
 }
 
 .project-list button:first-child {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
   text-align: left;
@@ -212,9 +214,16 @@
   border: none;
   padding: 0.45rem 0.5rem;
   font-size: 0.85rem;
-  white-space: nowrap;
+}
+
+/* Seul le NOM s'abrège (ellipsis) si la place manque — l'étiquette de
+   variante juste après (.variant-badge, flex-shrink: 0) reste toujours
+   entièrement visible : voir ProjectShell.tsx. */
+.project-name-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-list button:first-child:hover {
@@ -260,6 +269,70 @@
   gap: 0.5rem;
   flex-shrink: 0;
   padding-bottom: 0.4rem;
+}
+
+/* Bascule entre variantes d'une même mission (état actuel/cible...),
+   sous la barre d'onglets — voir VariantSwitcher.tsx, ADR-062. */
+.variant-switcher {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 0 0.7rem;
+  margin-top: -0.3rem;
+}
+
+.variant-switcher-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.variant-pill {
+  padding: 0.25rem 0.7rem;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.variant-pill:hover:not(.active) {
+  background: var(--color-surface-muted);
+}
+
+.variant-pill.active {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.variant-leave {
+  margin-left: 0.3rem;
+  color: var(--color-text-faint);
+  font-size: 0.76rem;
+  text-decoration: underline;
+}
+
+.variant-leave:hover {
+  color: var(--color-danger);
+}
+
+/* Étiquette de variante dans la liste de projets de la barre latérale
+   (ADR-062) — reconnaissable sans avoir à ouvrir chaque mission. */
+.variant-badge {
+  flex-shrink: 0;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-size: 0.68rem;
+  font-weight: 600;
 }
 
 .tabs {

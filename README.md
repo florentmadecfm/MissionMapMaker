@@ -50,6 +50,9 @@ Ouvrir http://localhost:5173.
 - **Spécifications** (typées façon INCOSE) et **scénarios de test V&V**,
   génération assistée et matrice de traçabilité.
 - **Export/import Excel** complet d'un projet (menu ☰ de la barre d'onglets).
+- **Variantes de mission** (état actuel / cible) : "Créer une variante…"
+  (même menu ☰) duplique le contenu de la mission ouverte et permet de
+  basculer entre les deux d'un clic.
 - **Paramètres** : fournisseur LLM (Anthropic/Mistral) et clé API,
   prompts/skills de génération personnalisables.
 
