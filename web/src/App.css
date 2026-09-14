@@ -1776,6 +1776,7 @@
 
 .actor-profile-modal textarea {
   width: 100%;
+  min-height: 7rem;
   resize: vertical;
 }
 

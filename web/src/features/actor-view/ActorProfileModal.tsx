@@ -101,7 +101,7 @@ export function ActorProfileModal({ project, actorId, onChange, onClose, onSave,
         </label>
         <textarea
           id="actor-bio"
-          rows={3}
+          rows={6}
           value={actor.bio}
           onChange={(e) => updateActor({ bio: e.target.value })}
           placeholder="Parcours, contexte, ce qui caractérise cette personne dans son rôle…"
