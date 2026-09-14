@@ -811,13 +811,24 @@
   flex: 2;
 }
 
-/* Boutons ‹/› de réordonnancement du backbone (phases, ADR-069) — groupe
-   compact, toujours visible (contrairement à .danger ci-dessus : c'est un
-   contrôle de navigation fréquent, pas une action destructrice rare). */
+/* Boutons ‹/› de réordonnancement du backbone (phases) — groupe compact,
+   toujours visible (contrairement à .danger ci-dessus : c'est un contrôle
+   de navigation fréquent, pas une action destructrice rare). */
 .reorder-buttons {
   display: flex;
   gap: 0.15rem;
   flex-shrink: 0;
+}
+
+/* Étiquette d'en-tête du groupe .reorder-buttons ci-dessus (voir
+   ProjectEditor.tsx) — largeur figée à celle du groupe réel (2 ×
+   .reorder-btn + le gap entre eux) plutôt qu'un espaceur à largeur
+   devinée, pour un alignement garanti même si le style des boutons change
+   plus tard. */
+.col-headers .col-reorder {
+  width: calc(2 * 1.6rem + 0.15rem);
+  flex-shrink: 0;
+  text-align: center;
 }
 
 .reorder-btn {

@@ -488,7 +488,44 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
     const key = `${nodeId}:${group}`
     const n = handleCount.get(key) ?? 0
     handleCount.set(key, n + 1)
-    return `h${n % HANDLES_PER_SIDE}`
+    return n % HANDLES_PER_SIDE
+  }
+
+  // Corrige un cas que le round-robin par nœud ci-dessus ne peut pas voir
+  // venir : une interaction A→B et son retour B→A (typiquement une
+  // "boucle" — ex. escalade vers un responsable PUIS retour à l'étape de
+  // départ, ADR-060) sont comptées sur des compteurs indépendants (nœuds
+  // différents), et obtiennent chacune indépendamment l'index de poignée
+  // n°0 — les deux flèches se superposent alors EXACTEMENT l'une sur
+  // l'autre (labels illisibles, aucune boucle visible). On force ici
+  // l'index effectivement utilisé par une paire de nœuds à rester
+  // distinct entre toutes les interactions qui la relient, quel que soit
+  // le sens : la première interaction d'une paire garde l'index que le
+  // round-robin par nœud lui donnait déjà (aucun changement de
+  // comportement pour le cas courant, sans réciproque) ; toute interaction
+  // suivante sur la MÊME paire se voit décalée vers le prochain index
+  // encore libre.
+  const pairUsedIndices = new Map<string, Set<number>>()
+  const reserveDistinctIndex = (a: string, b: string, natural: number): number => {
+    const pairKey = a < b ? `${a}|${b}` : `${b}|${a}`
+    const used = pairUsedIndices.get(pairKey) ?? new Set<number>()
+    if (!used.has(natural)) {
+      used.add(natural)
+      pairUsedIndices.set(pairKey, used)
+      return natural
+    }
+    // Parmi les index encore libres, privilégie le plus ÉLOIGNÉ de
+    // `natural` (pas juste le premier disponible) : pour le cas le plus
+    // courant — deux interactions sur une même paire, l'aller et son
+    // retour — les deux lignes se retrouvent alors aux deux extrémités de
+    // la largeur de la carte plutôt que sur deux poignées voisines, avec
+    // le plus d'écart possible entre leurs libellés.
+    const free = Array.from({ length: HANDLES_PER_SIDE }, (_, i) => i).filter((i) => i !== natural && !used.has(i))
+    free.sort((x, y) => Math.abs(y - natural) - Math.abs(x - natural))
+    const index = free[0] ?? natural
+    used.add(index)
+    pairUsedIndices.set(pairKey, used)
+    return index
   }
 
   const edges: LayoutEdge[] = project.interactions
@@ -518,16 +555,32 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       let sourceHandle: string
       let targetHandle: string
       if (sameColumn && !sameVerticalPosition) {
+        // Un seul "canal" possible entre le bas de la carte du dessus et le
+        // haut de celle du dessous : contrairement à une interaction
+        // routée par les côtés (ci-dessous), une interaction A→B et son
+        // retour B→A touchent ici FORCÉMENT les deux mêmes bords (bas de
+        // A, haut de B), quel que soit le sens — d'où un index PARTAGÉ
+        // entre les deux bouts (plutôt que le round-robin propre à chaque
+        // nœud, potentiellement différent à chaque bout), seule façon pour
+        // reserveDistinctIndex de séparer visiblement une interaction de
+        // son retour éventuel (la ligne se décale tout entière vers un
+        // autre point de la largeur de la carte).
         const goingDown = toCenter.y > fromCenter.y
-        sourceHandle = goingDown
-          ? `bottom-out-${nextHandle(i.fromActivityId, 'bottom-out')}`
-          : `top-out-${nextHandle(i.fromActivityId, 'top-out')}`
-        targetHandle = goingDown
-          ? `top-in-${nextHandle(i.toActivityId, 'top-in')}`
-          : `bottom-in-${nextHandle(i.toActivityId, 'bottom-in')}`
+        const natural = nextHandle(i.fromActivityId, goingDown ? 'bottom-out' : 'top-out')
+        const index = reserveDistinctIndex(i.fromActivityId, i.toActivityId, natural)
+        sourceHandle = goingDown ? `bottom-out-h${index}` : `top-out-h${index}`
+        targetHandle = goingDown ? `top-in-h${index}` : `bottom-in-h${index}`
       } else {
-        sourceHandle = `out-${nextHandle(i.fromActivityId, 'out')}`
-        targetHandle = `in-${nextHandle(i.toActivityId, 'in')}`
+        // Routage par les côtés : une interaction A→B et son retour B→A
+        // touchent ici des bords DIFFÉRENTS de chaque carte (le bord droit
+        // de A pour la sortie de l'une devient son bord gauche pour
+        // l'entrée de l'autre) — déjà naturellement séparés, sans besoin
+        // de la correction par paire ci-dessus (qui casserait la
+        // répartition round-robin propre à chaque nœud, utile quand
+        // plusieurs interactions distinctes convergent vers — ou partent
+        // de — la même activité).
+        sourceHandle = `out-h${nextHandle(i.fromActivityId, 'out')}`
+        targetHandle = `in-h${nextHandle(i.toActivityId, 'in')}`
       }
 
       const gradient = { x1: fromCenter.x, y1: fromCenter.y, x2: toCenter.x, y2: toCenter.y }

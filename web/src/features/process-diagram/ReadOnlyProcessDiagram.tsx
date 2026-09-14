@@ -2,9 +2,9 @@ import { useMemo } from 'react'
 import { ReactFlow, Background, type Node } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { Project } from '../../api/types'
+import { dotMarkerId, gradientId, toFlowEdge } from './edgeRendering'
 import { computeLayout } from './layout'
 import { nodeTypes } from './nodes'
-import { dotMarkerId, gradientId, toFlowEdge } from './ProcessDiagram'
 import './process-diagram.css'
 
 interface Props {

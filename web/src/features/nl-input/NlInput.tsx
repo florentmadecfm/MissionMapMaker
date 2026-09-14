@@ -27,8 +27,8 @@ const EXAMPLE =
   "tenant compte des alertes transmises par le serveur ; le serveur sert ensuite les plats, puis vérifie la " +
   "satisfaction des clients et signale toute réclamation au manager, qui la traite ; le plongeur débarrasse et " +
   "lave la vaisselle. " +
-  "Au moment de payer, le client demande l'addition, le serveur la prépare puis encaisse le paiement, et le " +
-  "manager valide les remises éventuelles. " +
+  "Au moment de payer, le client demande l'addition et le serveur la prépare ; si le client conteste le montant, " +
+  "le manager valide une remise avant que le serveur encaisse le paiement, sinon le serveur encaisse directement. " +
   "Au départ, le plongeur débarrasse et nettoie la table, et le serveur remercie et salue les clients."
 
 export function NlInput({ project, onChange, onGenerated }: Props) {

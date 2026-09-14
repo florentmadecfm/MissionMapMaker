@@ -49,7 +49,14 @@
   gap: 0.3rem;
 }
 
-.diagram-export-panel button {
+/* Ciblé sur le déclencheur (bouton simple, ou déclencheur du menu
+   déroulant de choix de variante quand la mission a une cible — voir
+   DownloadPngButton, ProcessDiagram.tsx) plutôt qu'un sélecteur
+   descendant générique ".diagram-export-panel button", qui aurait aussi
+   stylé les items du menu déroulant lui-même (voir .header-menu-dropdown
+   button, App.css — déjà son propre style de liste). */
+.diagram-export-panel > button,
+.diagram-export-panel .png-export-trigger {
   display: flex;
   align-items: center;
   gap: 0.4rem;
