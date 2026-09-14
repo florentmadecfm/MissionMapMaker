@@ -126,7 +126,14 @@ export function VersionHistoryModal({ project, onClose, onRestored }: Props) {
             <div className="version-history-preview">
               {previewLoading && <p className="placeholder">Chargement de l'aperçu…</p>}
               {previewError && <p className="error">{previewError}</p>}
-              {!previewLoading && preview && <ReadOnlyProcessDiagram project={preview} />}
+              {/* key={selectedId} : garantit explicitement un nouveau montage de
+                  ReadOnlyProcessDiagram (donc une nouvelle instance React Flow, dont
+                  fitView ne s'applique qu'au montage) à chaque version sélectionnée,
+                  plutôt que de reposer implicitement sur le fait que l'état
+                  "Chargement de l'aperçu…" démonte déjà temporairement ce composant
+                  entre deux sélections — ce recadrage correct ne doit pas dépendre
+                  d'un détail d'implémentation aussi indirect. */}
+              {!previewLoading && preview && <ReadOnlyProcessDiagram key={selectedId} project={preview} />}
             </div>
           </div>
         )}

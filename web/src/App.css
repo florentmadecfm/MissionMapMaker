@@ -1776,6 +1776,7 @@
 
 .actor-profile-modal textarea {
   width: 100%;
+  min-height: 7rem;
   resize: vertical;
 }
 
@@ -1828,9 +1829,16 @@
 
 /* ---------- Modale Historique des versions (ADR-070) ---------- */
 
+/* Hauteur FIXE (pas seulement max-height) : donne à .version-history-body
+   un espace vertical défini dont il peut répartir la majeure partie vers
+   .version-history-preview (flex: 1 ci-dessous) — sinon l'aperçu restait
+   cantonné à une hauteur fixe bien plus petite que ce que la modale avait
+   réellement de disponible, le diagramme se retrouvant recadré (fitView)
+   dans une boîte inutilement étroite plutôt que dans tout l'espace offert
+   par la modale. */
 .version-history-modal {
-  width: 900px;
-  max-height: calc(100vh - 4rem);
+  width: min(1200px, 95vw);
+  height: min(820px, calc(100vh - 4rem));
 }
 
 .version-history-body {
@@ -1850,7 +1858,6 @@
   flex-direction: column;
   gap: 0.15rem;
   overflow-y: auto;
-  max-height: 420px;
 }
 
 .version-history-list button {
@@ -1878,7 +1885,6 @@
 .version-history-preview {
   flex: 1;
   min-width: 0;
-  height: 420px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   overflow: hidden;
