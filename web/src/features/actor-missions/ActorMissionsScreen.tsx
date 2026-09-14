@@ -96,7 +96,7 @@ export function ActorMissionsScreen({ actors, error, onOpenProject }: Props) {
     return <p>Chargement…</p>
   }
   if (actors.length === 0) {
-    return <p className="placeholder">Aucun acteur pour l'instant — ajoutez-en dans une mission, puis sauvegardez.</p>
+    return <p className="placeholder">Aucun persona pour l'instant — ajoutez-en dans une mission (sauvegardé automatiquement).</p>
   }
 
   return (

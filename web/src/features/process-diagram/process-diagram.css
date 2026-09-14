@@ -1,5 +1,5 @@
 /* Colonne flex plutôt qu'une hauteur fixe pour le canevas : l'en-tête
-   (indication + bouton Sauvegarder) peut changer de hauteur sans qu'il
+   (bouton d'astuces d'utilisation) peut changer de hauteur sans qu'il
    faille retoucher un nombre magique ailleurs — le canevas prend le
    reste de l'espace disponible. */
 .process-diagram-page {
@@ -12,17 +12,17 @@
   flex-shrink: 0;
 }
 
-/* Astuces d'utilisation (ADR-068) : bouton discret plutôt que le
-   paragraphe permanent qu'il remplace (voir ProcessDiagram.tsx,
-   hintOpen) — même famille visuelle que .nl-hint (couleur, taille) mais
-   sans fond/bordure, pour rester une action secondaire à côté du bouton
-   Sauvegarder. flex: 1 comme l'ancien paragraphe : pousse Sauvegarder/
-   l'horodatage à droite de l'en-tête. */
+/* Astuces d'utilisation : bouton discret plutôt que le paragraphe
+   permanent qu'il remplace (voir ProcessDiagram.tsx, hintOpen) — même
+   famille visuelle que .nl-hint (couleur, taille) mais sans fond/bordure,
+   pour rester une action secondaire. Seul élément de l'en-tête depuis le
+   passage à la sauvegarde automatique (plus de bouton Sauvegarder à
+   pousser à droite) : pas de flex: 1, la zone cliquable reste au plus
+   près du texte. */
 .diagram-hint-toggle {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  flex: 1;
   background: none;
   border: none;
   padding: 0;

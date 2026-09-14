@@ -16,7 +16,7 @@ interface Props {
 const MAX_TEXT_LENGTH = 20000
 
 const EXAMPLE =
-  "Le fonctionnement d'un restaurant : les acteurs sont les clients, les serveurs, le sommelier, les cuisiniers, " +
+  "Le fonctionnement d'un restaurant : les personas sont les clients, les serveurs, le sommelier, les cuisiniers, " +
   "les plongeurs et le manager de salle. Le processus se déroule en cinq phases : la réservation, l'arrivée des " +
   "clients, le repas, le paiement, puis le départ. " +
   "Pendant la réservation, le client réserve une table et le serveur confirme la réservation. " +
@@ -93,7 +93,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
   return (
     <div className="nl-input">
       <p className="nl-hint">
-        Décrivez le processus en langage naturel (acteurs, phases, qui fait quoi, ce qui est échangé), ou chargez un
+        Décrivez le processus en langage naturel (personas, phases, qui fait quoi, ce qui est échangé), ou chargez un
         PDF texte dont le contenu sera extrait dans la zone ci-dessous. Claude propose une ébauche que vous pourrez
         relire et modifier dans l'onglet Édition avant de sauvegarder.
       </p>

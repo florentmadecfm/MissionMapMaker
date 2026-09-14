@@ -7,18 +7,16 @@ import { importProjectFromExcel } from './importExcel'
 interface Props {
   project: Project
   onChange: (project: Project) => void
-  onCreateVariant: () => void
   onShowHistory: () => void
 }
 
 // Menu burger des actions sur le projet ouvert — export/import Excel et
-// création d'une variante (ADR-062) — placé au niveau de la barre d'onglets
+// historique des versions — placé au niveau de la barre d'onglets
 // (ProjectShell.tsx) plutôt que dans l'en-tête d'un seul onglet (Édition,
 // avant ADR-046) : disponible depuis n'importe quel onglet, pas seulement
-// quand on y est déjà. La modale de création de variante elle-même vit
-// dans ProjectShell (qui détient l'état `project` à mettre à jour après
-// création) : ce composant se contente de déclencher son ouverture.
-export function ExportImportMenu({ project, onChange, onCreateVariant, onShowHistory }: Props) {
+// quand on y est déjà. La création de la cible d'une mission n'est plus
+// ici : voir VariantToggle, affiché en permanence au-dessus des onglets.
+export function ExportImportMenu({ project, onChange, onShowHistory }: Props) {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -38,8 +36,8 @@ export function ExportImportMenu({ project, onChange, onCreateVariant, onShowHis
   }
 
   // Remplace les 6 collections du projet OUVERT par le contenu du fichier
-  // (voir importExcel.ts) : comme toute autre modification, ce n'est
-  // qu'un nouvel état local tant que "Sauvegarder" n'a pas été cliqué —
+  // (voir importExcel.ts) : comme toute autre modification, remonte par
+  // onChange et sera sauvegardé automatiquement (voir ProjectShell.tsx) —
   // mais la confirmation reste nécessaire, l'opération étant un
   // remplacement complet plutôt qu'un ajout (contrairement à la fusion
   // additive des ébauches générées par LLM).
@@ -49,7 +47,7 @@ export function ExportImportMenu({ project, onChange, onCreateVariant, onShowHis
     if (!file) return
     if (
       !window.confirm(
-        "Importer ce fichier Excel va remplacer les acteurs, phases, activités, interactions, spécifications et tests du projet ouvert (à sauvegarder ensuite pour confirmer). Continuer ?",
+        "Importer ce fichier Excel va remplacer les personas, phases, activités, interactions, spécifications et tests du projet ouvert (sauvegardé automatiquement juste après). Continuer ?",
       )
     ) {
       return
@@ -73,9 +71,6 @@ export function ExportImportMenu({ project, onChange, onCreateVariant, onShowHis
         </button>
         <button type="button" onClick={() => importFileRef.current?.click()} disabled={importing}>
           {importing ? 'Import…' : 'Importer depuis Excel'}
-        </button>
-        <button type="button" onClick={onCreateVariant}>
-          Créer une variante…
         </button>
         <button type="button" onClick={onShowHistory}>
           Historique des versions…

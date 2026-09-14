@@ -44,16 +44,14 @@ const SPEC_TYPES: { value: SpecificationType; label: string }[] = [
 interface Props {
   project: Project
   onChange: (project: Project) => void
-  onSaved: () => void
 }
 
 type SubTab = 'specifications' | 'tests' | 'matrix'
 
-export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
+// Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
+// lui-même, il se contente de remonter chaque changement via onChange.
+export function SpecificationsPanel({ project, onChange }: Props) {
   const [subTab, setSubTab] = useState<SubTab>('specifications')
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedAt, setSavedAt] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
@@ -127,21 +125,6 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
     }
   }
 
-  async function handleSave() {
-    setSaving(true)
-    setSaveError(null)
-    try {
-      const saved = await api.saveProject(project)
-      onChange(saved)
-      onSaved()
-      setSavedAt(new Date().toLocaleTimeString())
-    } catch (e) {
-      setSaveError(String(e))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   function addSpec() {
     const spec: Specification = {
       id: newId('spec'),
@@ -177,11 +160,6 @@ export function SpecificationsPanel({ project, onChange, onSaved }: Props) {
     <div className="editor">
       <header className="editor-header">
         <h2 className="panel-title">Spécifications</h2>
-        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Sauvegarde…' : 'Sauvegarder'}
-        </button>
-        {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
-        {saveError && <span className="error">{saveError}</span>}
       </header>
 
       <nav className="tabs subtabs">

@@ -130,12 +130,36 @@ export interface PainPointContext {
   interactions: DraftInteraction[]
 }
 
+// DraftPainPointDiagramChange décrit le changement structurel concret à
+// appliquer au diagramme CIBLE pour la solution choisie (jamais à l'état
+// actuel) — seuls les champs pertinents pour le changeType de la solution
+// sont renseignés par le LLM, toujours par NOM (activité/acteur/phase),
+// jamais par ID : ces noms sont résolus au sein des collections de la
+// cible (mergePainPointResolution.ts), best-effort — si un nom ne
+// correspond à rien, le changement structurel est simplement ignoré (la
+// SSS/le test, eux, sont toujours ajoutés).
+export interface DraftPainPointDiagramChange {
+  newActivityName?: string
+  newActivityActorName?: string
+  newActivityPhaseName?: string
+  newActivityDescription?: string
+  removeActivityName?: string
+  mergeActivityNames?: string[]
+  mergedActivityName?: string
+  interactionFromActivityName?: string
+  interactionToActivityName?: string
+  interactionInformation?: string
+  removeInteractionFromActivityName?: string
+  removeInteractionToActivityName?: string
+}
+
 export interface PainPointResolution {
   specificationText: string
   specificationRationale?: string
   testTitle: string
   testPreconditions?: string
   testSteps: DraftTestStep[]
+  diagramChange: DraftPainPointDiagramChange
 }
 
 export interface Interaction {
@@ -197,19 +221,32 @@ export interface Project {
   interactions: Interaction[]
   specifications: Specification[]
   testScenarios: TestScenario[]
-  // Voir ADR-062 : relie cette mission à d'autres variantes (état actuel /
-  // cible...) partageant le même variantGroupId. Absent tant qu'aucune
-  // variante n'a été créée depuis (ou vers) ce projet.
-  variantGroupId?: string
-  variantLabel?: string
+  // Second état ("cible"/to-be) du diagramme de CETTE mission, distinct de
+  // l'état "actuel" ci-dessus (une copie indépendante complète : ses
+  // propres acteurs/phases/activités/interactions/specs/tests) — jamais
+  // une mission séparée dans le panneau de gauche. Absent tant qu'aucune
+  // cible n'a été créée (bouton Actuel/Cible, ou automatiquement à la
+  // première résolution de point de friction, voir mergePainPointResolution.ts).
+  target?: ProjectVariant
+}
+
+// ProjectVariant est le contenu de la cible d'un projet — mêmes 6
+// collections qu'un Project, plus un label affiché dans le sélecteur
+// Actuel/Cible (ex. "Cible", éditable).
+export interface ProjectVariant {
+  label: string
+  actors: Actor[]
+  phases: Phase[]
+  activities: Activity[]
+  interactions: Interaction[]
+  specifications: Specification[]
+  testScenarios: TestScenario[]
 }
 
 export interface ProjectSummary {
   id: string
   name: string
   updatedAt: string
-  variantGroupId?: string
-  variantLabel?: string
 }
 
 // Une sauvegarde horodatée passée du projet (voir Repository.backupExisting

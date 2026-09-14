@@ -59,7 +59,7 @@ export function ActorHeaderNode({ data }: NodeProps) {
           acteur front-stage n'a lui aucune étiquette (comportement par
           défaut, pas besoin d'être signalé). */}
       {backstage && <span className="actor-header-backstage-tag">back-stage</span>}
-      <button type="button" className="add-sublane-button" title="Ajouter une ligne pour cet acteur">
+      <button type="button" className="add-sublane-button" title="Ajouter une ligne pour ce persona">
         +
       </button>
     </div>

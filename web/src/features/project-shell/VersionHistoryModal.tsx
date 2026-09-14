@@ -20,13 +20,14 @@ function formatSavedAt(iso: string): string {
 }
 
 // Ouverte depuis le menu ☰ de la barre d'onglets (voir ExportImportMenu.tsx) —
-// backlog blueprint #7, ADR-070. S'appuie entièrement sur les sauvegardes
-// horodatées déjà écrites par le backend à chaque "Sauvegarder" (une par
-// écrasement, voir Repository.backupExisting) : aucune notion de version
-// distincte à gérer côté frontend, seulement les lister et permettre de
-// les consulter/restaurer. Réutilise ReadOnlyProcessDiagram (déjà bâti
-// pour la comparaison de variantes, ADR-063) pour la prévisualisation,
-// plutôt qu'un nouveau rendu dédié.
+// backlog blueprint #7. S'appuie entièrement sur les sauvegardes
+// horodatées déjà écrites par le backend à chaque écriture (une par
+// écrasement, voir Repository.backupExisting) — déclenchées automatiquement
+// par ProjectShell (runSave) depuis l'introduction de la sauvegarde
+// automatique : aucune notion de version distincte à gérer côté frontend,
+// seulement les lister et permettre de les consulter/restaurer. Réutilise
+// ReadOnlyProcessDiagram (déjà bâti pour la comparaison Actuel/Cible) pour
+// la prévisualisation, plutôt qu'un nouveau rendu dédié.
 export function VersionHistoryModal({ project, onClose, onRestored }: Props) {
   const [versions, setVersions] = useState<ProjectVersion[] | null>(null)
   const [listError, setListError] = useState<string | null>(null)
@@ -94,8 +95,8 @@ export function VersionHistoryModal({ project, onClose, onRestored }: Props) {
           </button>
         </header>
         <p className="nl-hint">
-          Une version est enregistrée à chaque « Sauvegarder » sur « {project.name} ». Consultez un état passé du
-          diagramme ci-dessous, ou restaurez-le : l'état actuel sera lui-même conservé dans l'historique.
+          Une version est enregistrée à chaque sauvegarde automatique de « {project.name} ». Consultez un état passé
+          du diagramme ci-dessous, ou restaurez-le : l'état actuel sera lui-même conservé dans l'historique.
         </p>
 
         {listError && <p className="error">{listError}</p>}

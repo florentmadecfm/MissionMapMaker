@@ -2,10 +2,11 @@
 
 Backend Go + frontend React, persistance en fichiers `.json` locaux. Un
 seul utilisateur, pas de temps réel multi-utilisateur. Construit un
-diagramme de processus (acteurs × phases × activités × interactions) à
+diagramme de processus (personas × phases × activités × interactions) à
 partir de langage naturel assisté par LLM (Anthropic ou Mistral,
 configurable), trace chaque activité vers des spécifications façon INCOSE
-et des scénarios de test V&V.
+et des scénarios de test V&V. Chaque modification est sauvegardée
+automatiquement côté frontend (débounce), sans action manuelle.
 
 ```
 Frontend React (Vite) ── REST/JSON (localhost) ──> Backend Go
@@ -47,8 +48,8 @@ features/
   process-diagram/  — diagramme swimlane, interactif (React Flow)
   project-shell/    — coquille applicative, onglets, export/import Excel
   specifications/   — arbre INCOSE + matrice de traçabilité + tests V&V
-  actor-view/       — vue dynamique par acteur, fiche persona
-  actor-missions/   — vue transverse d'un acteur entre projets
+  actor-view/       — vue dynamique par persona, fiche persona
+  actor-missions/   — vue transverse d'un persona entre projets
   settings/         — connexion LLM, prompts personnalisables
 api/              — client REST vers le backend
 ```
@@ -57,8 +58,11 @@ api/              — client REST vers le backend
 
 `domain.Project` est l'objet racine, sérialisé tel quel sur disque et via
 l'API. L'**activité** est l'entité pivot : position dans le diagramme
-(acteur, phase, sous-ligne/colonne), user stories, liens de traçabilité.
+(persona, phase, sous-ligne/colonne), user stories, liens de traçabilité.
 `Interaction` relie deux activités. `Specification` (typée INCOSE,
 hiérarchie par `parentId`) et `TestScenario` (préconditions + étapes)
-complètent la traçabilité. Détail exact des champs :
+complètent la traçabilité. `Project.Target` (`*ProjectVariant`, optionnel)
+porte une seconde version — la cible — des mêmes 6 collections : une copie
+indépendante complète qui reste partie de la même mission plutôt qu'un
+second `Project` séparé. Détail exact des champs :
 `internal/domain/project.go`.
