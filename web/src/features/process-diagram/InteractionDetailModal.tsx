@@ -14,9 +14,8 @@ interface Props {
 // directement depuis le diagramme, sans repasser par l'onglet Édition —
 // une interaction créée par glisser-déposer entre deux cartes n'a par
 // défaut que le texte générique "Information échangée" (voir
-// handleConnect) à préciser ensuite. Comme le reste du diagramme, ce n'est
-// qu'un changement d'état local (onChange) : il faut « Sauvegarder » pour
-// le persister (voir ADR-049).
+// handleConnect) à préciser ensuite. Comme le reste du diagramme, remonte
+// par onChange et sera sauvegardé automatiquement (voir ProjectShell.tsx).
 export function InteractionDetailModal({ project, interactionId, onChange, onClose }: Props) {
   const interaction = project.interactions.find((i) => i.id === interactionId)
   const [text, setText] = useState(interaction?.information ?? '')
@@ -62,9 +61,9 @@ export function InteractionDetailModal({ project, interactionId, onChange, onClo
           </button>
         </header>
         <p className="activity-detail-meta">
-          {fromActor?.name ?? '(acteur supprimé)'} · {fromActivity?.name ?? '(activité supprimée)'}
+          {fromActor?.name ?? '(persona supprimé)'} · {fromActivity?.name ?? '(activité supprimée)'}
           {' → '}
-          {toActor?.name ?? '(acteur supprimé)'} · {toActivity?.name ?? '(activité supprimée)'}
+          {toActor?.name ?? '(persona supprimé)'} · {toActivity?.name ?? '(activité supprimée)'}
         </p>
         <label className="field-label" htmlFor="interaction-information">
           Information échangée

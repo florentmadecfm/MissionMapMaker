@@ -143,6 +143,31 @@ func proposePainPointSolutionsToolSpec() ToolSpec {
 	}
 }
 
+// painPointDiagramChangeSchema décrit le changement structurel concret à
+// appliquer au diagramme CIBLE (voir DraftPainPointDiagramChange, draft.go)
+// — tous les champs optionnels, seuls ceux pertinents pour le changeType
+// de la solution choisie sont attendus remplis.
+func painPointDiagramChangeSchema() map[string]any {
+	stringProp := map[string]any{"type": "string"}
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"newActivityName":                   stringProp,
+			"newActivityActorName":              stringProp,
+			"newActivityPhaseName":              stringProp,
+			"newActivityDescription":            stringProp,
+			"removeActivityName":                stringProp,
+			"mergeActivityNames":                map[string]any{"type": "array", "items": stringProp},
+			"mergedActivityName":                stringProp,
+			"interactionFromActivityName":       stringProp,
+			"interactionToActivityName":         stringProp,
+			"interactionInformation":            stringProp,
+			"removeInteractionFromActivityName": stringProp,
+			"removeInteractionToActivityName":   stringProp,
+		},
+	}
+}
+
 func proposePainPointResolutionToolSpec() ToolSpec {
 	stringProp := map[string]any{"type": "string"}
 
@@ -157,13 +182,14 @@ func proposePainPointResolutionToolSpec() ToolSpec {
 
 	return ToolSpec{
 		Name:        "propose_pain_point_resolution",
-		Description: "Enregistre la SSS et le scénario de test correspondant à la solution choisie pour un point de friction.",
+		Description: "Enregistre la SSS, le scénario de test et le changement structurel à appliquer au diagramme cible pour la solution choisie.",
 		Properties: map[string]any{
 			"specificationText":      stringProp,
 			"specificationRationale": stringProp,
 			"testTitle":              stringProp,
 			"testPreconditions":      stringProp,
 			"testSteps":              map[string]any{"type": "array", "items": stepSchema},
+			"diagramChange":          painPointDiagramChangeSchema(),
 		},
 		Required: []string{"specificationText", "testTitle", "testSteps"},
 	}

@@ -16,24 +16,50 @@ func (p *Project) Validate() error {
 		return fmt.Errorf("%w: name is required", ErrInvalidProject)
 	}
 
-	actorIDs := make(map[string]bool, len(p.Actors))
-	for _, a := range p.Actors {
+	if err := validateCollections(p.Actors, p.Phases, p.Activities, p.Interactions, p.Specifications, p.TestScenarios); err != nil {
+		return err
+	}
+
+	// La cible est une copie indépendante complète (ADR-062bis) : ses
+	// propres collections doivent être référentiellement cohérentes entre
+	// elles, indépendamment de celles de l'état actuel ci-dessus.
+	if p.Target != nil {
+		if err := validateCollections(p.Target.Actors, p.Target.Phases, p.Target.Activities, p.Target.Interactions, p.Target.Specifications, p.Target.TestScenarios); err != nil {
+			return fmt.Errorf("target: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// validateCollections applique les mêmes règles d'intégrité référentielle
+// qu'un Project (activité -> acteur/phase, interaction -> activités, lien
+// de traçabilité -> spécification, parent de spécification, scénario de
+// test -> spécification) à n'importe quel jeu de 6 collections — partagé
+// entre l'état actuel d'un Project et sa cible (ProjectVariant), qui ont
+// exactement la même forme.
+func validateCollections(
+	actors []Actor, phases []Phase, activities []Activity,
+	interactions []Interaction, specifications []Specification, testScenarios []TestScenario,
+) error {
+	actorIDs := make(map[string]bool, len(actors))
+	for _, a := range actors {
 		actorIDs[a.ID] = true
 	}
-	phaseIDs := make(map[string]bool, len(p.Phases))
-	for _, ph := range p.Phases {
+	phaseIDs := make(map[string]bool, len(phases))
+	for _, ph := range phases {
 		phaseIDs[ph.ID] = true
 	}
-	activityIDs := make(map[string]bool, len(p.Activities))
-	for _, act := range p.Activities {
+	activityIDs := make(map[string]bool, len(activities))
+	for _, act := range activities {
 		activityIDs[act.ID] = true
 	}
-	specIDs := make(map[string]bool, len(p.Specifications))
-	for _, s := range p.Specifications {
+	specIDs := make(map[string]bool, len(specifications))
+	for _, s := range specifications {
 		specIDs[s.ID] = true
 	}
 
-	for _, act := range p.Activities {
+	for _, act := range activities {
 		if !actorIDs[act.ActorID] {
 			return fmt.Errorf("%w: activity %q references unknown actor %q", ErrInvalidProject, act.ID, act.ActorID)
 		}
@@ -47,7 +73,7 @@ func (p *Project) Validate() error {
 		}
 	}
 
-	for _, in := range p.Interactions {
+	for _, in := range interactions {
 		if !activityIDs[in.FromActivityID] {
 			return fmt.Errorf("%w: interaction %q references unknown activity %q", ErrInvalidProject, in.ID, in.FromActivityID)
 		}
@@ -56,13 +82,13 @@ func (p *Project) Validate() error {
 		}
 	}
 
-	for _, s := range p.Specifications {
+	for _, s := range specifications {
 		if s.ParentID != "" && !specIDs[s.ParentID] {
 			return fmt.Errorf("%w: specification %q references unknown parent %q", ErrInvalidProject, s.ID, s.ParentID)
 		}
 	}
 
-	for _, ts := range p.TestScenarios {
+	for _, ts := range testScenarios {
 		if !specIDs[ts.SpecificationID] {
 			return fmt.Errorf("%w: test scenario %q references unknown specification %q", ErrInvalidProject, ts.ID, ts.SpecificationID)
 		}

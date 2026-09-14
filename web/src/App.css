@@ -273,9 +273,6 @@
   font-size: 0.85rem;
 }
 
-/* Seul le NOM s'abrège (ellipsis) si la place manque — l'étiquette de
-   variante juste après (.variant-badge, flex-shrink: 0) reste toujours
-   entièrement visible : voir ProjectShell.tsx. */
 .project-name-text {
   min-width: 0;
   overflow: hidden;
@@ -328,9 +325,49 @@
   padding-bottom: 0.4rem;
 }
 
-/* Bascule entre variantes d'une même mission (état actuel/cible...),
-   sous la barre d'onglets — voir VariantSwitcher.tsx, ADR-062. */
-.variant-switcher {
+/* Ligne portant le sélecteur Actuel/Cible ET l'indicateur de sauvegarde
+   automatique (voir ProjectShell.tsx) — un seul indicateur pour tous les
+   onglets, plus de bouton "Sauvegarder" par onglet. */
+.variant-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.autosave-status {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.autosave-status-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-danger);
+}
+
+.autosave-status-error button {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.76rem;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-danger);
+}
+
+.autosave-status-error button:hover {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+/* Sélecteur Actuel/Cible d'une mission (voir VariantToggle.tsx), sous la
+   barre d'onglets — remplace l'ancien VariantSwitcher (variantes = projets
+   séparés). Bouton radio avec point plein/vide selon l'état actif : indicateur
+   visuel net pour toujours savoir quelle version est à l'écran. */
+.variant-toggle {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -339,16 +376,10 @@
   margin-top: -0.3rem;
 }
 
-.variant-switcher-label {
+.variant-toggle-option {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  color: var(--color-text-muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.variant-pill {
+  gap: 0.35rem;
   padding: 0.25rem 0.7rem;
   border: 1.5px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
@@ -357,19 +388,55 @@
   font-weight: 500;
 }
 
-.variant-pill:hover:not(.active) {
+.variant-toggle-option:hover:not(.active) {
   background: var(--color-surface-muted);
 }
 
-.variant-pill.active {
+.variant-toggle-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+
+.variant-toggle-option.active .variant-toggle-dot {
+  background: currentColor;
+}
+
+.variant-toggle-option.variant-toggle-current.active {
   background: var(--color-primary-bg);
   border-color: var(--color-primary);
   color: var(--color-primary);
   font-weight: 600;
 }
 
+.variant-toggle-option.variant-toggle-target.active {
+  background: #fdf0e3;
+  border-color: #c2660b;
+  color: #c2660b;
+  font-weight: 600;
+}
+
+.variant-toggle-create {
+  padding: 0.25rem 0.7rem;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: none;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.variant-toggle-create:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 .variant-compare {
   margin-left: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   padding: 0.2rem 0.55rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -383,18 +450,7 @@
   color: var(--color-primary);
 }
 
-.variant-leave {
-  margin-left: 0.3rem;
-  color: var(--color-text-faint);
-  font-size: 0.76rem;
-  text-decoration: underline;
-}
-
-.variant-leave:hover {
-  color: var(--color-danger);
-}
-
-/* ---------- Comparaison côte à côte entre variantes (ADR-063) ---------- */
+/* ---------- Comparaison côte à côte Actuel/Cible ---------- */
 
 .variant-comparison-screen {
   display: flex;
@@ -410,40 +466,35 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 1.25rem;
+  align-items: stretch;
 }
 
 .variant-comparison-panel {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.variant-comparison-radios {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.7rem;
-  border: none;
-  padding: 0;
+.variant-comparison-panel-title {
   margin: 0;
+  font-size: 0.9rem;
 }
 
-.variant-comparison-radios legend {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  padding: 0;
+/* Diviseur glissable entre les deux panneaux (VariantComparisonScreen.tsx) :
+   agrandit l'un en rétrécissant l'autre (largeurs en % portées par
+   .variant-comparison-panel via style inline, bornées côté composant). */
+.variant-comparison-divider {
+  flex: 0 0 6px;
+  margin: 0 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+  cursor: col-resize;
+  touch-action: none;
 }
 
-.variant-comparison-radio {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.82rem;
-  font-weight: 500;
+.variant-comparison-divider:hover {
+  background: var(--color-primary);
 }
 
 .variant-comparison-stats {
@@ -459,19 +510,6 @@
 
 .variant-comparison-diagram .process-diagram {
   height: 100%;
-}
-
-/* Étiquette de variante dans la liste de projets de la barre latérale
-   (ADR-062) — reconnaissable sans avoir à ouvrir chaque mission. */
-.variant-badge {
-  flex-shrink: 0;
-  margin-left: 0.4rem;
-  padding: 0.05rem 0.4rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-primary-bg);
-  color: var(--color-primary);
-  font-size: 0.68rem;
-  font-weight: 600;
 }
 
 .tabs {
@@ -1572,7 +1610,7 @@
   font-weight: 500;
 }
 
-/* ---------- Écran transverse "Acteurs" (toutes missions) ---------- */
+/* ---------- Écran transverse "Personas" (toutes missions) ---------- */
 
 .actor-missions-screen {
   display: flex;

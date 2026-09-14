@@ -7,6 +7,8 @@ interface Props {
   activityId: string
   onChange: (project: Project) => void
   onClose: () => void
+  // Transmis tel quel à PainPointSolutionsModal — voir ce fichier.
+  isTargetActive: boolean
 }
 
 const SPEC_TYPE_LABELS: Record<string, string> = {
@@ -29,11 +31,11 @@ function sameText(a: string, b: string) {
 // de test V&V déjà liés à cette activité (lecture seule — l'édition reste
 // dans l'onglet Spécifications), et des points de friction (texte libre),
 // ceux-ci éditables directement ici (comme le reste du diagramme, un
-// changement d'état local — « Sauvegarder » reste nécessaire pour le
-// persister). Un point de friction peut être repris depuis la liste déjà
+// changement remonte par onChange et sera sauvegardé automatiquement,
+// voir ProjectShell.tsx). Un point de friction peut être repris depuis la liste déjà
 // connue de l'acteur (sa fiche persona, ADR-055/056) plutôt que retapé, et
 // un point réellement nouveau enrichit cette même fiche au passage.
-export function ActivityDetailModal({ project, activityId, onChange, onClose }: Props) {
+export function ActivityDetailModal({ project, activityId, onChange, onClose, isTargetActive }: Props) {
   const [newPainPoint, setNewPainPoint] = useState('')
   const [knownPainPointId, setKnownPainPointId] = useState('')
   // Point de friction en cours de résolution (ADR-066) — ouvre
@@ -121,7 +123,7 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose }: 
           </button>
         </header>
         <p className="activity-detail-meta">
-          {actor?.name ?? '(acteur supprimé)'} · {phase?.name ?? '(phase supprimée)'}
+          {actor?.name ?? '(persona supprimé)'} · {phase?.name ?? '(phase supprimée)'}
         </p>
         {activity.description && <p className="activity-detail-meta">{activity.description}</p>}
 
@@ -259,6 +261,7 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose }: 
               painPoint={painPoint}
               onChange={onChange}
               onClose={() => setSolvingPainPointId(null)}
+              isTargetActive={isTargetActive}
             />
           )
         })()}

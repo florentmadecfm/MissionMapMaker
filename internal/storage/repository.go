@@ -44,10 +44,7 @@ func (r *Repository) List() ([]ProjectSummary, error) {
 
 	summaries := make([]ProjectSummary, 0, len(projects))
 	for _, p := range projects {
-		summaries = append(summaries, ProjectSummary{
-			ID: p.ID, Name: p.Name, UpdatedAt: p.UpdatedAt,
-			VariantGroupID: p.VariantGroupID, VariantLabel: p.VariantLabel,
-		})
+		summaries = append(summaries, ProjectSummary{ID: p.ID, Name: p.Name, UpdatedAt: p.UpdatedAt})
 	}
 
 	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
@@ -86,12 +83,6 @@ type ProjectSummary struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	UpdatedAt time.Time `json:"updatedAt"`
-	// Voir domain.Project.VariantGroupID/VariantLabel (ADR-062) : exposés
-	// ici pour que la liste de projets déjà chargée par le shell (barre
-	// latérale) suffise à regrouper/afficher les variantes d'une mission
-	// sans requête supplémentaire.
-	VariantGroupID string `json:"variantGroupId,omitempty"`
-	VariantLabel   string `json:"variantLabel,omitempty"`
 }
 
 func (r *Repository) Load(id string) (*domain.Project, error) {

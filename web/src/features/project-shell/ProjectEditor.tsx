@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { api } from '../../api/client'
 import type { Activity, Actor, Interaction, Phase, Project } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
 
@@ -36,37 +35,20 @@ function suggestionsFor<T>(items: T[], fields: (item: T) => string[]): string[] 
 interface Props {
   project: Project
   onChange: (project: Project) => void
-  onSaved: () => void
 }
 
-export function ProjectEditor({ project, onChange, onSaved }: Props) {
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedAt, setSavedAt] = useState<string | null>(null)
+// Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
+// lui-même, il se contente de remonter chaque changement via onChange.
+export function ProjectEditor({ project, onChange }: Props) {
   const [actorFilter, setActorFilter] = useState('')
   const [phaseFilter, setPhaseFilter] = useState('')
   const [activityFilter, setActivityFilter] = useState('')
   const [interactionFilter, setInteractionFilter] = useState('')
 
-  async function handleSave() {
-    setSaving(true)
-    setSaveError(null)
-    try {
-      const saved = await api.saveProject(project)
-      onChange(saved)
-      onSaved()
-      setSavedAt(new Date().toLocaleTimeString())
-    } catch (e) {
-      setSaveError(String(e))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   function addActor() {
     const actor: Actor = {
       id: newId('act'),
-      name: 'Nouvel acteur',
+      name: 'Nouveau persona',
       color: '#2563eb',
       description: '',
       subLanes: 0,
@@ -253,20 +235,15 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           value={project.name}
           onChange={(e) => onChange({ ...project, name: e.target.value })}
         />
-        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Sauvegarde…' : 'Sauvegarder'}
-        </button>
-        {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
-        {saveError && <span className="error">{saveError}</span>}
       </header>
 
       <section>
-        <h2>Acteurs</h2>
+        <h2>Personas</h2>
         {project.actors.length > FILTER_THRESHOLD && (
           <ListFilterInput
             value={actorFilter}
             onChange={setActorFilter}
-            placeholder="Rechercher un acteur…"
+            placeholder="Rechercher un persona…"
             suggestions={actorSuggestions}
           />
         )}
@@ -276,19 +253,19 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
         </div>
         <ul>
           {filteredActors.length === 0 && actorFilter.trim() && (
-            <li className="empty">Aucun acteur ne correspond à « {actorFilter} ».</li>
+            <li className="empty">Aucun persona ne correspond à « {actorFilter} ».</li>
           )}
           {filteredActors.map((a) => (
             <li key={a.id}>
               <input type="color" value={a.color} onChange={(e) => updateActor(a.id, { color: e.target.value })} />
               <input value={a.name} onChange={(e) => updateActor(a.id, { name: e.target.value })} />
               {/* Ligne de visibilité (service blueprint, ADR-064) : un
-                  acteur back-stage n'interagit jamais directement avec le
+                  persona back-stage n'interagit jamais directement avec le
                   client — regroupé après les front-stage dans le
                   diagramme, séparé par un trait. Front-stage (décoché)
                   reste le comportement par défaut, y compris pour les
-                  acteurs créés avant l'introduction de ce champ. */}
-              <label className="actor-backstage-toggle" title="Acteur back-stage : jamais en contact direct avec le client (support interne)">
+                  personas créés avant l'introduction de ce champ. */}
+              <label className="actor-backstage-toggle" title="Persona back-stage : jamais en contact direct avec le client (support interne)">
                 <input
                   type="checkbox"
                   checked={Boolean(a.backstage)}
@@ -303,7 +280,7 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           ))}
         </ul>
         <button type="button" onClick={addActor}>
-          + Ajouter un acteur
+          + Ajouter un persona
         </button>
       </section>
 
@@ -428,13 +405,13 @@ export function ProjectEditor({ project, onChange, onSaved }: Props) {
           <ListFilterInput
             value={activityFilter}
             onChange={setActivityFilter}
-            placeholder="Rechercher une activité, un acteur ou une phase…"
+            placeholder="Rechercher une activité, un persona ou une phase…"
             suggestions={activitySuggestions}
           />
         )}
         <div className="col-headers">
           <span className="col-name">Nom</span>
-          <span className="col-select">Acteur</span>
+          <span className="col-select">Persona</span>
           <span className="col-select">Phase</span>
           {/* Voir le commentaire équivalent dans la section Phases
               ci-dessus : même correction d'alignement. */}

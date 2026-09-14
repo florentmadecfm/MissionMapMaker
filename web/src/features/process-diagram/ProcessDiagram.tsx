@@ -14,7 +14,6 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { toPng } from 'html-to-image'
-import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
@@ -37,7 +36,10 @@ import './process-diagram.css'
 interface Props {
   project: Project
   onChange: (project: Project) => void
-  onSaved: () => void
+  // Transmis à ActivityDetailModal -> PainPointSolutionsModal — voir ce
+  // dernier fichier. false quand omis (onglet Diagramme utilisé hors du
+  // contexte Actuel/Cible, ex. tests).
+  isTargetActive?: boolean
 }
 
 // Doit rester cohérent avec maxTextLength côté serveur
@@ -97,17 +99,22 @@ function AutoFitOnChange({ nodeCount }: { nodeCount: number }) {
   return null
 }
 
-// Résolution maximale (plus grand côté) de l'image exportée — assez pour
-// rester lisible une fois imprimé/projeté sans produire un fichier
-// disproportionné pour un diagramme à beaucoup de phases/acteurs. Bornes
-// du facteur d'échelle appliqué à la taille EFFECTIVEMENT affichée à
-// l'écran au moment de l'export (voir pixelRatio ci-dessous) : sans
-// plancher, une fenêtre déjà très large produirait un export à peine plus
-// net que l'écran ; sans plafond, une fenêtre étroite produirait un
-// agrandissement démesuré (texte flou, fichier inutilement lourd).
-const EXPORT_MAX_DIMENSION = 2400
+// pixelRatio de l'export = 1 / zoom courant (voir handleExport) plutôt
+// qu'un facteur fixe basé sur la taille du CONTENEUR à l'écran (ancienne
+// approche, insuffisante) : plus un diagramme a de phases/acteurs, plus
+// fitView() doit zoomer pour tout faire tenir dans la même fenêtre, donc
+// plus le texte affiché — et capturé — est petit. 1/zoom restitue au
+// contraire la densité NATIVE de chaque carte (celle qu'elle aurait à
+// 100 % de zoom) quel que soit le nombre de phases/acteurs : l'image
+// grandit avec le contenu plutôt que le texte rétrécissant avec lui.
+// EXPORT_ABSOLUTE_MAX_DIMENSION reste un garde-fou dur sur la plus grande
+// dimension de l'image finale (mémoire, poids du fichier, limite de
+// canevas du navigateur) qui prime sur 1/zoom pour un diagramme
+// réellement démesuré ; EXPORT_MAX_PIXEL_RATIO borne le grossissement
+// même pour un tout petit diagramme très zoomé.
 const EXPORT_MIN_PIXEL_RATIO = 1
-const EXPORT_MAX_PIXEL_RATIO = 4
+const EXPORT_MAX_PIXEL_RATIO = 8
+const EXPORT_ABSOLUTE_MAX_DIMENSION = 8000
 
 // Exclut du PNG capturé les éléments de chrome de l'interface, sans
 // équivalent sur une image destinée à être partagée/imprimée :
@@ -160,7 +167,7 @@ function shouldIncludeInPngExport(node: Element): boolean {
 // donc déjà fiable par construction — plutôt que d'y ajouter une deuxième
 // dépendance.
 function DownloadPngButton({ projectName }: { projectName: string }) {
-  const { fitView } = useReactFlow()
+  const { fitView, getZoom } = useReactFlow()
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -190,9 +197,15 @@ function DownloadPngButton({ projectName }: { projectName: string }) {
       if (!containerEl) throw new Error('Diagramme introuvable')
 
       const rect = containerEl.getBoundingClientRect()
-      const pixelRatio = Math.min(
-        EXPORT_MAX_PIXEL_RATIO,
-        Math.max(EXPORT_MIN_PIXEL_RATIO, EXPORT_MAX_DIMENSION / Math.max(rect.width, rect.height, 1)),
+      const zoom = getZoom()
+      // Densité native (1/zoom) bornée par le garde-fou de taille finale
+      // ET par EXPORT_MAX_PIXEL_RATIO — voir le commentaire sur ces
+      // constantes ci-dessus.
+      const nativeScaleRatio = zoom > 0 ? 1 / zoom : EXPORT_MAX_PIXEL_RATIO
+      const dimensionCapRatio = EXPORT_ABSOLUTE_MAX_DIMENSION / Math.max(rect.width, rect.height, 1)
+      const pixelRatio = Math.max(
+        EXPORT_MIN_PIXEL_RATIO,
+        Math.min(nativeScaleRatio, dimensionCapRatio, EXPORT_MAX_PIXEL_RATIO),
       )
 
       const dataUrl = await toPng(containerEl, {
@@ -285,11 +298,10 @@ export function toFlowEdge(e: LayoutEdge): Edge {
   }
 }
 
-export function ProcessDiagram({ project, onChange, onSaved }: Props) {
+// Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
+// lui-même, il se contente de remonter chaque changement via onChange.
+export function ProcessDiagram({ project, onChange, isTargetActive = false }: Props) {
   const { nodes, edges } = useMemo(() => computeLayout(project), [project])
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedAt, setSavedAt] = useState<string | null>(null)
   // Astuces d'utilisation du diagramme (glisser-déposer, boutons "+"...) :
   // repliées par défaut plutôt qu'un paragraphe dense toujours affiché en
   // haut de l'écran — trouvé lors de l'audit UX/UI (ADR-068), c'était le
@@ -314,21 +326,6 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
     () => (dragTarget ? cellTopLeft(nodes, dragTarget) : null),
     [dragTarget, nodes],
   )
-
-  async function handleSave() {
-    setSaving(true)
-    setSaveError(null)
-    try {
-      const saved = await api.saveProject(project)
-      onChange(saved)
-      onSaved()
-      setSavedAt(new Date().toLocaleTimeString())
-    } catch (e) {
-      setSaveError(String(e))
-    } finally {
-      setSaving(false)
-    }
-  }
 
   // Décrire des ajouts/modifications en langage naturel sans quitter le
   // diagramme : même pipeline que l'onglet "Générer" (generateAndMerge,
@@ -370,9 +367,8 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   // Glisser-déposer une carte d'activité la réassigne à l'acteur/la phase
   // de la cellule où elle a été lâchée (et à la position voulue au sein
   // de la pile de cette cellule, si plusieurs activités s'y trouvent déjà
-  // — voir computeDropTarget). Comme pour les autres onglets, ce n'est
-  // qu'un changement d'état local : il faut « Sauvegarder » pour le
-  // persister.
+  // — voir computeDropTarget). Comme pour les autres onglets, remonte par
+  // onChange et sera sauvegardé automatiquement (ProjectShell.tsx).
   function handleNodeDragStop(_event: unknown, node: Node) {
     setDragTarget(null)
     const activity = project.activities.find((a) => a.id === node.id)
@@ -571,7 +567,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
   }
 
   if (project.actors.length === 0 || project.phases.length === 0) {
-    return <p className="placeholder">Ajoutez au moins un acteur et une phase pour voir le diagramme.</p>
+    return <p className="placeholder">Ajoutez au moins un persona et une phase pour voir le diagramme.</p>
   }
 
   return (
@@ -586,20 +582,15 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           <CircleHelp size={14} aria-hidden="true" />
           Comment utiliser ce diagramme
         </button>
-        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? 'Sauvegarde…' : 'Sauvegarder'}
-        </button>
-        {savedAt && <span className="saved-at">Sauvegardé à {savedAt}</span>}
-        {saveError && <span className="error">{saveError}</span>}
       </header>
       {hintOpen && (
         <p className="nl-hint diagram-hint-text">
           Glissez-déposez une carte pour la réassigner, glissez depuis le bord d'une carte vers une autre pour créer
           une interaction (cliquez ensuite sur la flèche pour la nommer), cliquez sur une carte pour consulter ses
-          spécifications et tests liés, cliquez sur le nom d'un acteur pour ouvrir sa fiche (à propos, bio,
+          spécifications et tests liés, cliquez sur le nom d'un persona pour ouvrir sa fiche (à propos, bio,
           objectifs, points de friction du métier), utilisez les boutons "+" après la dernière phase pour ajouter
           une phase ou une activité, ou le petit "+" en coin d'un en-tête pour ajouter une colonne (phase) ou une
-          ligne (acteur) supplémentaire.
+          ligne (persona) supplémentaire.
         </p>
       )}
       <div className="diagram-nl-update">
@@ -692,6 +683,7 @@ export function ProcessDiagram({ project, onChange, onSaved }: Props) {
           activityId={selectedActivityId}
           onChange={onChange}
           onClose={() => setSelectedActivityId(null)}
+          isTargetActive={isTargetActive}
         />
       )}
       {selectedInteractionId && (

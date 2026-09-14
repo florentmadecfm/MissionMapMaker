@@ -129,9 +129,10 @@ function parseSteps(text: string): TestStep[] {
 // exportProjectToExcel — remplace les 6 collections de `base` (le projet
 // actuellement ouvert) par le contenu du fichier, en conservant
 // id/name/createdAt/updatedAt de `base` (le classeur ne les porte pas).
-// Comme toute autre opération de cet écran, le résultat n'est qu'un
-// nouvel état local : rien n'est persisté tant que l'utilisateur ne
-// clique pas sur Sauvegarder, ce qui laisse l'occasion de relire/annuler.
+// Comme toute autre modification de cet écran, le résultat remonte par
+// onChange puis est sauvegardé automatiquement après un court délai
+// d'inactivité (voir ProjectShell.tsx, runSave) — d'où la confirmation
+// demandée par ExportImportMenu.tsx avant d'appeler cette fonction.
 export async function importProjectFromExcel(file: File, base: Project): Promise<Project> {
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()

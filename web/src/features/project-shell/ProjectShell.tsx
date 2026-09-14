@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Map, Settings, Users } from 'lucide-react'
 import { api } from '../../api/client'
 import type { ActorSummary, Project, ProjectSummary } from '../../api/types'
@@ -8,11 +8,11 @@ import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { SettingsModal } from '../settings/SettingsModal'
 import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
-import { CreateVariantModal } from './CreateVariantModal'
+import { type ActiveVariant, createTargetFromCurrent, fromWorkingProject, toWorkingProject } from './activeVariant'
 import { ExportImportMenu } from './ExportImportMenu'
 import { ProjectEditor } from './ProjectEditor'
 import { VariantComparisonScreen } from './VariantComparisonScreen'
-import { VariantSwitcher } from './VariantSwitcher'
+import { VariantToggle } from './VariantToggle'
 import { VersionHistoryModal } from './VersionHistoryModal'
 
 type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
@@ -25,6 +25,10 @@ type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
 type View = 'project' | 'actors' | 'compare'
 
 const SIDEBAR_COLLAPSED_KEY = 'mmm-sidebar-collapsed'
+// Délai d'inactivité avant sauvegarde automatique (voir runSave) — assez
+// court pour que rien ne se perde en cas de fermeture accidentelle de
+// l'onglet, assez long pour ne pas envoyer une requête à chaque frappe.
+const AUTOSAVE_DEBOUNCE_MS = 900
 
 function loadSidebarCollapsed(): boolean {
   try {
@@ -49,8 +53,27 @@ export function ProjectShell() {
   const [initialActorId, setInitialActorId] = useState<string | undefined>(undefined)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [createVariantOpen, setCreateVariantOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  // Quel état du diagramme de la mission ouverte est affiché/édité (voir
+  // activeVariant.ts) — remis à 'current' à chaque changement de projet
+  // ouvert (handleOpen/handleCreate/handleOpenFromActorMissions), comme
+  // initialActorId ci-dessous.
+  const [activeVariant, setActiveVariant] = useState<ActiveVariant>('current')
+  const [creatingTarget, setCreatingTarget] = useState(false)
+  // Sauvegarde automatique (remplace les anciens boutons "Sauvegarder" de
+  // chaque onglet, voir ProjectEditor/ProcessDiagram/SpecificationsPanel/
+  // ActorView) : dirtyRef passe à true à chaque modification remontée par
+  // un onglet (handleWorkingChange), remis à false une fois la sauvegarde
+  // en cours réussie. savingRef évite deux sauvegardes en vol à la fois ;
+  // si une modification arrive pendant l'envoi, elle est reprise juste
+  // après (voir le `finally` de runSave) plutôt que perdue.
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveErrorMsg, setSaveErrorMsg] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+  const dirtyRef = useRef(false)
+  const savingRef = useRef(false)
+  const projectRef = useRef<Project | null>(null)
+  projectRef.current = project
   // null tant que le premier chargement des paramètres n'a pas répondu :
   // évite d'afficher brièvement la pastille d'alerte à chaque démarrage
   // avant de savoir si un fournisseur LLM est réellement configuré.
@@ -90,6 +113,54 @@ export function ProjectShell() {
     refreshActors()
   }
 
+  // Sauvegarde effective — voir le commentaire sur dirtyRef/savingRef
+  // ci-dessus. N'utilise jamais `project` capturé par une fermeture (qui
+  // pourrait être périmé au moment où un retentative différée se déclenche),
+  // toujours projectRef.current, tenu à jour à chaque rendu.
+  async function runSave() {
+    const current = projectRef.current
+    if (!current || !dirtyRef.current || savingRef.current) return
+    savingRef.current = true
+    dirtyRef.current = false
+    setSaveStatus('saving')
+    setSaveErrorMsg(null)
+    try {
+      const saved = await api.saveProject(current)
+      setProject(saved)
+      setSaveStatus('saved')
+      setSavedAt(new Date().toLocaleTimeString())
+      handleSaved()
+    } catch (e) {
+      setSaveStatus('error')
+      setSaveErrorMsg(String(e))
+      dirtyRef.current = true // à retenter — rien n'a été perdu
+    } finally {
+      savingRef.current = false
+      // Une modification est arrivée pendant l'envoi (dirtyRef remis à
+      // true par handleWorkingChange, ou par l'échec ci-dessus) : la
+      // reprendre maintenant plutôt qu'attendre un hypothétique prochain
+      // changement de `project` qui ne viendrait peut-être jamais.
+      if (dirtyRef.current) {
+        window.setTimeout(() => {
+          void runSave()
+        }, AUTOSAVE_DEBOUNCE_MS)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!dirtyRef.current) return
+    const timer = window.setTimeout(() => {
+      void runSave()
+    }, AUTOSAVE_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+    // runSave n'est pas mémoïsée (nouvelle fermeture à chaque rendu) et ne
+    // doit déclencher cet effet QUE sur un changement de `project`, pas à
+    // chaque rendu — même choix que SettingsModal.tsx (tableau de
+    // dépendances volontairement incomplet).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project])
+
   useEffect(() => {
     refreshList()
       .catch((e) => setError(String(e)))
@@ -104,6 +175,17 @@ export function ProjectShell() {
       .catch(() => setLlmConfigured(false))
   }, [])
 
+  // Réinitialise l'état de sauvegarde automatique à l'ouverture/création
+  // d'un projet : le contenu qui vient d'arriver du serveur n'est jamais
+  // "sale" (dirtyRef à false), et l'indicateur ne doit pas continuer à
+  // afficher l'état de la mission précédente.
+  function resetAutosaveState() {
+    dirtyRef.current = false
+    setSaveStatus('idle')
+    setSaveErrorMsg(null)
+    setSavedAt(null)
+  }
+
   async function handleCreate() {
     if (!newName.trim()) return
     try {
@@ -112,6 +194,8 @@ export function ProjectShell() {
       await refreshList()
       setProject(created)
       setInitialActorId(undefined)
+      setActiveVariant('current')
+      resetAutosaveState()
       setView('project')
     } catch (e) {
       setError(String(e))
@@ -122,6 +206,8 @@ export function ProjectShell() {
     try {
       setProject(await api.getProject(id))
       setInitialActorId(undefined)
+      setActiveVariant('current')
+      resetAutosaveState()
       setView('project')
     } catch (e) {
       setError(String(e))
@@ -136,6 +222,8 @@ export function ProjectShell() {
     try {
       setProject(await api.getProject(projectId))
       setInitialActorId(actorId)
+      setActiveVariant('current')
+      resetAutosaveState()
       setTab('acteur')
       setView('project')
     } catch (e) {
@@ -154,33 +242,32 @@ export function ProjectShell() {
     }
   }
 
-  // Bascule vers la variante nouvellement créée (CreateVariantModal,
-  // ADR-062), comme handleCreate le fait déjà pour un nouveau projet
-  // ordinaire — sans quoi l'utilisateur devrait la rechercher lui-même
-  // dans la liste juste après l'avoir créée.
-  function handleVariantCreated(variant: Project) {
-    setProject(variant)
-    setInitialActorId(undefined)
-    setView('project')
-    refreshList()
-  }
-
-  async function handleLeaveVariantGroup() {
+  // Crée la cible de la mission ouverte (copie indépendante complète de
+  // l'état actuel, voir activeVariant.ts) et bascule dessus — jamais un
+  // second projet dans le panneau de gauche (remplace CreateVariantModal).
+  async function handleCreateTarget() {
     if (!project) return
-    if (
-      !window.confirm(
-        "Détacher cette mission de son groupe de variantes ? Son contenu n'est pas modifié, seul le lien avec les autres variantes est retiré.",
-      )
-    ) {
-      return
-    }
+    setCreatingTarget(true)
     try {
-      const updated = await api.saveProject({ ...project, variantGroupId: '', variantLabel: '' })
+      const updated = await api.saveProject(createTargetFromCurrent(project))
       setProject(updated)
-      await refreshList()
+      setActiveVariant('target')
     } catch (e) {
       setError(String(e))
+    } finally {
+      setCreatingTarget(false)
     }
+  }
+
+  // Projection du projet réel vers la version consommée par les onglets
+  // (voir activeVariant.ts) — identité en 'current', recopie de la cible
+  // en 'target'. handleWorkingChange fait le trajet inverse à chaque
+  // modification remontée par un onglet.
+  const workingProject = project ? toWorkingProject(project, activeVariant) : null
+  function handleWorkingChange(updated: Project) {
+    if (!project) return
+    dirtyRef.current = true
+    setProject(fromWorkingProject(project, updated, activeVariant))
   }
 
   return (
@@ -221,13 +308,6 @@ export function ProjectShell() {
                 <li key={s.id} className={s.id === project?.id ? 'active' : ''}>
                   <button type="button" onClick={() => handleOpen(s.id)}>
                     <span className="project-name-text">{s.name}</span>
-                    {/* Étiquette de variante (ADR-062) : jamais tronquée
-                        (flex-shrink: 0, voir App.css) — c'est justement
-                        elle qui distingue deux missions au nom presque
-                        identique, donc la seule partie qui NE DOIT PAS
-                        disparaître si la place manque ; c'est le nom qui
-                        cède la place en s'abrégeant. */}
-                    {s.variantLabel && <span className="variant-badge">{s.variantLabel}</span>}
                   </button>
                   <button type="button" className="danger" onClick={() => handleDelete(s.id)}>
                     supprimer
@@ -244,10 +324,10 @@ export function ProjectShell() {
             type="button"
             className={`sidebar-actors${view === 'actors' ? ' active' : ''}`}
             onClick={() => setView('actors')}
-            title="Acteurs — consulter un acteur à travers toutes les missions"
+            title="Personas — consulter un persona à travers toutes les missions"
           >
             <Users size={16} aria-hidden="true" />
-            {!sidebarCollapsed && 'Acteurs (toutes missions)'}
+            {!sidebarCollapsed && 'Personas (toutes missions)'}
           </button>
           <button
             type="button"
@@ -266,14 +346,6 @@ export function ProjectShell() {
         <SettingsModal onClose={() => setSettingsOpen(false)} onSettingsChange={setLlmConfigured} />
       )}
 
-      {createVariantOpen && project && (
-        <CreateVariantModal
-          project={project}
-          onClose={() => setCreateVariantOpen(false)}
-          onCreated={handleVariantCreated}
-        />
-      )}
-
       {historyOpen && project && (
         <VersionHistoryModal
           project={project}
@@ -289,8 +361,8 @@ export function ProjectShell() {
         {view === 'actors' ? (
           <ActorMissionsScreen actors={actors} error={actorsError} onOpenProject={handleOpenFromActorMissions} />
         ) : view === 'compare' && project ? (
-          <VariantComparisonScreen project={project} summaries={summaries} onClose={() => setView('project')} />
-        ) : project ? (
+          <VariantComparisonScreen project={project} onClose={() => setView('project')} />
+        ) : project && workingProject ? (
           <>
             <div className="tabs-bar">
               <nav className="tabs">
@@ -315,57 +387,77 @@ export function ProjectShell() {
                   Spécifications
                 </button>
                 <button type="button" className={tab === 'acteur' ? 'active' : ''} onClick={() => setTab('acteur')}>
-                  Vue par acteur
+                  Vue par persona
                 </button>
               </nav>
               {/* Menu export/import au niveau de la barre d'onglets (pas
                   dans l'en-tête d'un seul onglet) : disponible depuis
                   n'importe quel onglet du projet ouvert (ADR-046). */}
-              <ExportImportMenu
-                project={project}
-                onChange={setProject}
-                onCreateVariant={() => setCreateVariantOpen(true)}
-                onShowHistory={() => setHistoryOpen(true)}
-              />
+              <ExportImportMenu project={workingProject} onChange={handleWorkingChange} onShowHistory={() => setHistoryOpen(true)} />
             </div>
-            <VariantSwitcher
-              project={project}
-              summaries={summaries}
-              onOpen={handleOpen}
-              onLeaveGroup={handleLeaveVariantGroup}
-              onCompare={() => setView('compare')}
-            />
-            {/* key={project.id} sur chaque onglet : sans lui, passer d'un
-                projet à un autre en restant sur le même onglet ne
-                démonte/remonte pas le composant (seule sa prop `project`
-                change), donc son état local (texte de la demande en
-                langage naturel, message "Sauvegardé à...", erreur de
-                génération...) restait affiché tel quel — décrivant encore
-                le projet précédent alors que l'écran affiche déjà le
-                nouveau. Remonter le composant à chaque changement de
-                projet réinitialise tout son état local d'un coup, plutôt
-                que de traquer et réinitialiser chaque state individuellement
-                (voir ADR-048). */}
+            <div className="variant-toggle-row">
+              <VariantToggle
+                project={project}
+                active={activeVariant}
+                onSwitch={setActiveVariant}
+                onCreateTarget={handleCreateTarget}
+                onCompare={() => setView('compare')}
+                creating={creatingTarget}
+              />
+              {/* Sauvegarde automatique (voir runSave ci-dessus) — un seul
+                  indicateur pour tous les onglets, plus de bouton
+                  "Sauvegarder" ni de message par onglet. */}
+              <span className="autosave-status" aria-live="polite">
+                {saveStatus === 'saving' && 'Sauvegarde…'}
+                {saveStatus === 'saved' && savedAt && `Sauvegardé à ${savedAt}`}
+                {saveStatus === 'error' && (
+                  <span className="autosave-status-error">
+                    Échec de la sauvegarde : {saveErrorMsg}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        dirtyRef.current = true
+                        void runSave()
+                      }}
+                    >
+                      Réessayer
+                    </button>
+                  </span>
+                )}
+              </span>
+            </div>
+            {/* key={project.id} sur chaque onglet (PAS sur activeVariant :
+                basculer Actuel/Cible ne fait que changer les données
+                affichées par les mêmes composants contrôlés, aucune raison
+                de les démonter) : sans lui, passer d'un projet à un autre
+                en restant sur le même onglet ne démonte/remonte pas le
+                composant (seule sa prop `project` change), donc son état
+                local (texte de la demande en langage naturel, message
+                "Sauvegardé à...", erreur de génération...) restait affiché
+                tel quel — décrivant encore le projet précédent alors que
+                l'écran affiche déjà le nouveau. Remonter le composant à
+                chaque changement de projet réinitialise tout son état
+                local d'un coup, plutôt que de traquer et réinitialiser
+                chaque state individuellement (voir ADR-048). */}
             {tab === 'generer' && (
-              <NlInput key={project.id} project={project} onChange={setProject} onGenerated={() => setTab('edition')} />
+              <NlInput key={project.id} project={workingProject} onChange={handleWorkingChange} onGenerated={() => setTab('edition')} />
             )}
             {tab === 'edition' && (
-              <ProjectEditor key={project.id} project={project} onChange={setProject} onSaved={handleSaved} />
+              <ProjectEditor key={project.id} project={workingProject} onChange={handleWorkingChange} />
             )}
             {tab === 'diagramme' && (
-              <ProcessDiagram key={project.id} project={project} onChange={setProject} onSaved={handleSaved} />
+              <ProcessDiagram
+                key={project.id}
+                project={workingProject}
+                onChange={handleWorkingChange}
+                isTargetActive={activeVariant === 'target'}
+              />
             )}
             {tab === 'specifications' && (
-              <SpecificationsPanel key={project.id} project={project} onChange={setProject} onSaved={handleSaved} />
+              <SpecificationsPanel key={project.id} project={workingProject} onChange={handleWorkingChange} />
             )}
             {tab === 'acteur' && (
-              <ActorView
-                key={project.id}
-                project={project}
-                onChange={setProject}
-                onSaved={handleSaved}
-                initialActorId={initialActorId}
-              />
+              <ActorView key={project.id} project={workingProject} onChange={handleWorkingChange} initialActorId={initialActorId} />
             )}
           </>
         ) : (
@@ -380,7 +472,7 @@ export function ProjectShell() {
             <Map size={44} aria-hidden="true" />
             <h2>Bienvenue dans MissionMapMaker</h2>
             <p>
-              Cartographiez un processus métier — acteurs, étapes, échanges — en langage naturel ou à la main, avec
+              Cartographiez un processus métier — personas, étapes, échanges — en langage naturel ou à la main, avec
               traçabilité vers vos exigences et vos tests.
             </p>
             <p className="empty-state-hint">

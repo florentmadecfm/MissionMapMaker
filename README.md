@@ -2,9 +2,9 @@
 
 Application Go (backend) + React (frontend), persistance en fichiers JSON
 locaux, pour construire des story maps et des diagrammes de processus
-(acteurs, phases, activités, interactions) à partir de langage naturel
+(personas, phases, activités, interactions) à partir de langage naturel
 assisté par LLM, avec traçabilité vers un référentiel de spécifications
-inspiré INCOSE et une vue de cohérence par acteur.
+inspiré INCOSE et une vue de cohérence par persona.
 
 - Dossier d'architecture : [`docs/architecture.md`](docs/architecture.md)
 
@@ -39,35 +39,46 @@ Ouvrir http://localhost:5173.
   phase façon storyboard (proposée par le LLM à la génération, éditable).
   Une interaction peut être conditionnelle (embranchement, ex. "si
   paiement refusé") — tracée en pointillés, avec un badge 🔀 sur
-  l'activité d'où elle part. Un acteur peut être marqué **back-stage**
+  l'activité d'où elle part. Un persona peut être marqué **back-stage**
   (onglet Édition) : regroupé sous une **ligne de visibilité**, séparé des
-  acteurs en contact direct avec le client. Chaque phase peut aussi porter
+  personas en contact direct avec le client. Chaque phase peut aussi porter
   une **durée** libre et un **score de satisfaction** (1-5) : affichés
   au-dessus du diagramme sous forme de courbe. L'ordre chronologique des
   phases (le "backbone" du processus) se réordonne avec les boutons ‹/›
   de l'onglet Édition. Une interaction peut aussi porter une **preuve
   physique** (service blueprint, ex. "reçu papier"), affichée derrière une
   icône 🧾 sur sa flèche. Le diagramme s'exporte en **image PNG** (bouton
-  "Exporter en PNG" au-dessus du canevas).
-- **Fiche persona** par acteur (à propos, bio, objectifs, points de
-  friction du métier) — partagée entre toutes les missions portant un
-  acteur du même nom, consultable/éditable depuis le diagramme, l'onglet
-  Vue par acteur, ou l'écran **🧑 Acteurs (toutes missions)** de la barre
-  latérale.
+  "Exporter en PNG" au-dessus du canevas) à une résolution qui suit
+  automatiquement le niveau de zoom : un diagramme à beaucoup de
+  phases/personas, davantage zoomé pour tenir à l'écran, est exporté avec
+  une image proportionnellement plus grande plutôt qu'un texte illisible.
+- **Fiche persona** (à propos, bio, objectifs, points de friction du
+  métier) — partagée entre toutes les missions portant un persona du même
+  nom, consultable/éditable depuis le diagramme, l'onglet Vue par persona,
+  ou l'écran **🧑 Personas (toutes missions)** de la barre latérale.
 - **Spécifications** (typées façon INCOSE) et **scénarios de test V&V**,
   génération assistée et matrice de traçabilité. Depuis un point de
   friction, "💡 Solutions" propose 5 pistes de résolution structurelles
   (interactions/activités) ; en choisir une génère la SSS et le test
-  correspondants, tracés vers le point de friction.
+  correspondants (tracés vers le point de friction) ET intègre le
+  changement structurel décrit dans le **diagramme cible** de la mission
+  (créée automatiquement si c'est la première résolution).
 - **Export/import Excel** complet d'un projet (menu ☰ de la barre d'onglets).
 - **Historique des versions** (même menu ☰) : une version enregistrée à
-  chaque sauvegarde, consultable (aperçu du diagramme en lecture seule) et
-  restaurable — l'état remplacé reste lui-même dans l'historique.
-- **Variantes de mission** (état actuel / cible) : "Créer une variante…"
-  (même menu ☰) duplique le contenu de la mission ouverte, permet de
-  basculer entre les deux d'un clic, et de les **comparer côte à côte**
-  (bouton "Comparer", diagrammes en lecture seule, sélection indépendante
-  par variante).
+  chaque sauvegarde automatique, consultable (aperçu du diagramme en
+  lecture seule) et restaurable — l'état remplacé reste lui-même dans
+  l'historique.
+- **Diagramme cible** (état actuel / cible d'une même mission) : le
+  sélecteur Actuel/Cible au-dessus des onglets bascule entre les deux
+  (créée à la demande, ou automatiquement par la résolution d'un point de
+  friction ci-dessus) — la cible reste toujours PARTIE de la mission
+  ouverte, jamais une entrée séparée dans le panneau de gauche. Les deux
+  se **comparent côte à côte** (bouton "Comparer", diagrammes en lecture
+  seule, largeur des deux panneaux ajustable par glisser-déposer).
+- **Sauvegarde automatique** : chaque modification (Édition, Diagramme,
+  Spécifications, Vue par persona) est enregistrée après un court délai
+  d'inactivité, sans bouton "Sauvegarder" à cliquer — un indicateur
+  discret au-dessus des onglets confirme l'état de la sauvegarde.
 - **Paramètres** : fournisseur LLM (Anthropic/Mistral) et clé API,
   prompts/skills de génération personnalisables — dont le skill dédié aux
   solutions de points de friction, en posture design créatif / creative
@@ -75,7 +86,7 @@ Ouvrir http://localhost:5173.
 - Interface auditée de bout en bout : état vide guidé, boutons de
   suppression révélés au survol/focus dans l'onglet Édition, astuces du
   diagramme repliables, notation "Reçoit/Envoie" explicite en Vue par
-  acteur. Les longues listes de l'onglet Édition et des Spécifications
+  persona. Les longues listes de l'onglet Édition et des Spécifications
   (au-delà d'une poignée d'éléments) affichent un champ de recherche pour
   filtrer par nom/contenu.
 

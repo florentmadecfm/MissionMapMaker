@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Activity, DraftPainPointSolution, PainPoint, PainPointChangeType, PainPointContext, Project } from '../../api/types'
-import { mergePainPointResolution } from '../specifications/mergePainPointResolution'
+import { applyPainPointResolution } from '../specifications/mergePainPointResolution'
 
 interface Props {
   project: Project
@@ -9,6 +9,10 @@ interface Props {
   painPoint: PainPoint
   onChange: (project: Project) => void
   onClose: () => void
+  // true quand `project` EST déjà la cible (vue Cible active, voir
+  // activeVariant.ts) — sinon le changement structurel de la solution
+  // choisie est dirigé vers la cible de la mission, créée au besoin.
+  isTargetActive: boolean
 }
 
 const CHANGE_TYPE_LABELS: Record<PainPointChangeType, string> = {
@@ -30,11 +34,12 @@ type Status = 'loading' | 'ready' | 'resolving' | 'done' | 'not-configured'
 // une solution choisie, une SSS + un scénario de test qui la formalisent,
 // ajoutés au projet et reliés à l'activité ET au point de friction
 // (PainPoint.resolvedBySpecId) via mergePainPointResolution.
-export function PainPointSolutionsModal({ project, activity, painPoint, onChange, onClose }: Props) {
+export function PainPointSolutionsModal({ project, activity, painPoint, onChange, onClose, isTargetActive }: Props) {
   const [status, setStatus] = useState<Status>('loading')
   const [solutions, setSolutions] = useState<DraftPainPointSolution[]>([])
   const [error, setError] = useState<string | null>(null)
   const [addedCodes, setAddedCodes] = useState<{ spec: string; test: string } | null>(null)
+  const [diagramChangeApplied, setDiagramChangeApplied] = useState(false)
 
   const actor = project.actors.find((a) => a.id === activity.actorId)
   const phase = project.phases.find((p) => p.id === activity.phaseId)
@@ -95,12 +100,20 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
     setError(null)
     try {
       const resolution = await api.generatePainPointResolution(buildContext(), solution)
-      const updated = mergePainPointResolution(project, activity.id, painPoint.id, resolution)
+      const { project: updated, diagramChangeApplied } = applyPainPointResolution(
+        project,
+        activity.id,
+        painPoint.id,
+        resolution,
+        solution.changeType,
+        isTargetActive,
+      )
       onChange(updated)
       setAddedCodes({
         spec: updated.specifications[updated.specifications.length - 1].code,
         test: updated.testScenarios[updated.testScenarios.length - 1].code,
       })
+      setDiagramChangeApplied(diagramChangeApplied)
       setStatus('done')
     } catch (e) {
       setError(String(e))
@@ -167,9 +180,16 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
         {status === 'done' && addedCodes && (
           <div className="painpoint-solution-done">
             <p className="saved-at">
-              Ajoutés au projet : <strong>{addedCodes.spec}</strong> et <strong>{addedCodes.test}</strong>. N'oubliez
-              pas de sauvegarder pour les conserver.
+              Ajoutés au projet : <strong>{addedCodes.spec}</strong> et <strong>{addedCodes.test}</strong>.
             </p>
+            {diagramChangeApplied ? (
+              <p className="saved-at">Le changement structurel a été intégré au diagramme cible.</p>
+            ) : (
+              <p className="nl-warning">
+                Le changement structurel n'a pas pu être identifié automatiquement — à appliquer manuellement dans le
+                diagramme cible si besoin.
+              </p>
+            )}
             <button type="button" className="btn-primary" onClick={onClose}>
               Fermer
             </button>

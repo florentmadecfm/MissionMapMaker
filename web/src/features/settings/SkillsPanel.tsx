@@ -15,7 +15,7 @@ const SKILL_FIELDS: PromptFieldDef[] = [
     key: 'process',
     title: 'Construire la mission map',
     description:
-      "Extrait acteurs, phases, activités et interactions à partir d'une description en langage naturel — utilisé par l'onglet Générer et par la mise à jour du diagramme.",
+      "Extrait personas, phases, activités et interactions à partir d'une description en langage naturel — utilisé par l'onglet Générer et par la mise à jour du diagramme.",
   },
   {
     key: 'specification',

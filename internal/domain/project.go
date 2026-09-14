@@ -18,19 +18,30 @@ type Project struct {
 	Specifications []Specification `json:"specifications"`
 	TestScenarios  []TestScenario  `json:"testScenarios"`
 
-	// VariantGroupID, quand renseigné, relie ce projet à d'autres missions
-	// considérées comme des VARIANTES les unes des autres (typiquement un
-	// état actuel et une ou plusieurs cibles — "as-is"/"to-be", ADR-062) :
-	// tous les projets partageant le même VariantGroupID appartiennent au
-	// même groupe. VariantLabel distingue cette variante précise au sein du
-	// groupe (ex. "État actuel", "Cible"). Vide par défaut : un projet créé
-	// normalement n'appartient à aucun groupe — ce n'est qu'en créant
-	// explicitement une variante depuis un projet existant que les deux se
-	// retrouvent liés. Volontairement PAS de champ "parent" unique (aucune
-	// hiérarchie stricte entre variantes) : un groupe peut contenir
-	// plusieurs cibles côte à côte sans qu'aucune ne soit "la référence".
-	VariantGroupID string `json:"variantGroupId,omitempty"`
-	VariantLabel   string `json:"variantLabel,omitempty"`
+	// Target, quand renseigné, est un second état ("cible"/to-be) du
+	// diagramme de cette même mission, distinct de l'état "actuel" porté
+	// par les 6 collections ci-dessus — une copie indépendante complète
+	// (ses propres acteurs/phases/activités/interactions/specs/tests),
+	// mais qui reste PARTIE de ce projet plutôt qu'un second projet séparé
+	// lié par un groupe de variantes : la cible d'une mission n'apparaît
+	// jamais comme une entrée à part dans le panneau de gauche. nil tant
+	// qu'aucune cible n'a été créée (bouton Actuel/Cible, ou
+	// automatiquement à la première résolution de point de friction, voir
+	// mergePainPointResolution.ts).
+	Target *ProjectVariant `json:"target,omitempty"`
+}
+
+// ProjectVariant est le contenu d'un second état ("cible") du diagramme
+// d'un projet — mêmes 6 collections qu'un Project, plus un Label affiché
+// dans le sélecteur Actuel/Cible (ex. "Cible", éditable).
+type ProjectVariant struct {
+	Label          string          `json:"label"`
+	Actors         []Actor         `json:"actors"`
+	Phases         []Phase         `json:"phases"`
+	Activities     []Activity      `json:"activities"`
+	Interactions   []Interaction   `json:"interactions"`
+	Specifications []Specification `json:"specifications"`
+	TestScenarios  []TestScenario  `json:"testScenarios"`
 }
 
 type Actor struct {

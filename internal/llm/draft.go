@@ -163,28 +163,64 @@ type PainPointContext struct {
 // à la demande explicite de l'utilisateur) : décrit un changement concret
 // au diagramme (ajout/suppression d'interaction, ajout/suppression/fusion
 // d'activités), à choisir par l'utilisateur avant de générer la
-// spécification correspondante. Le diagramme lui-même n'est jamais modifié
-// automatiquement — seule la description sert de matière à la SSS
-// générée ensuite (voir PainPointResolution).
+// spécification correspondante.
 type DraftPainPointSolution struct {
 	Description string `json:"description"`
 	// ChangeType classe la solution parmi : add_interaction,
 	// remove_interaction, add_activity, remove_activity, merge_activities
-	// — sert uniquement à l'affichage (icône/étiquette côté frontend), pas
-	// à une application automatique du changement.
+	// — sert à la fois à l'affichage (icône/étiquette côté frontend) et à
+	// savoir quels champs de PainPointResolution.DiagramChange remplir une
+	// fois cette solution choisie.
 	ChangeType string `json:"changeType"`
 }
 
-// PainPointResolution est la SSS + le scénario de test générés une fois
-// qu'une DraftPainPointSolution a été choisie (ADR-066). Champs à plat
-// plutôt que DraftSpecification/DraftTestScenario imbriqués : pas
-// d'ActivityName/ActorName/SpecificationCode à faire correspondre ensuite
-// (contrairement à une génération en lot, celle-ci vise une seule
-// activité et une seule spécification, déjà connues de l'appelant).
+// DraftPainPointDiagramChange décrit, une fois une DraftPainPointSolution
+// choisie, le changement structurel concret à appliquer au diagramme
+// CIBLE (jamais à l'état actuel) — seuls les champs pertinents pour le
+// ChangeType de la solution choisie sont renseignés, les autres restent
+// vides. Toujours par NOM (activité/acteur/phase), jamais par ID : ces
+// noms sont résolus côté frontend au sein des collections de la cible
+// (mergePainPointResolution.ts), best-effort — si un nom ne correspond à
+// rien, le changement structurel est simplement ignoré (la SSS/le test,
+// eux, sont toujours ajoutés).
+type DraftPainPointDiagramChange struct {
+	// add_activity : nouvelle activité à ajouter.
+	NewActivityName        string `json:"newActivityName,omitempty"`
+	NewActivityActorName   string `json:"newActivityActorName,omitempty"`
+	NewActivityPhaseName   string `json:"newActivityPhaseName,omitempty"`
+	NewActivityDescription string `json:"newActivityDescription,omitempty"`
+
+	// remove_activity : activité existante à retirer (souvent l'activité
+	// porteuse du point de friction lui-même).
+	RemoveActivityName string `json:"removeActivityName,omitempty"`
+
+	// merge_activities : activités existantes à fusionner en une seule.
+	MergeActivityNames []string `json:"mergeActivityNames,omitempty"`
+	MergedActivityName string   `json:"mergedActivityName,omitempty"`
+
+	// add_interaction : nouvel échange entre deux activités existantes.
+	InteractionFromActivityName string `json:"interactionFromActivityName,omitempty"`
+	InteractionToActivityName   string `json:"interactionToActivityName,omitempty"`
+	InteractionInformation      string `json:"interactionInformation,omitempty"`
+
+	// remove_interaction : échange existant à retirer, identifié par ses
+	// deux activités.
+	RemoveInteractionFromActivityName string `json:"removeInteractionFromActivityName,omitempty"`
+	RemoveInteractionToActivityName   string `json:"removeInteractionToActivityName,omitempty"`
+}
+
+// PainPointResolution est la SSS + le scénario de test + le changement
+// structurel générés une fois qu'une DraftPainPointSolution a été choisie
+// (ADR-066). Champs à plat plutôt que DraftSpecification/DraftTestScenario
+// imbriqués : pas d'ActivityName/ActorName/SpecificationCode à faire
+// correspondre ensuite (contrairement à une génération en lot, celle-ci
+// vise une seule activité et une seule spécification, déjà connues de
+// l'appelant).
 type PainPointResolution struct {
-	SpecificationText      string          `json:"specificationText"`
-	SpecificationRationale string          `json:"specificationRationale,omitempty"`
-	TestTitle              string          `json:"testTitle"`
-	TestPreconditions      string          `json:"testPreconditions,omitempty"`
-	TestSteps              []DraftTestStep `json:"testSteps"`
+	SpecificationText      string                      `json:"specificationText"`
+	SpecificationRationale string                      `json:"specificationRationale,omitempty"`
+	TestTitle              string                      `json:"testTitle"`
+	TestPreconditions      string                      `json:"testPreconditions,omitempty"`
+	TestSteps              []DraftTestStep             `json:"testSteps"`
+	DiagramChange          DraftPainPointDiagramChange `json:"diagramChange"`
 }

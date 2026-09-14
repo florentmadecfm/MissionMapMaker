@@ -12,46 +12,66 @@ package domain
 // et avant sauvegarde (Save), pour que ni un ancien fichier ni une requête
 // PUT incomplète ne puisse réintroduire un nil.
 func (p *Project) Normalize() {
-	if p.Actors == nil {
-		p.Actors = []Actor{}
+	normalizeCollections(&p.Actors, &p.Phases, &p.Activities, &p.Interactions, &p.Specifications, &p.TestScenarios)
+	if p.Target != nil {
+		p.Target.normalize()
 	}
-	if p.Phases == nil {
-		p.Phases = []Phase{}
+}
+
+// normalize applique les mêmes règles que Project.Normalize à une cible
+// (ProjectVariant) — copie indépendante complète, donc sujette aux mêmes
+// champs nil qu'un projet chargé depuis le disque.
+func (v *ProjectVariant) normalize() {
+	normalizeCollections(&v.Actors, &v.Phases, &v.Activities, &v.Interactions, &v.Specifications, &v.TestScenarios)
+}
+
+// normalizeCollections factorise la normalisation des 6 collections
+// partagées par Project et ProjectVariant (même règle nil -> slice vide,
+// y compris pour les sous-listes imbriquées).
+func normalizeCollections(
+	actors *[]Actor, phases *[]Phase, activities *[]Activity,
+	interactions *[]Interaction, specifications *[]Specification, testScenarios *[]TestScenario,
+) {
+	if *actors == nil {
+		*actors = []Actor{}
 	}
-	if p.Activities == nil {
-		p.Activities = []Activity{}
+	if *phases == nil {
+		*phases = []Phase{}
 	}
-	if p.Interactions == nil {
-		p.Interactions = []Interaction{}
+	if *activities == nil {
+		*activities = []Activity{}
 	}
-	if p.Specifications == nil {
-		p.Specifications = []Specification{}
+	if *interactions == nil {
+		*interactions = []Interaction{}
 	}
-	if p.TestScenarios == nil {
-		p.TestScenarios = []TestScenario{}
+	if *specifications == nil {
+		*specifications = []Specification{}
 	}
-	for i := range p.Actors {
-		if p.Actors[i].Goals == nil {
-			p.Actors[i].Goals = []ActorGoal{}
+	if *testScenarios == nil {
+		*testScenarios = []TestScenario{}
+	}
+	for i := range *actors {
+		if (*actors)[i].Goals == nil {
+			(*actors)[i].Goals = []ActorGoal{}
 		}
-		if p.Actors[i].PainPoints == nil {
-			p.Actors[i].PainPoints = []ActorPainPoint{}
+		if (*actors)[i].PainPoints == nil {
+			(*actors)[i].PainPoints = []ActorPainPoint{}
 		}
 	}
-	for i := range p.Activities {
-		if p.Activities[i].UserStories == nil {
-			p.Activities[i].UserStories = []UserStory{}
+	for i := range *activities {
+		if (*activities)[i].UserStories == nil {
+			(*activities)[i].UserStories = []UserStory{}
 		}
-		if p.Activities[i].TraceLinks == nil {
-			p.Activities[i].TraceLinks = []string{}
+		if (*activities)[i].TraceLinks == nil {
+			(*activities)[i].TraceLinks = []string{}
 		}
-		if p.Activities[i].PainPoints == nil {
-			p.Activities[i].PainPoints = []PainPoint{}
+		if (*activities)[i].PainPoints == nil {
+			(*activities)[i].PainPoints = []PainPoint{}
 		}
 	}
-	for i := range p.TestScenarios {
-		if p.TestScenarios[i].Steps == nil {
-			p.TestScenarios[i].Steps = []TestStep{}
+	for i := range *testScenarios {
+		if (*testScenarios)[i].Steps == nil {
+			(*testScenarios)[i].Steps = []TestStep{}
 		}
 	}
 }
