@@ -93,6 +93,27 @@ function pickCollections(x: VariantCollections): VariantCollections {
   }
 }
 
+// Insensible à la casse/aux accents/aux espaces de bord : le LLM reprend
+// en général le nom exact fourni en contexte, mais pas toujours au
+// caractère près (majuscule différente, accent oublié...) — une
+// comparaison stricte (===) faisait alors échouer toute la mise en
+// correspondance pour une différence purement cosmétique, alors que le
+// texte réellement produit par un modèle en usage réel s'est avéré
+// souvent proche mais pas identique.
+function normalizeName(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // diacritiques combinants (accents), une fois décomposés par NFD
+    .trim()
+    .toLowerCase()
+}
+
+function findByNormalizedName<T>(items: T[], name: string | undefined, getName: (item: T) => string): T | undefined {
+  if (!name?.trim()) return undefined
+  const target = normalizeName(name)
+  return items.find((item) => normalizeName(getName(item)) === target)
+}
+
 // Résolution par NOM uniquement (jamais par ID) : le LLM ne connaît que
 // les noms déjà présents dans le contexte envoyé (voir PainPointContext,
 // PainPointSolutionsModal.buildContext) — cohérent avec le reste de
@@ -100,8 +121,7 @@ function pickCollections(x: VariantCollections): VariantCollections {
 // qui ne correspond à rien renvoie undefined plutôt que de faire échouer
 // toute l'opération, voir applyDiagramChange.
 function findActivityByName(activities: Activity[], name: string | undefined): Activity | undefined {
-  if (!name) return undefined
-  return activities.find((a) => a.name === name)
+  return findByNormalizedName(activities, name, (a) => a.name)
 }
 
 // Applique à une cible (collections d'activités/interactions/phases) le
@@ -122,10 +142,10 @@ function applyDiagramChange(
     case 'add_activity': {
       if (!change.newActivityName) return { collections, applied: false }
       const actor =
-        (change.newActivityActorName && actors.find((a) => a.name === change.newActivityActorName)) ||
+        findByNormalizedName(actors, change.newActivityActorName, (a) => a.name) ??
         actors.find((a) => a.id === sourceActivity.actorId)
       const phase =
-        (change.newActivityPhaseName && phases.find((p) => p.name === change.newActivityPhaseName)) ||
+        findByNormalizedName(phases, change.newActivityPhaseName, (p) => p.name) ??
         phases.find((p) => p.id === sourceActivity.phaseId)
       if (!actor || !phase) return { collections, applied: false }
       const maxOrder = activities.filter((a) => a.phaseId === phase.id).reduce((m, a) => Math.max(m, a.order), -1)

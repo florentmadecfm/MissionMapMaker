@@ -40,6 +40,11 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
   const [error, setError] = useState<string | null>(null)
   const [addedCodes, setAddedCodes] = useState<{ spec: string; test: string } | null>(null)
   const [diagramChangeApplied, setDiagramChangeApplied] = useState(false)
+  // Description de la solution choisie (voir chooseSolution) — reprise
+  // dans le message final quand le changement structurel n'a pas pu être
+  // appliqué automatiquement, pour que l'utilisateur sache concrètement
+  // quoi reproduire à la main plutôt qu'une phrase générique sans détail.
+  const [chosenDescription, setChosenDescription] = useState('')
 
   const actor = project.actors.find((a) => a.id === activity.actorId)
   const phase = project.phases.find((p) => p.id === activity.phaseId)
@@ -114,6 +119,7 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
         test: updated.testScenarios[updated.testScenarios.length - 1].code,
       })
       setDiagramChangeApplied(diagramChangeApplied)
+      setChosenDescription(solution.description)
       setStatus('done')
     } catch (e) {
       setError(String(e))
@@ -186,8 +192,8 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
               <p className="saved-at">Le changement structurel a été intégré au diagramme cible.</p>
             ) : (
               <p className="nl-warning">
-                Le changement structurel n'a pas pu être identifié automatiquement — à appliquer manuellement dans le
-                diagramme cible si besoin.
+                Le changement structurel n'a pas pu être identifié automatiquement dans le diagramme cible — à
+                appliquer manuellement si besoin : « {chosenDescription} »
               </p>
             )}
             <button type="button" className="btn-primary" onClick={onClose}>
