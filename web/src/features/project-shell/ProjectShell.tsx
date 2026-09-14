@@ -305,7 +305,7 @@ export function ProjectShell() {
 
             <ul className="project-list">
               {summaries.map((s) => (
-                <li key={s.id} className={s.id === project?.id ? 'active' : ''}>
+                <li key={s.id} className={view === 'project' && s.id === project?.id ? 'active' : ''}>
                   <button type="button" onClick={() => handleOpen(s.id)}>
                     <span className="project-name-text">{s.name}</span>
                   </button>
@@ -451,6 +451,7 @@ export function ProjectShell() {
                 project={workingProject}
                 onChange={handleWorkingChange}
                 isTargetActive={activeVariant === 'target'}
+                rootProject={project}
               />
             )}
             {tab === 'specifications' && (

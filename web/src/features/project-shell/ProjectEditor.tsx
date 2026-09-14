@@ -299,23 +299,21 @@ export function ProjectEditor({ project, onChange }: Props) {
           <span className="col-name">Nom</span>
           <span className="col-duration">Durée</span>
           <span className="col-satisfaction">Satisfaction</span>
-          {/* Fantômes (masqués, inertes) des boutons de réordonnancement et
-              de suppression de chaque ligne : sans eux, "Nom" (seule
-              colonne flex: 1 de cet en-tête) grandirait plus que son
-              homologue dans les lignes en dessous — qui, elles, ont ces
-              boutons en plus — et décalerait Durée/Satisfaction vers la
-              droite par rapport aux champs qu'ils sont censés surmonter.
-              Réutilisent le même contenu que les vrais boutons pour garder
-              exactement la même largeur, plutôt qu'un espaceur à largeur
-              devinée. */}
-          <span className="reorder-buttons col-headers-ghost" aria-hidden="true">
-            <button type="button" className="reorder-btn" tabIndex={-1}>
-              <ChevronLeft size={14} />
-            </button>
-            <button type="button" className="reorder-btn" tabIndex={-1}>
-              <ChevronRight size={14} />
-            </button>
-          </span>
+          {/* Étiquette du groupe de boutons ‹/› ci-dessous — auparavant de
+              simples icônes sans aucun texte au-dessus, seul un `title` au
+              survol expliquait leur rôle (repéré peu clair à l'usage) :
+              largeur figée à celle du groupe de boutons réel (voir
+              .col-reorder, App.css) plutôt qu'un espaceur à largeur
+              devinée, pour que Durée/Satisfaction restent alignées avec
+              les champs qu'elles sont censées surmonter. */}
+          <span className="col-reorder">Ordre</span>
+          {/* Fantôme (masqué, inerte) du bouton de suppression de chaque
+              ligne : sans lui, "Nom" (seule colonne flex: 1 de cet
+              en-tête) grandirait plus que son homologue dans les lignes en
+              dessous — qui, elles, ont ce bouton en plus — et décalerait
+              Durée/Satisfaction vers la droite par rapport aux champs
+              qu'ils sont censés surmonter. Réutilise le même contenu que
+              le vrai bouton pour garder exactement la même largeur. */}
           <button type="button" className="danger col-headers-ghost" aria-hidden="true" tabIndex={-1}>
             supprimer
           </button>

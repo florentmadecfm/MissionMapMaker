@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CircleHelp, ImageDown } from 'lucide-react'
+import { ChevronDown, CircleHelp, ImageDown } from 'lucide-react'
 import {
   ReactFlow,
   Background,
   Controls,
-  MarkerType,
   Panel,
   useReactFlow,
   useViewport,
@@ -13,11 +12,13 @@ import {
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { toPng } from 'html-to-image'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
+import { toWorkingProject } from '../project-shell/activeVariant'
+import { HeaderMenu } from '../project-shell/HeaderMenu'
 import { ActivityDetailModal } from './ActivityDetailModal'
+import { dotMarkerId, gradientId, toFlowEdge } from './edgeRendering'
 import { InteractionDetailModal } from './InteractionDetailModal'
 import {
   CARD_HEIGHT_ESTIMATE,
@@ -28,9 +29,9 @@ import {
   MAX_OFFSET_X,
   MAX_OFFSET_Y,
   type DropTarget,
-  type LayoutEdge,
 } from './layout'
 import { nodeTypes } from './nodes'
+import { captureReactFlowPng, exportOffscreenProjectToPng, triggerPngDownload, waitForTransformSettled } from './pngExport'
 import './process-diagram.css'
 
 interface Props {
@@ -40,6 +41,13 @@ interface Props {
   // dernier fichier. false quand omis (onglet Diagramme utilisé hors du
   // contexte Actuel/Cible, ex. tests).
   isTargetActive?: boolean
+  // Le vrai projet (Actuel + Cible), pour que l'export PNG puisse
+  // proposer d'exporter l'autre variante que celle affichée à l'écran —
+  // `project` ci-dessus, lui, porte déjà la CIBLE remplacée par l'ACTUEL
+  // (ou l'inverse) selon activeVariant côté ProjectShell (voir
+  // activeVariant.ts, toWorkingProject). Optionnel : omis, seule la
+  // variante affichée est proposée à l'export (ex. tests).
+  rootProject?: Project | null
 }
 
 // Doit rester cohérent avec maxTextLength côté serveur
@@ -99,125 +107,78 @@ function AutoFitOnChange({ nodeCount }: { nodeCount: number }) {
   return null
 }
 
-// pixelRatio de l'export = 1 / zoom courant (voir handleExport) plutôt
-// qu'un facteur fixe basé sur la taille du CONTENEUR à l'écran (ancienne
-// approche, insuffisante) : plus un diagramme a de phases/acteurs, plus
-// fitView() doit zoomer pour tout faire tenir dans la même fenêtre, donc
-// plus le texte affiché — et capturé — est petit. 1/zoom restitue au
-// contraire la densité NATIVE de chaque carte (celle qu'elle aurait à
-// 100 % de zoom) quel que soit le nombre de phases/acteurs : l'image
-// grandit avec le contenu plutôt que le texte rétrécissant avec lui.
-// EXPORT_ABSOLUTE_MAX_DIMENSION reste un garde-fou dur sur la plus grande
-// dimension de l'image finale (mémoire, poids du fichier, limite de
-// canevas du navigateur) qui prime sur 1/zoom pour un diagramme
-// réellement démesuré ; EXPORT_MAX_PIXEL_RATIO borne le grossissement
-// même pour un tout petit diagramme très zoomé.
-const EXPORT_MIN_PIXEL_RATIO = 1
-const EXPORT_MAX_PIXEL_RATIO = 8
-const EXPORT_ABSOLUTE_MAX_DIMENSION = 8000
+type ExportVariant = 'current' | 'target'
 
-// Exclut du PNG capturé les éléments de chrome de l'interface, sans
-// équivalent sur une image destinée à être partagée/imprimée :
-// - les nœuds "+ Phase"/"+ Activité" (classe react-flow__node-<type>,
-//   voir @xyflow/react) : affordances d'édition ;
-// - les petits "+" en coin des en-têtes de phase/acteur (add-subcolumn/
-//   add-sublane) — mêmes classes déjà masquées par .diagram-readonly pour
-//   ReadOnlyProcessDiagram (ADR-063), même raison ici ;
-// - les poignées de connexion (classe react-flow__handle) : de petits
-//   ronds toujours dans le DOM (voir HANDLE_OFFSETS, nodes.tsx),
-//   pratiquement invisibles au zoom habituel du diagramme affiché à
-//   l'écran mais qui ressortent nettement une fois le contenu mis à
-//   l'échelle pour occuper toute la résolution d'export ;
-// - les boutons de zoom (Controls), CE panneau d'export lui-même
-//   (react-flow__panel) et le filigrane "React Flow" (attribution) : chrome
-//   de l'outil, pas du diagramme.
-const PNG_EXPORT_EXCLUDED_CLASSES = [
-  'react-flow__handle',
-  'react-flow__node-addPhase',
-  'react-flow__node-addActivity',
-  'add-subcolumn-button',
-  'add-sublane-button',
-  'react-flow__controls',
-  'react-flow__panel',
-  'react-flow__attribution',
-]
-
-function shouldIncludeInPngExport(node: Element): boolean {
-  const classList = (node as HTMLElement).classList
-  if (!classList) return true
-  return !PNG_EXPORT_EXCLUDED_CLASSES.some((c) => classList.contains(c))
-}
-
-// Export PNG du diagramme (backlog blueprint #10, ADR-072) — mêmes
-// contraintes que AutoFitOnChange ci-dessus : useReactFlow() n'est
-// utilisable qu'à l'intérieur de <ReactFlow>, d'où ce composant enfant
-// plutôt qu'un bouton dans l'en-tête (hors de cet arbre).
-//
-// Recadre via fitView() (le même mécanisme, déjà fiable, qu'AutoFitOnChange
-// ci-dessus) plutôt que de recalculer soi-même la transformation à partir
-// de getNodesBounds/getViewportForBounds (approche standard de la
-// documentation React Flow) : ces deux fonctions s'appuient sur les
-// dimensions MESURÉES de chaque nœud (node.measured), qui se sont avérées
-// non renseignées pour ce diagramme au moment de l'export (nœuds
-// personnalisés sans dimension fixe déclarée) — bounds calculées à partir
-// de simples points (position x/y), sans tenir compte de la largeur/hauteur
-// réelle des cartes, ce qui sous-évaluait largement le cadrage et laissait
-// une bande vide disproportionnée sur l'image. fitView(), lui, s'appuie sur
-// la même mesure DOM déjà utilisée pour l'affichage normal du diagramme —
-// donc déjà fiable par construction — plutôt que d'y ajouter une deuxième
-// dépendance.
-function DownloadPngButton({ projectName }: { projectName: string }) {
-  const { fitView, getZoom } = useReactFlow()
+// Export PNG du diagramme (backlog blueprint #10), avec le choix de la
+// variante quand la mission en a une (Actuel seulement, Cible seulement,
+// ou les deux — sinon un simple bouton, pas de menu à ouvrir pour une
+// seule option). useReactFlow() n'est utilisable qu'à l'intérieur de
+// <ReactFlow>, d'où ce composant enfant plutôt qu'un bouton dans l'en-tête
+// (hors de cet arbre).
+function DownloadPngButton({
+  projectName,
+  isTargetActive,
+  rootProject,
+}: {
+  projectName: string
+  isTargetActive: boolean
+  // Le vrai projet (Actuel + Cible), voir Props.rootProject ci-dessus —
+  // null si non fourni (aucun choix de variante proposé, seule celle
+  // affichée à l'écran est exportable).
+  rootProject: Project | null
+}) {
+  const { fitView } = useReactFlow()
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const hasTarget = Boolean(rootProject?.target)
 
-  async function handleExport() {
+  // Capture le canevas INTERACTIF déjà affiché à l'écran. Recadre via
+  // fitView() (le même mécanisme, déjà fiable, qu'AutoFitOnChange
+  // ci-dessus) plutôt que de recalculer soi-même la transformation à
+  // partir de getNodesBounds/getViewportForBounds (approche standard de
+  // la documentation React Flow) : ces deux fonctions s'appuient sur les
+  // dimensions MESURÉES de chaque nœud (node.measured), qui se sont
+  // avérées non renseignées pour ce diagramme au moment de l'export
+  // (nœuds personnalisés sans dimension fixe déclarée) — bounds calculées
+  // à partir de simples points (position x/y), sans tenir compte de la
+  // largeur/hauteur réelle des cartes, ce qui sous-évaluait largement le
+  // cadrage. fitView(), lui, s'appuie sur la même mesure DOM déjà
+  // utilisée pour l'affichage normal du diagramme — donc déjà fiable par
+  // construction.
+  async function captureLiveCanvas(): Promise<string> {
+    const viewportEl = document.querySelector<HTMLElement>('.process-diagram .react-flow__viewport')
+    const transformBefore = viewportEl?.style.transform
+    await fitView({ padding: 0.1, duration: 0 })
+    await waitForTransformSettled(viewportEl, transformBefore)
+    const containerEl = document.querySelector<HTMLElement>('.process-diagram .react-flow')
+    if (!containerEl) throw new Error('Diagramme introuvable')
+    return captureReactFlowPng(containerEl, viewportEl)
+  }
+
+  // La variante demandée est-elle celle actuellement affichée sur le
+  // canevas interactif ? Si oui, la capturer directement (plus fidèle,
+  // pas de second rendu) ; sinon, la rendre hors-écran (voir
+  // exportOffscreenProjectToPng, pngExport.ts) sans jamais toucher à ce
+  // qui est affiché à l'utilisateur ni à l'état édité par ProjectShell.
+  async function exportOne(variant: ExportVariant) {
+    const isLive = (variant === 'target') === isTargetActive
+    const dataUrl = isLive
+      ? await captureLiveCanvas()
+      : await exportOffscreenProjectToPng(toWorkingProject(rootProject as Project, variant))
+    const suffix = hasTarget ? (variant === 'target' ? ' — cible' : ' — actuel') : ''
+    triggerPngDownload(dataUrl, `${projectName || 'diagramme'}${suffix}.png`)
+  }
+
+  async function handleExport(selection: ExportVariant | 'both') {
     setExporting(true)
     setError(null)
     try {
-      const viewportEl = document.querySelector<HTMLElement>('.process-diagram .react-flow__viewport')
-      const transformBefore = viewportEl?.style.transform
-
-      await fitView({ padding: 0.1, duration: 0 })
-
-      // fitView met à jour l'état interne de façon synchrone, mais le style
-      // CSS qui en découle ne se reflète dans le DOM qu'au prochain rendu
-      // React (commit + peinture) — un nombre fixe de frames attendues
-      // s'est avéré insuffisant sur un gros diagramme (colonne d'acteurs
-      // encore tronquée sur l'image capturée) : on attend activement que
-      // le transform ait réellement changé plutôt que de deviner un délai,
-      // borné à 20 frames (~300ms) pour ne jamais bloquer indéfiniment si
-      // le nouveau cadrage recalculé est identique au précédent.
-      for (let i = 0; i < 20; i++) {
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-        if (viewportEl && viewportEl.style.transform !== transformBefore) break
+      if (selection === 'both') {
+        await exportOne('current')
+        await exportOne('target')
+      } else {
+        await exportOne(selection)
       }
-
-      const containerEl = document.querySelector<HTMLElement>('.process-diagram .react-flow')
-      if (!containerEl) throw new Error('Diagramme introuvable')
-
-      const rect = containerEl.getBoundingClientRect()
-      const zoom = getZoom()
-      // Densité native (1/zoom) bornée par le garde-fou de taille finale
-      // ET par EXPORT_MAX_PIXEL_RATIO — voir le commentaire sur ces
-      // constantes ci-dessus.
-      const nativeScaleRatio = zoom > 0 ? 1 / zoom : EXPORT_MAX_PIXEL_RATIO
-      const dimensionCapRatio = EXPORT_ABSOLUTE_MAX_DIMENSION / Math.max(rect.width, rect.height, 1)
-      const pixelRatio = Math.max(
-        EXPORT_MIN_PIXEL_RATIO,
-        Math.min(nativeScaleRatio, dimensionCapRatio, EXPORT_MAX_PIXEL_RATIO),
-      )
-
-      const dataUrl = await toPng(containerEl, {
-        backgroundColor: '#ffffff',
-        pixelRatio,
-        filter: shouldIncludeInPngExport,
-      })
-
-      const a = document.createElement('a')
-      a.href = dataUrl
-      a.download = `${projectName || 'diagramme'}.png`.replace(/[/\\?%*:|"<>]/g, '_')
-      a.click()
     } catch (e) {
       setError(String(e))
     } finally {
@@ -227,80 +188,42 @@ function DownloadPngButton({ projectName }: { projectName: string }) {
 
   return (
     <Panel position="top-right" className="diagram-export-panel">
-      <button type="button" onClick={handleExport} disabled={exporting}>
-        <ImageDown size={14} aria-hidden="true" />
-        {exporting ? 'Export…' : 'Exporter en PNG'}
-      </button>
+      {hasTarget ? (
+        <HeaderMenu
+          trigger={
+            <>
+              <ImageDown size={14} aria-hidden="true" />
+              {exporting ? 'Export…' : 'Exporter en PNG'}
+              <ChevronDown size={12} aria-hidden="true" />
+            </>
+          }
+          triggerClassName="png-export-trigger"
+          triggerLabel="Choisir quelle version exporter en PNG"
+        >
+          <button type="button" onClick={() => handleExport('current')} disabled={exporting}>
+            Actuel seulement
+          </button>
+          <button type="button" onClick={() => handleExport('target')} disabled={exporting}>
+            Cible seulement
+          </button>
+          <button type="button" onClick={() => handleExport('both')} disabled={exporting}>
+            Les deux
+          </button>
+        </HeaderMenu>
+      ) : (
+        <button type="button" className="png-export-trigger" onClick={() => handleExport('current')} disabled={exporting}>
+          <ImageDown size={14} aria-hidden="true" />
+          {exporting ? 'Export…' : 'Exporter en PNG'}
+        </button>
+      )}
       {error && <span className="error">{error}</span>}
     </Panel>
   )
 }
 
-// Id DOM-safe pour un marqueur de départ partagé par toutes les flèches
-// issues d'un acteur de cette couleur (évite de dupliquer un <marker> par
-// flèche alors que la couleur, elle, ne varie que par acteur).
-// Exportée avec gradientId/toFlowEdge ci-dessous : réutilisées telles
-// quelles par ReadOnlyProcessDiagram.tsx (vue de comparaison de variantes,
-// ADR-063), qui a besoin du même rendu de flèches sans dupliquer cette
-// logique.
-export function dotMarkerId(color: string) {
-  return `mmm-dot-${color.replace('#', '')}`
-}
-
-export function gradientId(edgeId: string) {
-  return `mmm-grad-${edgeId}`
-}
-
-// Une interaction conditionnelle (embranchement, ADR-060) affiche sa
-// condition en préfixe ("Si <condition>"), suivie de l'information
-// échangée si elle est également renseignée — plutôt que deux libellés
-// séparés sur la même flèche. Une preuve physique (service blueprint,
-// ADR-071), quand renseignée, s'ajoute en suffixe derrière une icône
-// 🧾 : signale sa présence sans avoir à ouvrir l'interaction, sans pour
-// autant justifier un nouveau badge dédié comme .activity-card-branch
-// (bien plus rare qu'un embranchement, une flèche à la fois suffit).
-function edgeLabel(e: LayoutEdge): string {
-  const base = !e.condition ? e.label : e.label ? `Si ${e.condition} — ${e.label}` : `Si ${e.condition}`
-  if (!e.physicalEvidence) return base
-  const evidence = `🧾 ${e.physicalEvidence}`
-  return base ? `${base} · ${evidence}` : evidence
-}
-
-export function toFlowEdge(e: LayoutEdge): Edge {
-  return {
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    sourceHandle: e.sourceHandle,
-    targetHandle: e.targetHandle,
-    label: edgeLabel(e),
-    type: 'smoothstep',
-    // Le trait passe de la couleur de l'acteur de départ à celle de
-    // l'acteur d'arrivée (voir <defs> ci-dessous) : on peut suivre une
-    // flèche à l'œil même quand elle traverse plusieurs acteurs. Une
-    // interaction conditionnelle (embranchement) est en plus tracée en
-    // pointillés, pour la distinguer d'un flux systématique sans avoir à
-    // lire le libellé.
-    style: {
-      stroke: `url(#${gradientId(e.id)})`,
-      strokeWidth: 2,
-      strokeDasharray: e.condition ? '6 4' : undefined,
-    },
-    // Point de départ : petit disque plein dans la couleur de l'acteur
-    // source. Pointe d'arrivée : flèche pleine dans la couleur de
-    // l'acteur cible, plus large que le trait pour bien marquer la fin.
-    markerStart: dotMarkerId(e.sourceColor),
-    markerEnd: { type: MarkerType.ArrowClosed, color: e.targetColor, width: 18, height: 18 },
-    labelStyle: { fontSize: 11, fontWeight: 600, fill: 'var(--color-text)' },
-    labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92 },
-    labelBgPadding: [5, 3],
-    labelBgBorderRadius: 4,
-  }
-}
-
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function ProcessDiagram({ project, onChange, isTargetActive = false }: Props) {
+export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null }: Props) {
   const { nodes, edges } = useMemo(() => computeLayout(project), [project])
   // Astuces d'utilisation du diagramme (glisser-déposer, boutons "+"...) :
   // repliées par défaut plutôt qu'un paragraphe dense toujours affiché en
@@ -674,7 +597,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false }: Pr
           <Controls showInteractive={false} />
           <DropTargetPreview cellPosition={dragTargetPosition} />
           <AutoFitOnChange nodeCount={nodes.length} />
-          <DownloadPngButton projectName={project.name} />
+          <DownloadPngButton projectName={project.name} isTargetActive={isTargetActive} rootProject={rootProject} />
         </ReactFlow>
       </div>
       {selectedActivityId && (
