@@ -95,6 +95,14 @@ type DraftInteraction struct {
 	// Condition, optionnelle, fait de cette interaction un embranchement :
 	// vide pour un flux normal (voir Interaction.Condition, ADR-060).
 	Condition string `json:"condition,omitempty"`
+	// PhysicalEvidence, optionnelle, reprend le même champ que
+	// Interaction.PhysicalEvidence (ADR-071) — à la différence de Condition,
+	// ce champ était jusqu'ici volontairement absent de la génération LLM
+	// (manuel uniquement) ; désormais proposé aussi par le LLM quand le
+	// texte décrit ou laisse deviner une preuve physique perceptible par le
+	// client (reçu, email, étiquette...), sans jamais en inventer une par
+	// défaut pour un échange purement interne.
+	PhysicalEvidence string `json:"physicalEvidence,omitempty"`
 }
 
 // ActivityRef identifie une activité par son nom et celui de son acteur,

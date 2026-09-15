@@ -305,6 +305,7 @@ export interface DraftInteraction {
   toActorName: string
   information: string
   condition?: string
+  physicalEvidence?: string
 }
 
 export type Provider = 'anthropic' | 'mistral'

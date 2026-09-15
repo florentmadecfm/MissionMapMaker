@@ -50,6 +50,7 @@ func extractProcessToolSpec() ToolSpec {
 			"toActorName":      stringProp,
 			"information":      stringProp,
 			"condition":        stringProp,
+			"physicalEvidence": stringProp,
 		},
 		"required": []string{"fromActivityName", "fromActorName", "toActivityName", "toActorName", "information"},
 	}

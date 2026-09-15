@@ -125,6 +125,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
       toActivityId: toId,
       information: di.information,
       condition: di.condition || undefined,
+      physicalEvidence: di.physicalEvidence || undefined,
     })
   }
 
