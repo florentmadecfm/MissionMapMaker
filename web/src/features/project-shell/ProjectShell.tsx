@@ -8,6 +8,8 @@ import { ActorMissionsScreen } from '../actor-missions/ActorMissionsScreen'
 import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { WelcomeTour } from '../onboarding/WelcomeTour'
+import { TOUR_DEMO_PROJECT } from '../onboarding/tourDemoProject'
+import { TOUR_STEPS } from '../onboarding/tourSteps'
 import { SettingsModal } from '../settings/SettingsModal'
 import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
 import {
@@ -23,7 +25,7 @@ import { VariantComparisonScreen } from './VariantComparisonScreen'
 import { VariantToggle } from './VariantToggle'
 import { VersionHistoryModal } from './VersionHistoryModal'
 
-type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
+export type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
 // Vue de la zone principale, indépendante des onglets d'un projet ouvert :
 // 'project' est le fonctionnement habituel (onglets ci-dessus) ; 'actors'
 // est l'écran transverse "Acteurs" (ActorMissionsScreen), qui ne nécessite
@@ -79,6 +81,19 @@ export function ProjectShell() {
   // l'inverse de "déjà vue" — s'ouvre donc seule au tout premier chargement
   // de l'app sur ce navigateur, sans attendre un effet après montage.
   const [tourOpen, setTourOpen] = useState(() => !loadWelcomeTourSeen())
+  const [tourStep, setTourStep] = useState(0)
+  // Capture l'état réel (projet ouvert, onglet, vue, variante affichée,
+  // sidebar repliée ou non) juste avant que la visite guidée ne les
+  // remplace le temps de sa durée (voir l'effet ci-dessous) — restauré tel
+  // quel à la fermeture. Un ref plutôt qu'un state : lu/écrit uniquement
+  // depuis des effets/handlers, jamais depuis le rendu.
+  const preTourStateRef = useRef<{
+    project: Project | null
+    tab: Tab
+    view: View
+    activeVariant: ActiveVariant
+    sidebarCollapsed: boolean
+  } | null>(null)
   // Quel état du diagramme de la mission ouverte est affiché/édité (voir
   // activeVariant.ts) — remis à 'current' à chaque changement de projet
   // ouvert (handleOpen/handleCreate/handleOpenFromActorMissions), comme
@@ -116,12 +131,57 @@ export function ProjectShell() {
     })
   }
 
+  // Ouverture de la visite guidée (premier chargement, ou "Revoir la
+  // visite guidée") : mémorise l'état réel (une seule fois — un effet qui
+  // s'exécuterait à chaque changement d'étape écraserait la sauvegarde
+  // avec l'état DÉJÀ modifié par la visite), installe la mission de
+  // démonstration (tourDemoProject.ts, jamais persistée) et déplie la
+  // barre latérale (les cibles de l'étape 1 — .new-project — y vivent, et
+  // une barre repliée les masquerait).
+  useEffect(() => {
+    if (!tourOpen) return
+    if (!preTourStateRef.current) {
+      preTourStateRef.current = { project, tab, view, activeVariant, sidebarCollapsed }
+    }
+    setView('project')
+    setProject(TOUR_DEMO_PROJECT)
+    setActiveVariant('current')
+    setSidebarCollapsed(false)
+    // Snapshot volontairement pris une seule fois par ouverture (voir le
+    // commentaire ci-dessus) : ne doit PAS se redéclencher sur
+    // project/tab/view/activeVariant/sidebarCollapsed, seulement sur
+    // tourOpen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourOpen])
+
+  // Bascule l'onglet affiché à chaque étape (voir TOUR_STEPS[i].tab,
+  // tourSteps.ts) — l'étape 1 (tab absent) n'y touche pas, elle pointe un
+  // élément de la barre latérale, visible quel que soit l'onglet actif.
+  useEffect(() => {
+    if (!tourOpen) return
+    const step = TOUR_STEPS[tourStep]
+    if (step.tab) setTab(step.tab)
+  }, [tourOpen, tourStep])
+
   // "Passer" et "Terminer" de la visite guidée (WelcomeTour.tsx) déclenchent
   // tous deux ce même geste : une fois vue (même partiellement), elle ne se
   // rouvre plus seule — seul "Revoir la visite guidée" (sidebar) la
   // rouvre explicitement, sans re-toucher au stockage (déjà à '1').
+  // Restaure l'état capturé à l'ouverture (projet réellement ouvert,
+  // onglet, vue, variante, sidebar) plutôt que de laisser la mission de
+  // démonstration affichée.
   function closeTour() {
     setTourOpen(false)
+    setTourStep(0)
+    const prev = preTourStateRef.current
+    preTourStateRef.current = null
+    if (prev) {
+      setProject(prev.project)
+      setTab(prev.tab)
+      setView(prev.view)
+      setActiveVariant(prev.activeVariant)
+      setSidebarCollapsed(prev.sidebarCollapsed)
+    }
     try {
       localStorage.setItem(WELCOME_TOUR_SEEN_KEY, '1')
     } catch {
@@ -323,8 +383,16 @@ export function ProjectShell() {
   // en 'target'. handleWorkingChange fait le trajet inverse à chaque
   // modification remontée par un onglet.
   const workingProject = project ? toWorkingProject(project, activeVariant) : null
+  // Ignore toute modification pendant la visite guidée : le projet affiché
+  // est alors TOUR_DEMO_PROJECT (tourDemoProject.ts), jamais persisté —
+  // un onglet reste monté et câblé normalement (aucune complexité en plus
+  // à gérer dans NlInput/ProcessDiagram/etc.), mais toute interaction
+  // avec lui (normalement bloquée par le calque plein écran de
+  // WelcomeTour.tsx, sauf pour un raccourci clavier global comme Ctrl+Z
+  // du diagramme) reste sans effet plutôt que de tenter une sauvegarde
+  // vouée à échouer (projet fictif, absent du serveur).
   function handleWorkingChange(updated: Project) {
-    if (!project) return
+    if (!project || tourOpen) return
     dirtyRef.current = true
     setProject(fromWorkingProject(project, updated, activeVariant))
   }
@@ -334,6 +402,7 @@ export function ProjectShell() {
   // réel (fromWorkingProject par panneau) avant d'appeler ceci — contrairement
   // à handleWorkingChange ci-dessus, pas de second passage par activeVariant.
   function handleComparisonChange(updated: Project) {
+    if (tourOpen) return
     dirtyRef.current = true
     setProject(updated)
   }
@@ -422,7 +491,14 @@ export function ProjectShell() {
         </div>
       </aside>
 
-      {tourOpen && <WelcomeTour onClose={closeTour} />}
+      {tourOpen && (
+        <WelcomeTour
+          step={tourStep}
+          onNext={() => setTourStep((s) => Math.min(s + 1, TOUR_STEPS.length - 1))}
+          onPrev={() => setTourStep((s) => Math.max(s - 1, 0))}
+          onClose={closeTour}
+        />
+      )}
 
       {settingsOpen && (
         <SettingsModal onClose={() => setSettingsOpen(false)} onSettingsChange={setLlmConfigured} />

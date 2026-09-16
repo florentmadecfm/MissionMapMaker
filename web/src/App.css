@@ -1916,16 +1916,58 @@
   background: var(--color-surface-muted);
 }
 
-/* Visite guidée à la première utilisation (WelcomeTour.tsx, ADR-078) —
-   contenu centré (icône/titre/texte) plutôt que la disposition habituelle
-   d'un formulaire de modale, cohérent avec un écran de présentation
-   plutôt qu'un écran d'édition. */
+/* Visite guidée à la première utilisation (WelcomeTour.tsx, ADR-078). Un
+   vrai "spotlight" pointant les éléments réels de l'interface plutôt
+   qu'un simple diaporama centré : .tour-blocker capte tous les clics sur
+   l'écran réel pendant la visite (mission de démonstration affichée,
+   jamais persistée — voir tourDemoProject.ts) ; .tour-spotlight, posé par
+   ProjectShell.tsx/WelcomeTour.tsx à la position exacte de l'élément visé
+   par l'étape en cours, assombrit tout l'écran SAUF sa propre zone via un
+   box-shadow à très large étalement (astuce à un seul élément, plus
+   simple que 4 rectangles) ; .welcome-tour (la carte d'étape) est
+   repositionnée juste à côté de cette zone plutôt que centrée — sauf
+   repli en over-centrée (.welcome-tour-centered) si l'élément ciblé n'a
+   pas (encore) pu être localisé. */
+.tour-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  cursor: default;
+}
+
+.tour-spotlight {
+  position: fixed;
+  z-index: 56;
+  border-radius: 10px;
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 9999px rgba(16, 24, 40, 0.55);
+  pointer-events: none;
+  transition: top 0.25s var(--ease), left 0.25s var(--ease), width 0.25s var(--ease), height 0.25s var(--ease);
+}
+
 .welcome-tour {
-  position: relative;
-  width: 440px;
+  position: fixed;
+  z-index: 57;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 1.5rem;
+  width: 380px;
+  max-width: calc(100vw - 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
   align-items: center;
   text-align: center;
   padding-top: 2.5rem;
+  animation: modal-in 0.18s var(--ease);
+}
+
+.welcome-tour-centered {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .welcome-tour-skip {

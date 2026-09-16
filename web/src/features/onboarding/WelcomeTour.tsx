@@ -1,62 +1,110 @@
-import { useState } from 'react'
-import { ClipboardCheck, GitCompareArrows, Map, Sparkles, Users, Workflow } from 'lucide-react'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { TOUR_STEPS } from './tourSteps'
 
 interface Props {
+  step: number
+  onNext: () => void
+  onPrev: () => void
   onClose: () => void
 }
 
-const STEPS = [
-  {
-    icon: Map,
-    title: 'Bienvenue dans MissionMapMaker',
-    body: "Cartographiez un processus métier — personas, étapes, échanges — avec traçabilité vers vos exigences et vos tests. Ce petit tour vous montre l'essentiel en une minute, skippable à tout moment.",
-  },
-  {
-    icon: Sparkles,
-    title: 'Décrivez, l’IA cartographie',
-    body: 'Dans l’onglet « Générer », décrivez votre mission en langage naturel : personas, phases, activités et interactions sont proposés automatiquement, prêts à ajuster.',
-  },
-  {
-    icon: Workflow,
-    title: 'Un diagramme qui se manipule',
-    body: 'Glissez-déposez les activités entre personas et phases, reliez-les pour créer des interactions, annulez/rétablissez (Ctrl+Z), exportez en PNG ou générez un sketch illustré.',
-  },
-  {
-    icon: Users,
-    title: 'Personas partagés & points de friction',
-    body: 'Chaque persona (à propos, bio, objectifs) est partagé par nom entre toutes vos missions. Un point de friction relevé peut être résolu en un clic : spécification et scénario de test générés automatiquement.',
-  },
-  {
-    icon: GitCompareArrows,
-    title: 'Comparez Actuel et Cible',
-    body: 'Créez une version « Cible » de votre mission et comparez-la côte à côte avec l’état « Actuel » pour visualiser précisément ce qui change.',
-  },
-  {
-    icon: ClipboardCheck,
-    title: 'Tracez, exportez, personnalisez',
-    body: 'Les spécifications se relient à vos activités pour une traçabilité complète. Exportez en Excel ou PNG, et personnalisez les prompts de génération depuis Paramètres.',
-  },
-]
+// Marge entre l'élément mis en avant et le cadre de surbrillance, et entre
+// ce cadre et la carte d'étape/le bord de l'écran.
+const SPOTLIGHT_PADDING = 6
+const CARD_MARGIN = 16
+// Fréquence de re-mesure de l'élément ciblé pendant qu'une étape est
+// affichée — l'élément peut légèrement bouger (police qui finit de
+// charger, mise en page React Flow qui se stabilise après un changement
+// d'onglet) ; un sondage léger est plus simple et robuste qu'un
+// ResizeObserver/MutationObserver à mettre en place puis nettoyer pour un
+// gain marginal, sur une durée de vie de toute façon très courte (une
+// visite guidée dure quelques secondes par étape).
+const REMEASURE_INTERVAL_MS = 250
 
-// Visite guidée à la première utilisation (ADR-078) : une suite d'écrans
-// autonomes plutôt qu'un vrai "spotlight" pointant les éléments réels de
-// l'interface — plus simple et bien plus robuste (aucune dépendance à la
-// position d'un élément DOM, au projet ouvert, à l'onglet actif ou à la
-// taille de la fenêtre, qu'un vrai spotlight devrait sans cesse
-// recalculer). Se ferme et se relance comme n'importe quelle modale de
-// l'app (.modal-backdrop/.modal) ; ProjectShell.tsx décide QUAND
-// l'afficher (première visite, ou rappel manuel depuis Paramètres) et
-// mémorise qu'elle a été vue.
-export function WelcomeTour({ onClose }: Props) {
-  const [step, setStep] = useState(0)
+// Visite guidée à la première utilisation (ADR-078) : contrairement à la
+// version précédente (un simple diaporama d'écrans autonomes), chaque
+// étape change réellement d'onglet (ProjectShell.tsx pilote `tab` à
+// partir de TOUR_STEPS[step].tab) et met en surbrillance l'élément RÉEL
+// qui porte la fonctionnalité décrite (TOUR_STEPS[step].target) — via un
+// unique <div> dont le box-shadow à très large étalement assombrit tout
+// l'écran SAUF sa propre zone (astuce CSS classique de "spotlight" à un
+// seul élément, sans avoir à découper le fond en 4 rectangles). Un calque
+// plein écran séparé, invisible, capte tous les clics pendant la visite
+// (ProjectShell.tsx bascule sur un projet de démonstration le temps de la
+// visite — voir tourDemoProject.ts — jamais persisté ; mieux vaut éviter
+// toute interaction accidentelle avec lui plutôt que de gérer les
+// conséquences d'une modification sur des données fictives).
+export function WelcomeTour({ step, onNext, onPrev, onClose }: Props) {
+  const stepData = TOUR_STEPS[step]
   const isFirst = step === 0
-  const isLast = step === STEPS.length - 1
-  const current = STEPS[step]
-  const Icon = current.icon
+  const isLast = step === TOUR_STEPS.length - 1
+  const Icon = stepData.icon
+
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null)
+
+  // Mesure (et re-mesure à intervalle) l'élément ciblé par cette étape —
+  // absent tant que l'onglet/écran visé n'a pas fini de se rendre (voir
+  // TOUR_STEPS[step].tab, piloté par ProjectShell.tsx en parallèle),
+  // retrouvé dès qu'il apparaît. Repart de zéro à chaque changement
+  // d'étape (`step` en dépendance) : l'ancien élément n'a plus de sens.
+  useLayoutEffect(() => {
+    setTargetRect(null)
+    function measure() {
+      const el = document.querySelector(stepData.target)
+      setTargetRect(el ? el.getBoundingClientRect() : null)
+    }
+    measure()
+    const interval = window.setInterval(measure, REMEASURE_INTERVAL_MS)
+    window.addEventListener('resize', measure)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('resize', measure)
+    }
+  }, [step, stepData.target])
+
+  // Repositionne la carte d'étape juste après l'élément mis en avant (en
+  // dessous s'il y a la place, sinon au-dessus), recalculé à chaque
+  // déplacement de la cible ou changement de taille de la carte
+  // elle-même (le texte d'une étape à l'autre n'a pas la même longueur).
+  useLayoutEffect(() => {
+    if (!targetRect || !cardRef.current) {
+      setCardPos(null)
+      return
+    }
+    const cardRect = cardRef.current.getBoundingClientRect()
+    let top = targetRect.bottom + SPOTLIGHT_PADDING + CARD_MARGIN
+    if (top + cardRect.height > window.innerHeight - CARD_MARGIN) {
+      top = targetRect.top - SPOTLIGHT_PADDING - CARD_MARGIN - cardRect.height
+    }
+    top = Math.max(top, CARD_MARGIN)
+    let left = targetRect.left + targetRect.width / 2 - cardRect.width / 2
+    left = Math.min(Math.max(left, CARD_MARGIN), window.innerWidth - cardRect.width - CARD_MARGIN)
+    setCardPos({ top, left })
+  }, [targetRect])
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal welcome-tour" onClick={(e) => e.stopPropagation()}>
+    <>
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+      <div className="tour-blocker" onClick={onClose} />
+      {targetRect && (
+        <div
+          className="tour-spotlight"
+          style={{
+            top: targetRect.top - SPOTLIGHT_PADDING,
+            left: targetRect.left - SPOTLIGHT_PADDING,
+            width: targetRect.width + SPOTLIGHT_PADDING * 2,
+            height: targetRect.height + SPOTLIGHT_PADDING * 2,
+          }}
+        />
+      )}
+      <div
+        ref={cardRef}
+        className={`welcome-tour${cardPos ? '' : ' welcome-tour-centered'}`}
+        style={cardPos ? { top: cardPos.top, left: cardPos.left } : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button type="button" className="welcome-tour-skip" onClick={onClose}>
           Passer
         </button>
@@ -64,31 +112,27 @@ export function WelcomeTour({ onClose }: Props) {
         <div className="welcome-tour-icon">
           <Icon size={32} aria-hidden="true" />
         </div>
-        <h2>{current.title}</h2>
-        <p>{current.body}</p>
+        <h2>{stepData.title}</h2>
+        <p>{stepData.body}</p>
 
         <div className="welcome-tour-dots" aria-hidden="true">
-          {STEPS.map((s, i) => (
+          {TOUR_STEPS.map((s, i) => (
             <span key={s.title} className={i === step ? 'active' : ''} />
           ))}
         </div>
 
         <div className="welcome-tour-actions">
-          <button type="button" onClick={() => setStep((s) => s - 1)} disabled={isFirst}>
+          <button type="button" onClick={onPrev} disabled={isFirst}>
             Précédent
           </button>
           <span className="welcome-tour-progress">
-            {step + 1} / {STEPS.length}
+            {step + 1} / {TOUR_STEPS.length}
           </span>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => (isLast ? onClose() : setStep((s) => s + 1))}
-          >
+          <button type="button" className="btn-primary" onClick={isLast ? onClose : onNext}>
             {isLast ? 'Terminer' : 'Suivant'}
           </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }
