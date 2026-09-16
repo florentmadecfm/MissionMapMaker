@@ -1,10 +1,11 @@
 import { useCallback, useRef, useState } from 'react'
 import type { Project } from '../../api/types'
-import { ReadOnlyProcessDiagram } from '../process-diagram/ReadOnlyProcessDiagram'
-import { toWorkingProject } from './activeVariant'
+import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
+import { fromWorkingProject, toWorkingProject } from './activeVariant'
 
 interface Props {
   project: Project
+  onChange: (project: Project) => void
   onClose: () => void
 }
 
@@ -27,8 +28,14 @@ const DEFAULT_LEFT_PERCENT = 50
 // voir activeVariant.ts). Deux panneaux fixes (plus de sélection : il n'y
 // a plus que ces deux états possibles) séparés par un diviseur glissable
 // qui agrandit l'un en rétrécissant l'autre (largeurs en %, bornées pour
-// qu'aucun panneau ne disparaisse complètement).
-export function VariantComparisonScreen({ project, onClose }: Props) {
+// qu'aucun panneau ne disparaisse complètement). Chaque panneau embarque
+// le diagramme ÉDITABLE complet (ProcessDiagram, pas ReadOnlyProcessDiagram) :
+// glisser-déposer, mise à jour en langage naturel, export PNG..., exactement
+// comme l'onglet Diagramme — modifier l'un des deux panneaux ne touche
+// jamais l'autre (fromWorkingProject route chaque changement vers la bonne
+// moitié du projet réel), pratique pour ajuster les deux versions sans
+// repasser par le sélecteur Actuel/Cible de l'onglet Diagramme.
+export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
   const [leftPercent, setLeftPercent] = useState(DEFAULT_LEFT_PERCENT)
   const containerRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -73,6 +80,13 @@ export function VariantComparisonScreen({ project, onClose }: Props) {
   const current = project
   const target = toWorkingProject(project, 'target')
 
+  function handleCurrentChange(updated: Project) {
+    onChange(fromWorkingProject(project, updated, 'current'))
+  }
+  function handleTargetChange(updated: Project) {
+    onChange(fromWorkingProject(project, updated, 'target'))
+  }
+
   return (
     <div className="variant-comparison-screen">
       <header className="editor-header">
@@ -82,7 +96,14 @@ export function VariantComparisonScreen({ project, onClose }: Props) {
         </button>
       </header>
       <div className="variant-comparison-panels" ref={containerRef}>
-        <VariantPanel label="Actuel" project={current} widthPercent={leftPercent} />
+        <VariantPanel
+          label="Actuel"
+          project={current}
+          onChange={handleCurrentChange}
+          isTargetActive={false}
+          rootProject={project}
+          widthPercent={leftPercent}
+        />
         <div
           className="variant-comparison-divider"
           role="separator"
@@ -90,7 +111,14 @@ export function VariantComparisonScreen({ project, onClose }: Props) {
           aria-label="Redimensionner les panneaux de comparaison"
           onPointerDown={startDragging}
         />
-        <VariantPanel label={project.target.label || 'Cible'} project={target} widthPercent={100 - leftPercent} />
+        <VariantPanel
+          label={project.target.label || 'Cible'}
+          project={target}
+          onChange={handleTargetChange}
+          isTargetActive
+          rootProject={project}
+          widthPercent={100 - leftPercent}
+        />
       </div>
     </div>
   )
@@ -99,10 +127,16 @@ export function VariantComparisonScreen({ project, onClose }: Props) {
 interface PanelProps {
   label: string
   project: Project
+  onChange: (project: Project) => void
+  isTargetActive: boolean
+  // Le vrai projet (Actuel + Cible), pour que l'export PNG de ce panneau
+  // puisse proposer "Les deux" comme depuis l'onglet Diagramme — voir
+  // ProcessDiagram.tsx, Props.rootProject.
+  rootProject: Project
   widthPercent: number
 }
 
-function VariantPanel({ label, project, widthPercent }: PanelProps) {
+function VariantPanel({ label, project, onChange, isTargetActive, rootProject, widthPercent }: PanelProps) {
   const stats = summarize(project)
   return (
     <section className="variant-comparison-panel" style={{ flexBasis: `${widthPercent}%` }}>
@@ -113,7 +147,13 @@ function VariantPanel({ label, project, widthPercent }: PanelProps) {
         {stats.painPoints > 1 ? 's' : ''} de friction
       </p>
       <div className="variant-comparison-diagram">
-        <ReadOnlyProcessDiagram project={project} />
+        <ProcessDiagram
+          key={isTargetActive ? 'target' : 'current'}
+          project={project}
+          onChange={onChange}
+          isTargetActive={isTargetActive}
+          rootProject={rootProject}
+        />
       </div>
     </section>
   )

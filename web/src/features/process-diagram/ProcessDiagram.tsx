@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, CircleHelp, ImageDown } from 'lucide-react'
+import { ChevronDown, CircleHelp, ImageDown, Sparkles } from 'lucide-react'
 import {
   ReactFlow,
   Background,
@@ -12,6 +12,7 @@ import {
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
@@ -32,6 +33,7 @@ import {
 } from './layout'
 import { nodeTypes } from './nodes'
 import { captureReactFlowPng, exportOffscreenProjectToPng, triggerPngDownload, waitForTransformSettled } from './pngExport'
+import { SketchPreviewModal } from './SketchPreviewModal'
 import './process-diagram.css'
 
 interface Props {
@@ -116,21 +118,34 @@ type ExportVariant = 'current' | 'target'
 // <ReactFlow>, d'où ce composant enfant plutôt qu'un bouton dans l'en-tête
 // (hors de cet arbre).
 function DownloadPngButton({
-  projectName,
+  project,
   isTargetActive,
   rootProject,
+  onSketchGenerated,
 }: {
-  projectName: string
+  // Le diagramme actuellement affiché (variante active) — sert à la fois
+  // à l'export PNG technique (projectName) et au sketch IA ci-dessous
+  // (noms d'acteurs/phases/activités, voir handleGenerateSketch).
+  project: Project
   isTargetActive: boolean
   // Le vrai projet (Actuel + Cible), voir Props.rootProject ci-dessus —
   // null si non fourni (aucun choix de variante proposé, seule celle
   // affichée à l'écran est exportable).
   rootProject: Project | null
+  // Remonte le sketch généré au parent (ProcessDiagram) plutôt que de le
+  // télécharger directement d'ici — voir handleGenerateSketch : affiché
+  // dans SketchPreviewModal (rendue hors de <ReactFlow>, ce composant-ci
+  // vit dedans) avant tout téléchargement, jamais un fichier livré à
+  // l'aveugle sans que l'utilisateur ait vu le résultat.
+  onSketchGenerated: (dataUrl: string, filename: string) => void
 }) {
   const { fitView } = useReactFlow()
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sketching, setSketching] = useState(false)
+  const [sketchError, setSketchError] = useState<string | null>(null)
   const hasTarget = Boolean(rootProject?.target)
+  const projectName = project.name
 
   // Capture le canevas INTERACTIF déjà affiché à l'écran. Recadre via
   // fitView() (le même mécanisme, déjà fiable, qu'AutoFitOnChange
@@ -186,6 +201,34 @@ function DownloadPngButton({
     }
   }
 
+  // Génération d'image (ADR-073) : illustration "sketch" résumant le
+  // diagramme actuellement affiché (variante active uniquement — pas de
+  // choix Actuel/Cible/Les deux comme l'export PNG technique ci-dessus,
+  // une illustration d'ensemble a moins besoin de cette granularité).
+  // Jamais persistée sur le projet — mais affichée (onSketchGenerated,
+  // voir SketchPreviewModal) avant tout téléchargement, contrairement à
+  // l'export PNG technique ci-dessus qui télécharge directement (c'est
+  // déjà un rendu FIDÈLE du diagramme affiché à l'écran, pas besoin d'un
+  // second aperçu ; le sketch, lui, est une génération dont le résultat
+  // mérite d'être vu avant de l'enregistrer).
+  async function handleGenerateSketch() {
+    setSketching(true)
+    setSketchError(null)
+    try {
+      const { imageDataUrl } = await api.generateDiagramSketch({
+        missionName: project.name,
+        actorNames: project.actors.map((a) => a.name),
+        phaseNames: [...project.phases].sort((a, b) => a.order - b.order).map((p) => p.name),
+        activityNames: project.activities.map((a) => a.name),
+      })
+      onSketchGenerated(imageDataUrl, `${project.name || 'diagramme'} — sketch.png`)
+    } catch (e) {
+      setSketchError(String(e))
+    } finally {
+      setSketching(false)
+    }
+  }
+
   return (
     <Panel position="top-right" className="diagram-export-panel">
       {hasTarget ? (
@@ -216,7 +259,12 @@ function DownloadPngButton({
           {exporting ? 'Export…' : 'Exporter en PNG'}
         </button>
       )}
+      <button type="button" className="png-export-trigger" onClick={handleGenerateSketch} disabled={sketching}>
+        <Sparkles size={14} aria-hidden="true" />
+        {sketching ? 'Génération…' : 'Générer un sketch'}
+      </button>
       {error && <span className="error">{error}</span>}
+      {sketchError && <span className="error">{sketchError}</span>}
     </Panel>
   )
 }
@@ -238,6 +286,9 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null)
   const [selectedActorProfileId, setSelectedActorProfileId] = useState<string | null>(null)
+  // Sketch IA généré (ADR-073) en attente d'aperçu/téléchargement — voir
+  // DownloadPngButton.onSketchGenerated et SketchPreviewModal ci-dessous.
+  const [sketchPreview, setSketchPreview] = useState<{ dataUrl: string; filename: string } | null>(null)
   const [updateText, setUpdateText] = useState('')
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
@@ -597,7 +648,12 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           <Controls showInteractive={false} />
           <DropTargetPreview cellPosition={dragTargetPosition} />
           <AutoFitOnChange nodeCount={nodes.length} />
-          <DownloadPngButton projectName={project.name} isTargetActive={isTargetActive} rootProject={rootProject} />
+          <DownloadPngButton
+            project={project}
+            isTargetActive={isTargetActive}
+            rootProject={rootProject}
+            onSketchGenerated={(dataUrl, filename) => setSketchPreview({ dataUrl, filename })}
+          />
         </ReactFlow>
       </div>
       {selectedActivityId && (
@@ -623,6 +679,13 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           actorId={selectedActorProfileId}
           onChange={onChange}
           onClose={() => setSelectedActorProfileId(null)}
+        />
+      )}
+      {sketchPreview && (
+        <SketchPreviewModal
+          dataUrl={sketchPreview.dataUrl}
+          filename={sketchPreview.filename}
+          onClose={() => setSketchPreview(null)}
         />
       )}
     </div>

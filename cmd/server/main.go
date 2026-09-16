@@ -23,8 +23,9 @@ func main() {
 	projects := service.NewProjectService(repo, profiles)
 
 	generate := setupGenerateService()
+	images := setupImageService()
 
-	router := api.NewRouter(projects, generate)
+	router := api.NewRouter(projects, generate, images)
 
 	log.Printf("MissionMapMaker API sur %s (données : %s)", addr, dataDir)
 	if err := http.ListenAndServe(addr, router); err != nil {
@@ -86,6 +87,26 @@ func buildGenerateService(cfg *config.Config) *service.GenerateService {
 
 	log.Printf("génération assistée désactivée : %v (configurez un fournisseur depuis l'écran Paramètres, ou définissez ANTHROPIC_API_KEY)", llm.ErrNotConfigured)
 	return service.NewGenerateService(nil, "", "", "")
+}
+
+// setupImageService (ADR-073) charge la clé API Mistral dédiée à la
+// génération d'image depuis la configuration locale — indépendante du
+// fournisseur de texte actif (setupGenerateService ci-dessus) : voir
+// Config.ImageGenerationAPIKey. Charge aussi le style personnalisé
+// (ADR-074, 5e paire prompt/skill), comme setupGenerateService le fait
+// pour les 4 autres.
+func setupImageService() *service.ImageService {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("lecture de la configuration locale : %v", err)
+		cfg = &config.Config{}
+	}
+	images := service.NewImageService(cfg.ImageGenerationAPIKey)
+	images.SetPrompts(service.ImagePromptOverrides{
+		Generation:        cfg.Prompts.ImageGeneration,
+		GenerationContext: cfg.Prompts.ImageGenerationContext,
+	})
+	return images
 }
 
 func envOr(key, fallback string) string {

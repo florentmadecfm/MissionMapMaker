@@ -506,9 +506,21 @@
 .variant-comparison-diagram {
   flex: 1;
   min-height: 0;
+  display: flex;
 }
 
-.variant-comparison-diagram .process-diagram {
+/* ProcessDiagram.tsx (diagramme ÉDITABLE, voir VariantComparisonScreen.tsx)
+   embarque son propre en-tête (astuce d'utilisation, zone de mise à jour en
+   langage naturel) au-dessus du canevas, dans .process-diagram-page — dont
+   la hauteur par défaut (calc(100vh - 160px), process-diagram.css) suppose
+   une page plein écran. Ici, la place déjà prise par le titre/les stats du
+   panneau au-dessus doit primer : height: 100% pour occuper tout
+   .variant-comparison-diagram (lui-même dimensionné par le flex de
+   .variant-comparison-panel), le canevas lui-même (.process-diagram,
+   flex: 1 dans process-diagram.css) se redimensionne alors correctement en
+   cascade. */
+.variant-comparison-diagram .process-diagram-page {
+  width: 100%;
   height: 100%;
 }
 
@@ -1769,7 +1781,8 @@
   overflow-y: auto;
 }
 
-.actor-profile-modal h3 {
+.actor-profile-modal h3,
+.settings-page h3 {
   font-size: 0.9rem;
   margin: 0.4rem 0 0.2rem;
 }
@@ -1778,6 +1791,43 @@
   width: 100%;
   min-height: 7rem;
   resize: vertical;
+}
+
+/* Portrait IA du persona (ADR-073) : miniature + bouton de génération,
+   au-dessus du reste de la fiche — vide (pas d'image) tant qu'aucun
+   portrait n'a été généré, le bouton reste alors seul sur la ligne. */
+.actor-portrait {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.actor-portrait-image {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.actor-portrait-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Aperçu du sketch de diagramme généré par IA (SketchPreviewModal.tsx,
+   ADR-073) avant téléchargement. */
+.sketch-preview-modal {
+  width: min(720px, 90vw);
+}
+
+.sketch-preview-image {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
 }
 
 .modal-header {
@@ -1925,6 +1975,15 @@
   font-size: 0.76rem;
   color: var(--color-text-faint);
   margin-top: -0.2rem;
+}
+
+/* Sépare le bloc fournisseur/clé (génération de texte) du bloc génération
+   d'image ci-dessous (SettingsModal.tsx, ADR-073) — deux clés API
+   indépendantes dans le même onglet Connexion au modèle. */
+.settings-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0.4rem 0;
 }
 
 /* La modale Paramètres porte deux onglets (Connexion au modèle, Skills) —

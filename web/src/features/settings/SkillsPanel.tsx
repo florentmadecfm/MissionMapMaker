@@ -1,15 +1,16 @@
 import { PromptEditor, type PromptFieldDef } from './PromptEditor'
 
-// Les 4 skills correspondent exactement aux 4 capacités de génération
-// assistée exposées par le backend (internal/llm/prompts.go) : pas de
-// "création" d'un 5e skill arbitraire, ce sont des emplacements fixes —
+// Les 5 skills correspondent exactement aux 5 capacités de génération
+// assistée exposées par le backend (internal/llm/prompts.go +
+// image_prompts.go, ADR-073/ADR-074) : ce sont des emplacements fixes —
 // éditer et réinitialiser leur texte est ce que permet le mode CRUD
 // demandé ici (Read : texte actuel : Update : édition + Enregistrer ;
 // Delete : Réinitialiser retire la personnalisation, revient au texte par
 // défaut). Un skill est la MÉTHODE détaillée d'une tâche (étapes, règles
-// de rédaction, format de sortie) — voir PromptsPanel.tsx pour le contexte
-// et l'objectif de ces mêmes tâches, concaténés au skill au moment de
-// l'appel (ADR-045).
+// de rédaction, format de sortie — pour imageGeneration, les règles de
+// STYLE de l'illustration) — voir PromptsPanel.tsx pour le contexte et
+// l'objectif de ces mêmes tâches, concaténés au skill au moment de l'appel
+// (ADR-045).
 const SKILL_FIELDS: PromptFieldDef[] = [
   {
     key: 'process',
@@ -32,6 +33,12 @@ const SKILL_FIELDS: PromptFieldDef[] = [
     title: 'Résoudre un point de friction',
     description:
       "Propose 5 solutions structurelles à un point de friction (design créatif / creative problem solving) — la formalisation en SSS + test de la solution choisie, elle, n'est pas personnalisable.",
+  },
+  {
+    key: 'imageGeneration',
+    title: 'Génération d’image',
+    description:
+      "Règles de style de l'illustration générée (portrait de persona ou sketch de diagramme) — les données propres à chaque usage (nom/fiche du persona, contenu du diagramme) restent fixes, pas personnalisables.",
   },
 ]
 

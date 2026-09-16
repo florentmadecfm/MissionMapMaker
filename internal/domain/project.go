@@ -83,6 +83,15 @@ type Actor struct {
 	Bio        string           `json:"bio"`
 	Goals      []ActorGoal      `json:"goals"`
 	PainPoints []ActorPainPoint `json:"painPoints"`
+	// PortraitImage est un portrait/sketch de ce persona généré par IA
+	// (ADR-073 — génération d'image via l'Agents API Mistral, outil
+	// image_generation, FLUX1.1 Pro Ultra), encodé en data URL
+	// ("data:image/png;base64,...") prête à poser directement dans un
+	// attribut src — pas de stockage de fichier séparé, cohérent avec le
+	// reste de la persistance de l'app (fichiers JSON autonomes). Partagé
+	// entre missions au même titre qu'About/Bio/Goals/PainPoints
+	// ci-dessus (ADR-056) : vide tant qu'aucun portrait n'a été généré.
+	PortraitImage string `json:"portraitImage,omitempty"`
 }
 
 type ActorGoal struct {
@@ -95,14 +104,15 @@ type ActorPainPoint struct {
 	Text string `json:"text"`
 }
 
-// ActorProfile est la fiche persona d'un acteur (mêmes 4 champs qu'Actor
+// ActorProfile est la fiche persona d'un acteur (mêmes 5 champs qu'Actor
 // ci-dessus), stockée une seule fois PAR NOM plutôt que par acteur — voir
 // storage.ActorProfileStore et ADR-056.
 type ActorProfile struct {
-	About      string           `json:"about"`
-	Bio        string           `json:"bio"`
-	Goals      []ActorGoal      `json:"goals"`
-	PainPoints []ActorPainPoint `json:"painPoints"`
+	About         string           `json:"about"`
+	Bio           string           `json:"bio"`
+	Goals         []ActorGoal      `json:"goals"`
+	PainPoints    []ActorPainPoint `json:"painPoints"`
+	PortraitImage string           `json:"portraitImage,omitempty"`
 }
 
 type Phase struct {
