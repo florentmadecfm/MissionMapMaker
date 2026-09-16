@@ -51,14 +51,20 @@ export function gradientId(edgeId: string) {
 // d'affichage, jamais une perte de donnée.
 const MAX_EDGE_LABEL_LENGTH = 28
 
-function truncateEdgeLabel(text: string): string {
-  return text.length > MAX_EDGE_LABEL_LENGTH ? `${text.slice(0, MAX_EDGE_LABEL_LENGTH - 1).trimEnd()}…` : text
+// `maxLen` vient de LayoutEdge.maxLabelChars quand le tracé est horizontal
+// direct (même ligne, voir layout.ts) — l'écart RÉEL entre les deux
+// cartes y borne le libellé plus strictement que la limite par défaut,
+// pour qu'il ne déborde jamais sur la carte voisine. Absent (tracé
+// vertical/diagonal, plus de marge de manœuvre), c'est MAX_EDGE_LABEL_LENGTH
+// qui s'applique, comme avant.
+function truncateEdgeLabel(text: string, maxLen: number): string {
+  return text.length > maxLen ? `${text.slice(0, maxLen - 1).trimEnd()}…` : text
 }
 
 function edgeLabel(e: LayoutEdge): string {
   const base = e.condition ? `Si ${e.condition}` : e.label
   const withEvidence = !e.physicalEvidence ? base : base ? `${base} · 🧾 ${e.physicalEvidence}` : `🧾 ${e.physicalEvidence}`
-  return truncateEdgeLabel(withEvidence)
+  return truncateEdgeLabel(withEvidence, Math.min(MAX_EDGE_LABEL_LENGTH, e.maxLabelChars ?? MAX_EDGE_LABEL_LENGTH))
 }
 
 // diffStatus (optionnel) : uniquement renseigné depuis la vue de

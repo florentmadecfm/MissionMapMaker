@@ -155,6 +155,40 @@ export interface LayoutEdge {
   // verticaux, dont la boîte englobante a une largeur ou une hauteur nulle
   // sur ces segments — un dégradé objectBoundingBox y devient invisible.
   gradient: { x1: number; y1: number; x2: number; y2: number }
+  // Nombre de caractères disponibles pour le libellé SANS déborder sur la
+  // carte voisine (voir MAX_EDGE_LABEL_LENGTH, edgeRendering.ts) — calculé
+  // uniquement pour une interaction entre deux activités de la MÊME ligne
+  // (même acteur, tracé horizontal direct) : c'est le seul cas où le
+  // libellé occupe un couloir de largeur connue et fixe (l'écart réel
+  // entre les deux cartes, pas juste une estimation). undefined partout
+  // ailleurs (tracé vertical/diagonal) : le libellé y dispose de plus de
+  // marge de manœuvre, la limite par défaut suffit.
+  maxLabelChars?: number
+}
+
+// Estimation prudente de la largeur d'un caractère du libellé d'une
+// flèche (police 11px, graisse 600 — voir labelStyle, edgeRendering.ts) :
+// mieux vaut sous-estimer légèrement le nombre de caractères qui tiennent
+// (libellé un peu plus tronqué que nécessaire) que le surestimer (libellé
+// qui déborde quand même sur la carte voisine, l'exact problème que ce
+// calcul cherche à éviter).
+const EDGE_LABEL_CHAR_WIDTH = 7.2
+// Marge horizontale du fond du libellé (labelBgPadding, edgeRendering.ts)
+// des DEUX côtés, plus une marge de sécurité supplémentaire : le texte
+// réel n'est jamais parfaitement monospace, un caractère large (M, W...)
+// isolé peut dépasser l'estimation moyenne ci-dessus.
+const EDGE_LABEL_SAFETY_MARGIN = 24
+const MIN_LABEL_CHARS = 6
+
+// Longueur de libellé maximale pour une interaction entre deux activités
+// de la même ligne, à partir de l'écart RÉEL (en pixels) entre les deux
+// cartes — voir LayoutEdge.maxLabelChars ci-dessus. Peut dépasser la
+// limite par défaut (MAX_EDGE_LABEL_LENGTH, edgeRendering.ts) quand les
+// deux activités sont loin l'une de l'autre (plusieurs phases sans
+// activité de cet acteur entre les deux) : edgeRendering.ts prend de
+// toute façon le plus petit des deux.
+function maxLabelCharsForGap(gapPx: number): number {
+  return Math.max(MIN_LABEL_CHARS, Math.floor((gapPx - EDGE_LABEL_SAFETY_MARGIN) / EDGE_LABEL_CHAR_WIDTH))
 }
 
 // Résout, pour chaque activité, sa sous-colonne finale au sein de sa
@@ -580,10 +614,90 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       const fromCenter = activityCenters.get(i.fromActivityId) ?? { x: 0, y: 0 }
       const toCenter = activityCenters.get(i.toActivityId) ?? { x: 0, y: 0 }
       const sameVerticalPosition = fromCenter.y === toCenter.y
+      // Une autre activité de ce même acteur se trouve-t-elle entre les
+      // deux (ex. une interaction qui saute une phase alors que l'acteur a
+      // aussi une activité dans la phase intermédiaire, ADR-080) ? Un
+      // tracé horizontal direct (même ligne) passerait alors tout droit
+      // AU-DESSUS de cette carte intermédiaire, avec le milieu du tracé —
+      // où React Flow pose le libellé par défaut — tombant souvent dessus,
+      // quelle que soit la longueur du libellé. Voir plus bas : ce cas
+      // reroute PAR-DESSOUS la ligne plutôt que de se contenter de
+      // raccourcir le libellé.
+      let hasIntermediateCard = false
+      if (sameVerticalPosition) {
+        const lo = Math.min(fromCenter.x, toCenter.x)
+        const hi = Math.max(fromCenter.x, toCenter.x)
+        for (const [otherId, center] of activityCenters) {
+          if (otherId === i.fromActivityId || otherId === i.toActivityId) continue
+          if (center.y === fromCenter.y && center.x > lo && center.x < hi) {
+            hasIntermediateCard = true
+            break
+          }
+        }
+      }
+      // Symétrique du cas horizontal ci-dessus, sur l'axe vertical cette
+      // fois : une interaction entre deux activités du même acteur ET de
+      // la même phase (sameColumn), mais séparées par la ligne d'un autre
+      // acteur (ex. "retour au client" qui saute par-dessus la ligne d'un
+      // acteur intermédiaire) — le tracé vertical par défaut passerait en
+      // plein milieu de la carte de cet acteur intermédiaire.
+      let hasVerticalIntermediateCard = false
+      if (sameColumn && !sameVerticalPosition) {
+        const lo = Math.min(fromCenter.y, toCenter.y)
+        const hi = Math.max(fromCenter.y, toCenter.y)
+        const column = activityColumn.get(i.fromActivityId)
+        for (const other of project.activities) {
+          if (other.id === i.fromActivityId || other.id === i.toActivityId) continue
+          if (other.phaseId !== fromActivity?.phaseId || activityColumn.get(other.id) !== column) continue
+          const center = activityCenters.get(other.id)
+          if (center && center.y > lo && center.y < hi) {
+            hasVerticalIntermediateCard = true
+            break
+          }
+        }
+      }
+      // Uniquement pour un tracé direct SANS carte intermédiaire (rerouté
+      // par-dessous/par la marge sinon, voir ci-dessous) : l'écart réel
+      // entre les deux cartes est un couloir de largeur CONNUE, celui où
+      // React Flow positionne le libellé par défaut (au milieu du tracé) —
+      // voir maxLabelCharsForGap ci-dessus. Un tracé diagonal (ni même
+      // ligne ni même colonne) n'a pas cette contrainte, `maxLabelChars` y
+      // reste absent (limite par défaut, edgeRendering.ts). Le couloir de
+      // la marge (tracé vertical rerouté) est nettement plus étroit que
+      // celui entre deux cartes voisines (CARD_MARGIN plutôt que
+      // SUBCOLUMN_WIDTH - CARD_WIDTH) — mieux vaut un libellé court mais
+      // fiable qu'une estimation optimiste.
+      const maxLabelChars = sameVerticalPosition
+        ? hasIntermediateCard
+          ? undefined
+          : maxLabelCharsForGap(Math.abs(toCenter.x - fromCenter.x) - CARD_WIDTH)
+        : hasVerticalIntermediateCard
+          ? maxLabelCharsForGap(SUBCOLUMN_WIDTH - CARD_WIDTH - CARD_MARGIN)
+          : undefined
 
       let sourceHandle: string
       let targetHandle: string
-      if (sameColumn && !sameVerticalPosition) {
+      if (sameVerticalPosition && hasIntermediateCard) {
+        // Repasse par le dessous des deux cartes (espace libre avant la
+        // ligne d'acteur suivante, voir SUBLANE_HEIGHT/CARD_HEIGHT_ESTIMATE)
+        // plutôt que tout droit par-dessus la carte intermédiaire — seul
+        // moyen de garantir que le libellé (au milieu du tracé) ne tombe
+        // sur AUCUNE carte, contrairement à un simple raccourcissement du
+        // texte qui n'aurait fait que réduire, sans l'éliminer, le
+        // chevauchement. Pas de correction par paire (reserveDistinctIndex)
+        // ici : une interaction ET son retour, toutes deux dans ce cas,
+        // restent déjà séparées par le round-robin propre à chaque nœud.
+        sourceHandle = `bottom-out-h${nextHandle(i.fromActivityId, 'bottom-out')}`
+        targetHandle = `bottom-in-h${nextHandle(i.toActivityId, 'bottom-in')}`
+      } else if (sameColumn && !sameVerticalPosition && hasVerticalIntermediateCard) {
+        // Repasse par la marge à droite de la colonne (espace libre avant
+        // la sous-colonne suivante ou le bord de la phase, voir
+        // SUBCOLUMN_WIDTH/CARD_WIDTH/CARD_MARGIN) plutôt que tout droit à
+        // travers la carte intermédiaire — poignée `right-in-h` dédiée
+        // (nodes.tsx), seule cible disponible du même côté que `out-h`.
+        sourceHandle = `out-h${nextHandle(i.fromActivityId, 'out')}`
+        targetHandle = `right-in-h${nextHandle(i.toActivityId, 'right-in')}`
+      } else if (sameColumn && !sameVerticalPosition) {
         // Un seul "canal" possible entre le bas de la carte du dessus et le
         // haut de celle du dessous : contrairement à une interaction
         // routée par les côtés (ci-dessous), une interaction A→B et son
@@ -626,6 +740,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         sourceColor: fromActor?.color ?? '#64748b',
         targetColor: toActor?.color ?? '#64748b',
         gradient,
+        maxLabelChars,
       }
     })
 

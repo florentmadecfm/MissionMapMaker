@@ -261,6 +261,20 @@ export function ActivityNode({ data }: NodeProps) {
       {HANDLE_OFFSETS.map((top, i) => (
         <Handle key={`out-h${i}`} id={`out-h${i}`} type="source" position={Position.Right} style={{ top }} />
       ))}
+      {/* Poignée d'ENTRÉE côté droit — asymétrique avec `in-h`/`out-h`
+          ci-dessus (respectivement seulement cible/source) : sert
+          uniquement à une interaction entre deux activités du MÊME acteur
+          dans la MÊME phase mais séparées par l'activité d'un autre
+          acteur entre les deux (ex. "retour au client" qui saute par-
+          dessus la ligne d'un acteur intermédiaire, ADR-080) — voir
+          computeLayout, layout.ts. Un tracé vertical direct passerait
+          alors en plein milieu de cette carte intermédiaire ; les DEUX
+          bouts sortent ici du même côté (droit) pour longer la marge
+          libre entre la carte et le bord de sa sous-colonne (voir
+          SUBCOLUMN_WIDTH/CARD_WIDTH) plutôt que de traverser la colonne. */}
+      {HANDLE_OFFSETS.map((top, i) => (
+        <Handle key={`right-in-h${i}`} id={`right-in-h${i}`} type="target" position={Position.Right} style={{ top }} />
+      ))}
       {/* Poignées haut/bas : interactions au sein de la même phase (entre
           acteurs différents), pour ne pas partager le couloir gauche/droite
           utilisé par les interactions inter-phases et éviter que les liens
