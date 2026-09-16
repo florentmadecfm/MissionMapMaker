@@ -34,10 +34,13 @@ export const EXPORT_ABSOLUTE_MAX_DIMENSION = 8000
 //   (react-flow__panel) et le filigrane "React Flow" (attribution) :
 //   chrome de l'outil, pas du diagramme ;
 // - le quadrillage de points (react-flow__background, composant
-//   <Background> de ProcessDiagram.tsx/ReadOnlyProcessDiagram.tsx) : repère
-//   visuel utile pendant l'édition (aligner/déplacer les cartes), sans
-//   intérêt sur une image destinée à être partagée — laisse place au fond
-//   blanc uni déjà posé par backgroundColor ci-dessous (captureReactFlowPng).
+//   <Background> de ProcessDiagram.tsx/ReadOnlyProcessDiagram.tsx) et le
+//   quadrillage de repère phase/acteur (react-flow__node-laneGrid,
+//   LaneGridNode, ADR-077) : repères visuels utiles pendant l'édition
+//   (aligner/déplacer les cartes, se repérer au milieu d'un grand
+//   diagramme), sans intérêt sur une image destinée à être partagée —
+//   laisse place au fond blanc uni déjà posé par backgroundColor
+//   ci-dessous (captureReactFlowPng).
 const PNG_EXPORT_EXCLUDED_CLASSES = [
   'react-flow__handle',
   'react-flow__node-addPhase',
@@ -48,6 +51,7 @@ const PNG_EXPORT_EXCLUDED_CLASSES = [
   'react-flow__panel',
   'react-flow__attribution',
   'react-flow__background',
+  'react-flow__node-laneGrid',
 ]
 
 export function shouldIncludeInPngExport(node: Element): boolean {

@@ -94,6 +94,7 @@ export interface LayoutNode {
     | 'painPointCell'
     | 'visibilityLine'
     | 'satisfactionRow'
+    | 'laneGrid'
   position: { x: number; y: number }
   data: Record<string, unknown>
   // Seules les cartes d'activité sont déplaçables (glisser-déposer pour
@@ -273,6 +274,34 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
   }
 
   const nodes: LayoutNode[] = []
+
+  // Quadrillage de repère (ADR-077) : une fine ligne verticale à chaque
+  // frontière de phase et horizontale à chaque frontière d'acteur, sur
+  // toute la hauteur/largeur du diagramme — pas seulement au niveau des
+  // en-têtes — pour qu'on puisse encore repérer dans quelle
+  // phase/persona on se trouve en regardant une carte au milieu d'un
+  // grand diagramme, sans avoir à remonter des yeux jusqu'à l'en-tête
+  // (potentiellement hors champ). Poussé en PREMIER dans `nodes` : React
+  // Flow empile les nœuds dans l'ordre du tableau, ce nœud reste donc
+  // TOUJOURS sous les en-têtes/cartes (fonds opaques), invisible sauf
+  // dans l'espace encore vide entre deux cartes — un simple repère, non
+  // interactif (voir .lane-grid, process-diagram.css). Exclu de l'export
+  // PNG/sketch (voir PNG_EXPORT_EXCLUDED_CLASSES, pngExport.ts), comme le
+  // quadrillage de points de React Flow : utile en édition, pas sur une
+  // image destinée à être partagée.
+  nodes.push({
+    id: 'lane-grid',
+    type: 'laneGrid',
+    position: { x: 0, y: 0 },
+    data: {
+      width: phaseCumulative,
+      height: actorCumulative + PAIN_POINT_ROW_HEIGHT,
+      phaseLines: [...phaseOffsets, phaseCumulative],
+      actorLines: [...actorOffsets, actorCumulative],
+    },
+    draggable: false,
+    selectable: false,
+  })
 
   phases.forEach((phase, i) => {
     nodes.push({
