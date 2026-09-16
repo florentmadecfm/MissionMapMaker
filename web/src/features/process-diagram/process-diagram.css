@@ -125,6 +125,34 @@
   background: var(--color-surface);
 }
 
+/* Quadrillage de repère (LaneGridNode, ADR-077) : posé derrière tout le
+   reste (voir computeLayout, layout.ts — premier nœud du tableau), donc
+   masqué par le fond opaque des cartes/en-têtes, visible seulement dans
+   l'espace encore vide entre deux cartes — juste assez pour repérer une
+   frontière de phase/acteur au milieu d'un grand diagramme, sans jamais
+   concurrencer visuellement le contenu. Non interactif : un simple
+   repère, jamais cliquable/glissable. */
+.lane-grid {
+  position: relative;
+  pointer-events: none;
+}
+
+.lane-grid-line {
+  position: absolute;
+}
+
+.lane-grid-line-vertical {
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--color-border);
+}
+
+.lane-grid-line-horizontal {
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--color-border);
+}
+
 .lane-node {
   display: flex;
   align-items: center;

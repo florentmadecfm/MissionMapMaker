@@ -15,6 +15,30 @@ import {
 // entrant/sortant sur la même carte ne partent pas tous du même pixel.
 const HANDLE_OFFSETS = Array.from({ length: HANDLES_PER_SIDE }, (_, i) => `${((i + 1) / (HANDLES_PER_SIDE + 1)) * 100}%`)
 
+// Quadrillage de repère (ADR-077, voir computeLayout/layout.ts pour le
+// calcul des positions et le choix de l'empiler en premier dans `nodes`,
+// donc toujours derrière le reste) : une ligne verticale par frontière de
+// phase, une ligne horizontale par frontière d'acteur, sur toute la
+// hauteur/largeur du diagramme. Non interactif (pointer-events: none,
+// voir .lane-grid, process-diagram.css) — un simple repère visuel, jamais
+// cliquable/glissable comme VisibilityLineNode ci-dessous.
+export function LaneGridNode({ data }: NodeProps) {
+  const width = data.width as number
+  const height = data.height as number
+  const phaseLines = data.phaseLines as number[]
+  const actorLines = data.actorLines as number[]
+  return (
+    <div className="lane-grid" style={{ width, height }}>
+      {phaseLines.map((x, i) => (
+        <div key={`v-${i}`} className="lane-grid-line lane-grid-line-vertical" style={{ left: x }} />
+      ))}
+      {actorLines.map((y, i) => (
+        <div key={`h-${i}`} className="lane-grid-line lane-grid-line-horizontal" style={{ top: y }} />
+      ))}
+    </div>
+  )
+}
+
 export function PhaseHeaderNode({ data }: NodeProps) {
   // La largeur vient de computeLayout (data.width) : une phase qui a
   // besoin de plusieurs sous-colonnes (plusieurs activités concurrentes
@@ -280,6 +304,7 @@ export function PainPointCellNode({ data }: NodeProps) {
 }
 
 export const nodeTypes = {
+  laneGrid: LaneGridNode,
   phaseHeader: PhaseHeaderNode,
   actorHeader: ActorHeaderNode,
   painPointRowLabel: PainPointRowLabelNode,
