@@ -165,7 +165,15 @@ function DownloadPngButton({
     const transformBefore = viewportEl?.style.transform
     await fitView({ padding: 0.1, duration: 0 })
     await waitForTransformSettled(viewportEl, transformBefore)
-    const containerEl = document.querySelector<HTMLElement>('.process-diagram .react-flow')
+    // Capture .process-diagram (et non .process-diagram .react-flow) : le
+    // <svg><defs> des dégradés/marqueurs de flèches (dotMarkerId/gradientId,
+    // edgeRendering.ts) est un FRÈRE de <ReactFlow>, pas un descendant — le
+    // capturer est nécessaire pour que les url(#...) référencés par le
+    // style des flèches restent résolubles dans le PNG exporté, sans quoi
+    // le trait (et le marqueur de départ) devient invisible alors que la
+    // pointe de flèche intégrée à React Flow, elle, survit (définie dans
+    // son propre <svg>, à l'intérieur de .react-flow).
+    const containerEl = document.querySelector<HTMLElement>('.process-diagram')
     if (!containerEl) throw new Error('Diagramme introuvable')
     return captureReactFlowPng(containerEl, viewportEl)
   }
