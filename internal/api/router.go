@@ -500,21 +500,21 @@ func (h *Handler) deleteImageGenerationSettings(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// getPrompts renvoie l'état actuel des 3 skills et des 3 prompts (contexte)
+// getPrompts renvoie l'état actuel des 5 skills et des 5 prompts (contexte)
 // de génération assistée (texte effectif — personnalisé ou par défaut — et
 // indicateur "personnalisé"), ainsi que le texte par défaut de chacun pour
 // permettre une réinitialisation côté interface.
 func (h *Handler) getPrompts(w http.ResponseWriter, r *http.Request) {
-	writePromptsResponse(w, h.generate)
+	writePromptsResponse(w, h.generate, h.images)
 }
 
-// savePrompts enregistre le texte des 3 skills et des 3 prompts (les 6 sont
-// toujours envoyés ensemble par l'écran Paramètres, qui les charge tous au
-// montage) : effet immédiat (GenerateService en mémoire) et persistance
-// locale. Un champ vide (ou dont le contenu, une fois retiré des espaces,
-// est vide, ou égal au texte par défaut) revient au texte par défaut
-// correspondant — c'est ainsi que l'écran Paramètres implémente
-// "Réinitialiser".
+// savePrompts enregistre le texte des 5 skills et des 5 prompts (les 10
+// sont toujours envoyés ensemble par l'écran Paramètres, qui les charge
+// tous au montage) : effet immédiat (GenerateService/ImageService en
+// mémoire) et persistance locale. Un champ vide (ou dont le contenu, une
+// fois retiré des espaces, est vide, ou égal au texte par défaut) revient
+// au texte par défaut correspondant — c'est ainsi que l'écran Paramètres
+// implémente "Réinitialiser".
 func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Process                   string `json:"process"`
@@ -525,6 +525,8 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 		TestScenarioContext       string `json:"testScenarioContext"`
 		PainPointSolutions        string `json:"painPointSolutions"`
 		PainPointSolutionsContext string `json:"painPointSolutionsContext"`
+		ImageGeneration           string `json:"imageGeneration"`
+		ImageGenerationContext    string `json:"imageGenerationContext"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -543,6 +545,12 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 	}
 	h.generate.SetPrompts(overrides)
 
+	imageOverrides := service.ImagePromptOverrides{
+		Generation:        normalizePromptOverride(body.ImageGeneration, llm.DefaultImageGenerationPrompt),
+		GenerationContext: normalizePromptOverride(body.ImageGenerationContext, llm.DefaultImageGenerationContextPrompt),
+	}
+	h.images.SetPrompts(imageOverrides)
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Printf("lecture de la configuration existante : %v", err)
@@ -557,13 +565,15 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 		TestScenarioContext:       overrides.TestScenarioContext,
 		PainPointSolutions:        overrides.PainPointSolutions,
 		PainPointSolutionsContext: overrides.PainPointSolutionsContext,
+		ImageGeneration:           imageOverrides.Generation,
+		ImageGenerationContext:    imageOverrides.GenerationContext,
 	}
 	if err := config.Save(cfg); err != nil {
 		log.Printf("sauvegarde de la configuration : %v", err)
 		// les prompts restent actifs en mémoire pour cette session même si l'écriture échoue
 	}
 
-	writePromptsResponse(w, h.generate)
+	writePromptsResponse(w, h.generate, h.images)
 }
 
 func normalizePromptOverride(value, def string) string {
@@ -574,8 +584,9 @@ func normalizePromptOverride(value, def string) string {
 	return trimmed
 }
 
-func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateService) {
+func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateService, images *service.ImageService) {
 	p := generate.Prompts()
+	ip := images.Prompts()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"process":                   p.Process.Value,
 		"processContext":            p.ProcessContext.Value,
@@ -585,6 +596,8 @@ func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateServi
 		"testScenarioContext":       p.TestScenarioContext.Value,
 		"painPointSolutions":        p.PainPointSolutions.Value,
 		"painPointSolutionsContext": p.PainPointSolutionsContext.Value,
+		"imageGeneration":           ip.Generation.Value,
+		"imageGenerationContext":    ip.GenerationContext.Value,
 		"customized": map[string]bool{
 			"process":                   p.Process.Customized,
 			"processContext":            p.ProcessContext.Customized,
@@ -594,6 +607,8 @@ func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateServi
 			"testScenarioContext":       p.TestScenarioContext.Customized,
 			"painPointSolutions":        p.PainPointSolutions.Customized,
 			"painPointSolutionsContext": p.PainPointSolutionsContext.Customized,
+			"imageGeneration":           ip.Generation.Customized,
+			"imageGenerationContext":    ip.GenerationContext.Customized,
 		},
 		"defaults": map[string]string{
 			"process":                   llm.DefaultProcessPrompt,
@@ -604,6 +619,8 @@ func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateServi
 			"testScenarioContext":       llm.DefaultTestScenarioContextPrompt,
 			"painPointSolutions":        llm.DefaultPainPointSolutionsPrompt,
 			"painPointSolutionsContext": llm.DefaultPainPointSolutionsContextPrompt,
+			"imageGeneration":           llm.DefaultImageGenerationPrompt,
+			"imageGenerationContext":    llm.DefaultImageGenerationContextPrompt,
 		},
 	})
 }

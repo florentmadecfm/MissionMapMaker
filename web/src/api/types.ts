@@ -326,18 +326,24 @@ export interface Settings {
 }
 
 // Deux couches distinctes par capacité de génération assistée, concaténées
-// côté serveur au moment de l'appel (voir GenerateService.Prompts,
-// internal/service/generate_service.go) :
-// - process/specification/testScenario/painPointSolutions : le "skill"
-//   (onglet Skills), la méthode détaillée (étapes, règles de rédaction,
-//   format de sortie).
+// côté serveur au moment de l'appel (voir GenerateService.Prompts/
+// ImageService.Prompts, internal/service/generate_service.go et
+// image_service.go) :
+// - process/specification/testScenario/painPointSolutions/imageGeneration :
+//   le "skill" (onglet Skills), la méthode détaillée (étapes, règles de
+//   rédaction, format de sortie — pour imageGeneration, les règles de
+//   STYLE de l'illustration générée).
 // - *Context : le "prompt" (onglet Prompts), le contexte et l'objectif de
 //   la tâche — voir PromptEditor.tsx (partagé par SkillsPanel.tsx et
-//   PromptsPanel.tsx) / internal/llm/prompts.go côté serveur.
+//   PromptsPanel.tsx) / internal/llm/prompts.go + image_prompts.go côté
+//   serveur.
 // painPointSolutions* couvre uniquement la 1re étape (proposer des
 // solutions) de la résolution d'un point de friction (ADR-066/ADR-067) —
 // la 2e étape (formaliser la solution choisie en SSS + test) reste fixe,
-// pas de champs correspondants ici.
+// pas de champs correspondants ici. imageGeneration* (ADR-073/ADR-074)
+// régit le style COMMUN aux deux usages de la génération d'image (portrait
+// de persona, sketch de diagramme) — les données propres à chaque usage
+// restent générées côté serveur, jamais personnalisables.
 export interface PromptSettings {
   process: string
   processContext: string
@@ -347,6 +353,8 @@ export interface PromptSettings {
   testScenarioContext: string
   painPointSolutions: string
   painPointSolutionsContext: string
+  imageGeneration: string
+  imageGenerationContext: string
 }
 
 export interface PromptSettingsResponse extends PromptSettings {
@@ -359,6 +367,8 @@ export interface PromptSettingsResponse extends PromptSettings {
     testScenarioContext: boolean
     painPointSolutions: boolean
     painPointSolutionsContext: boolean
+    imageGeneration: boolean
+    imageGenerationContext: boolean
   }
   defaults: PromptSettings
 }

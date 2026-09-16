@@ -25,12 +25,14 @@ type ProviderSettings struct {
 	BaseURL string `json:"baseUrl,omitempty"`
 }
 
-// PromptSettings surcharge, pour chacune des 4 capacités de génération
+// PromptSettings surcharge, pour chacune des 5 capacités de génération
 // assistée, deux couches distinctes envoyées au LLM (concaténées au moment
-// de l'appel, voir GenerateService) — un champ vide signifie "texte par
-// défaut" (voir internal/llm/prompts.go) :
-//   - Process/Specification/TestScenario/PainPointSolutions : le "skill",
-//     la méthode détaillée (étapes, règles de rédaction, format de sortie).
+// de l'appel, voir GenerateService/ImageService) — un champ vide signifie
+// "texte par défaut" (voir internal/llm/prompts.go et image_prompts.go) :
+//   - Process/Specification/TestScenario/PainPointSolutions/ImageGeneration :
+//     le "skill", la méthode détaillée (étapes, règles de rédaction, format
+//     de sortie — ou, pour ImageGeneration, les règles de STYLE de
+//     l'illustration).
 //   - *Context : le "prompt", le contexte et l'objectif de la tâche —
 //     distinct du skill pour pouvoir l'ajuster indépendamment (ex. préciser
 //     à qui s'adresse la réponse, ou l'objectif métier visé) sans toucher à
@@ -40,6 +42,12 @@ type ProviderSettings struct {
 // solutions) de la résolution d'un point de friction (ADR-066/ADR-067) :
 // la 2e étape (formaliser la solution choisie en SSS + test) reste fixe,
 // pas de champs correspondants ici.
+//
+// ImageGeneration* (ADR-073/ADR-074) régit le STYLE commun aux deux usages
+// de la génération d'image (portrait de persona, sketch de diagramme) —
+// les données propres à chaque usage (nom/fiche du persona, ou contenu du
+// diagramme) restent générées en code (PersonaPortraitPrompt/
+// DiagramSketchPrompt, image_prompts.go), jamais personnalisables.
 //
 // Personnaliser l'un ou l'autre est un réglage avancé exposé depuis l'écran
 // Paramètres : aucune validation ne garantit qu'un texte modifié reste
@@ -51,11 +59,13 @@ type PromptSettings struct {
 	Specification      string `json:"specification,omitempty"`
 	TestScenario       string `json:"testScenario,omitempty"`
 	PainPointSolutions string `json:"painPointSolutions,omitempty"`
+	ImageGeneration    string `json:"imageGeneration,omitempty"`
 
 	ProcessContext            string `json:"processContext,omitempty"`
 	SpecificationContext      string `json:"specificationContext,omitempty"`
 	TestScenarioContext       string `json:"testScenarioContext,omitempty"`
 	PainPointSolutionsContext string `json:"painPointSolutionsContext,omitempty"`
+	ImageGenerationContext    string `json:"imageGenerationContext,omitempty"`
 }
 
 type Config struct {

@@ -26,6 +26,12 @@ const PROMPT_FIELDS: PromptFieldDef[] = [
     title: 'Solutions point de friction — contexte & objectif',
     description: "Situe la tâche de recherche de solutions à un point de friction (posture design créatif / problem solving).",
   },
+  {
+    key: 'imageGenerationContext',
+    title: 'Génération d’image — contexte & objectif',
+    description:
+      "Situe la tâche de génération d'illustration (portrait de persona ou sketch de diagramme) auprès du modèle d'image.",
+  },
 ]
 
 export function PromptsPanel() {

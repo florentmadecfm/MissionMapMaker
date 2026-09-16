@@ -34,10 +34,59 @@ const (
 type ImageService struct {
 	mu     sync.RWMutex
 	apiKey string
+
+	// promptImageGeneration/promptImageGenerationContext (ADR-074) : 5e
+	// paire personnalisable, même patron que les 4 de GenerateService
+	// (promptProcess et consorts) — surcharge le STYLE de l'illustration,
+	// commun aux deux usages (portrait de persona, sketch de diagramme).
+	// Réutilise PromptInfo/resolvePrompt/effectiveSystemPrompt, définis
+	// dans generate_service.go (même package), pas de duplication.
+	promptImageGeneration        string
+	promptImageGenerationContext string
 }
 
 func NewImageService(apiKey string) *ImageService {
 	return &ImageService{apiKey: apiKey}
+}
+
+// ImagePromptOverrides / ImagePromptSet : voir PromptOverrides/PromptSet
+// (generate_service.go), même patron pour cette 5e paire.
+type ImagePromptOverrides struct {
+	Generation        string
+	GenerationContext string
+}
+
+type ImagePromptSet struct {
+	Generation        PromptInfo
+	GenerationContext PromptInfo
+}
+
+// SetPrompts surcharge le style de génération d'image — une valeur vide
+// revient au texte par défaut. N'affecte pas la clé API (SetAPIKey).
+func (s *ImageService) SetPrompts(overrides ImagePromptOverrides) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.promptImageGeneration = overrides.Generation
+	s.promptImageGenerationContext = overrides.GenerationContext
+}
+
+// Prompts renvoie l'état actuel (texte effectif + personnalisé ou non),
+// pour l'écran Paramètres.
+func (s *ImageService) Prompts() ImagePromptSet {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return ImagePromptSet{
+		Generation:        resolvePrompt(s.promptImageGeneration, llm.DefaultImageGenerationPrompt),
+		GenerationContext: resolvePrompt(s.promptImageGenerationContext, llm.DefaultImageGenerationContextPrompt),
+	}
+}
+
+// styleInstruction résout le texte de style effectif (personnalisé ou par
+// défaut) — passé aux deux fonctions de construction de prompt
+// (PersonaPortraitPrompt/DiagramSketchPrompt, image_prompts.go).
+func (s *ImageService) styleInstruction() string {
+	p := s.Prompts()
+	return effectiveSystemPrompt(p.GenerationContext, p.Generation)
 }
 
 func (s *ImageService) Configured() bool {
@@ -75,7 +124,7 @@ func (s *ImageService) GeneratePersonaPortrait(ctx context.Context, name, about,
 	if apiKey == "" {
 		return "", llm.ErrNotConfigured
 	}
-	prompt := llm.PersonaPortraitPrompt(name, about, bio, goals, painPoints)
+	prompt := llm.PersonaPortraitPrompt(s.styleInstruction(), name, about, bio, goals, painPoints)
 	ctx, cancel := context.WithTimeout(ctx, imageGenerateTimeout)
 	defer cancel()
 	return llm.GenerateMistralImage(ctx, apiKey, prompt)
@@ -92,6 +141,7 @@ func (s *ImageService) GenerateDiagramSketch(ctx context.Context, missionName st
 		return "", llm.ErrNotConfigured
 	}
 	prompt := llm.DiagramSketchPrompt(
+		s.styleInstruction(),
 		missionName,
 		truncate(actorNames, maxSketchActors),
 		truncate(phaseNames, maxSketchPhases),

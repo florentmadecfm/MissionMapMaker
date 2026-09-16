@@ -92,14 +92,21 @@ func buildGenerateService(cfg *config.Config) *service.GenerateService {
 // setupImageService (ADR-073) charge la clé API Mistral dédiée à la
 // génération d'image depuis la configuration locale — indépendante du
 // fournisseur de texte actif (setupGenerateService ci-dessus) : voir
-// Config.ImageGenerationAPIKey.
+// Config.ImageGenerationAPIKey. Charge aussi le style personnalisé
+// (ADR-074, 5e paire prompt/skill), comme setupGenerateService le fait
+// pour les 4 autres.
 func setupImageService() *service.ImageService {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Printf("lecture de la configuration locale : %v", err)
 		cfg = &config.Config{}
 	}
-	return service.NewImageService(cfg.ImageGenerationAPIKey)
+	images := service.NewImageService(cfg.ImageGenerationAPIKey)
+	images.SetPrompts(service.ImagePromptOverrides{
+		Generation:        cfg.Prompts.ImageGeneration,
+		GenerationContext: cfg.Prompts.ImageGenerationContext,
+	})
+	return images
 }
 
 func envOr(key, fallback string) string {
