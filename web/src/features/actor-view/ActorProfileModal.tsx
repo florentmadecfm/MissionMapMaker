@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { api } from '../../api/client'
 import type { ActorGoal, ActorPainPoint, Project } from '../../api/types'
 import { triggerPngDownload } from '../process-diagram/pngExport'
-import { ActorDetail } from './ActorDetail'
 
 interface Props {
   project: Project
@@ -30,12 +29,13 @@ function newId(prefix: string) {
 // Fiche persona d'un acteur (ADR-055) : À propos/Bio en texte libre,
 // Objectifs et Points de friction du métier en listes éditables (comme
 // ActivityDetailModal.tsx pour les points de friction d'une activité,
-// ADR-052), et un rappel en lecture seule de son implication dans le
-// processus (réutilise ActorDetail.tsx, déjà utilisé par l'onglet Vue par
-// acteur et l'écran transverse Acteurs). Un changement remonte par
-// onChange comme le reste de l'app — persisté automatiquement (voir
-// ProjectShell.tsx) sauf depuis l'écran transverse Acteurs, seul appelant
-// qui passe onSave (voir ce champ ci-dessus).
+// ADR-052). Ne rappelle plus l'implication dans le processus (activités
+// par phase) — retiré pour garder la fiche centrée sur le persona
+// lui-même ; ce rappel reste consultable via ActorDetail.tsx depuis
+// l'onglet Vue par acteur et l'écran transverse Acteurs. Un changement
+// remonte par onChange comme le reste de l'app — persisté automatiquement
+// (voir ProjectShell.tsx) sauf depuis l'écran transverse Acteurs, seul
+// appelant qui passe onSave (voir ce champ ci-dessus).
 export function ActorProfileModal({ project, actorId, onChange, onClose, onSave, saving, saveError, savedAt }: Props) {
   const [newGoal, setNewGoal] = useState('')
   const [newPainPoint, setNewPainPoint] = useState('')
@@ -208,9 +208,6 @@ export function ActorProfileModal({ project, actorId, onChange, onClose, onSave,
             Ajouter
           </button>
         </div>
-
-        <h3>Activités du processus</h3>
-        <ActorDetail project={project} actorId={actor.id} />
 
         {onSave && (
           <footer className="modal-footer">
