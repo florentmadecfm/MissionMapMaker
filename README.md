@@ -1,4 +1,4 @@
-# MissionMapMaker
+# Pulse.MissionMap
 
 Application Go (backend) + React (frontend), persistance en fichiers JSON
 locaux, pour construire des story maps et des diagrammes de processus
@@ -97,8 +97,8 @@ cible — un seul exécutable, API + interface incluses :
 
 ```sh
 cd web && npm install && npm run build && cd ..
-go build -o bin/missionmapmaker ./cmd/server
-./bin/missionmapmaker
+go build -o bin/pulse-missionmap ./cmd/server
+./bin/pulse-missionmap
 # puis ouvrir http://localhost:8080
 ```
 

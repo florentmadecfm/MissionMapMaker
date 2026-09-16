@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"missionmapmaker/internal/domain"
+	"pulse-missionmap/internal/domain"
 )
 
 // ActorProfileStore persiste les fiches persona partagées entre missions

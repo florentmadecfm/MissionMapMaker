@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"missionmapmaker/internal/llm"
+	"pulse-missionmap/internal/llm"
 )
 
 // imageGenerateTimeout : plus généreux que generateTimeout (extraction de

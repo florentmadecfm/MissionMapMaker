@@ -1,4 +1,4 @@
-# MissionMapMaker — Architecture
+# Pulse.MissionMap — Architecture
 
 Backend Go + frontend React, persistance en fichiers `.json` locaux. Un
 seul utilisateur, pas de temps réel multi-utilisateur. Construit un

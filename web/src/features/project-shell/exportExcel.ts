@@ -44,7 +44,7 @@ export async function exportProjectToExcel(project: Project) {
   const ExcelJS = (await import('exceljs')).default
 
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'MissionMapMaker'
+  wb.creator = 'Pulse.MissionMap'
   wb.created = new Date()
 
   const addSheet = (name: string, columns: Column[], rows: Record<string, unknown>[]) => {

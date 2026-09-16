@@ -414,7 +414,7 @@ export function ProjectShell() {
           {!sidebarCollapsed && (
             <h1>
               <Logo size={20} />
-              MissionMapMaker
+              Pulse.MissionMap
             </h1>
           )}
           <button
@@ -630,7 +630,7 @@ export function ProjectShell() {
           // écran, le champ "Nom du nouveau projet" de la barre latérale.
           <div className="empty-state">
             <Map size={44} aria-hidden="true" />
-            <h2>Bienvenue dans MissionMapMaker</h2>
+            <h2>Bienvenue dans Pulse.MissionMap</h2>
             <p>
               Cartographiez un processus métier — personas, étapes, échanges — en langage naturel ou à la main, avec
               traçabilité vers vos exigences et vos tests.

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"missionmapmaker/internal/domain"
+	"pulse-missionmap/internal/domain"
 )
 
 // Un projet enregistré avant l'ajout d'un champ collection (ex.

@@ -1,4 +1,4 @@
-// Command server démarre l'API MissionMapMaker en local (localhost).
+// Command server démarre l'API Pulse.MissionMap en local (localhost).
 package main
 
 import (
@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"os"
 
-	"missionmapmaker/internal/api"
-	"missionmapmaker/internal/config"
-	"missionmapmaker/internal/llm"
-	"missionmapmaker/internal/service"
-	"missionmapmaker/internal/storage"
+	"pulse-missionmap/internal/api"
+	"pulse-missionmap/internal/config"
+	"pulse-missionmap/internal/llm"
+	"pulse-missionmap/internal/service"
+	"pulse-missionmap/internal/storage"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 
 	router := api.NewRouter(projects, generate, images)
 
-	log.Printf("MissionMapMaker API sur %s (données : %s)", addr, dataDir)
+	log.Printf("Pulse.MissionMap API sur %s (données : %s)", addr, dataDir)
 	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatal(err)
 	}

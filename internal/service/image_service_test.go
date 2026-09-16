@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"missionmapmaker/internal/llm"
+	"pulse-missionmap/internal/llm"
 )
 
 // Le style de génération d'image (5e paire prompt/skill personnalisable,

@@ -3,8 +3,8 @@ package service
 import (
 	"testing"
 
-	"missionmapmaker/internal/domain"
-	"missionmapmaker/internal/storage"
+	"pulse-missionmap/internal/domain"
+	"pulse-missionmap/internal/storage"
 )
 
 // Deux projets différents peuvent avoir un acteur du même nom (à la casse

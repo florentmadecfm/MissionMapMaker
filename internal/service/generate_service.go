@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"missionmapmaker/internal/llm"
+	"pulse-missionmap/internal/llm"
 )
 
 // generateTimeout borne la durée totale d'un appel de génération (y compris

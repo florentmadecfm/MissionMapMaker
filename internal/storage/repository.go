@@ -13,7 +13,7 @@ import (
 	"sort"
 	"time"
 
-	"missionmapmaker/internal/domain"
+	"pulse-missionmap/internal/domain"
 )
 
 var ErrNotFound = errors.New("project not found")
