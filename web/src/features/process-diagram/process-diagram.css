@@ -38,10 +38,11 @@
   margin: -0.75rem 0 0.75rem;
 }
 
-/* Panneau flottant "Exporter en PNG" (ADR-072) — Panel de React Flow,
-   positionné au-dessus du canevas plutôt que dans .editor-header : rendu
-   comme enfant de <ReactFlow> (seul endroit où useReactFlow() est
-   utilisable, voir DownloadPngButton dans ProcessDiagram.tsx). */
+/* Panneau flottant "Annuler/Rétablir + Export/Sketch" (ADR-072/ADR-076) —
+   Panel de React Flow, positionné au-dessus du canevas plutôt que dans
+   .editor-header : rendu comme enfant de <ReactFlow> (seul endroit où
+   useReactFlow() est utilisable, voir DownloadPngButton dans
+   ProcessDiagram.tsx). */
 .diagram-export-panel {
   display: flex;
   flex-direction: column;
@@ -49,17 +50,37 @@
   gap: 0.3rem;
 }
 
-/* Ciblé sur le déclencheur (bouton simple, ou déclencheur du menu
-   déroulant de choix de variante quand la mission a une cible — voir
-   DownloadPngButton, ProcessDiagram.tsx) plutôt qu'un sélecteur
-   descendant générique ".diagram-export-panel button", qui aurait aussi
-   stylé les items du menu déroulant lui-même (voir .header-menu-dropdown
-   button, App.css — déjà son propre style de liste). */
-.diagram-export-panel > button,
-.diagram-export-panel .png-export-trigger {
+/* Rangée horizontale : boutons Annuler/Rétablir, puis le déclencheur du
+   menu burger Export PNG/Générer un sketch (ADR-076 — les deux actions,
+   auparavant deux boutons séparés, sont désormais regroupées dans un seul
+   menu déroulant, voir DownloadPngButton). */
+.diagram-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Ciblé sur le déclencheur du menu (voir DownloadPngButton,
+   ProcessDiagram.tsx) plutôt qu'un sélecteur descendant générique
+   ".diagram-toolbar-row button", qui aurait aussi stylé les items du menu
+   déroulant lui-même (voir .header-menu-dropdown button, App.css — déjà
+   son propre style de liste). */
+.diagram-toolbar-row .png-export-trigger {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+/* Boutons Annuler/Rétablir : icône seule (pas de texte, contrairement au
+   déclencheur du menu burger) — carrés plutôt que la forme
+   icône+texte des autres boutons de ce panneau. */
+.diagram-history-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem;
   background: var(--color-surface);
   box-shadow: var(--shadow-md);
 }

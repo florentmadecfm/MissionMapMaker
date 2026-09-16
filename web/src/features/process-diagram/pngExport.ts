@@ -140,7 +140,11 @@ export async function exportOffscreenProjectToPng(project: Project): Promise<str
     for (let i = 0; i < OFFSCREEN_SETTLE_FRAMES; i++) {
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     }
-    const containerEl = container.querySelector<HTMLElement>('.react-flow')
+    // .process-diagram (et non .react-flow) : voir le même commentaire dans
+    // ProcessDiagram.tsx (captureLiveCanvas) — le <svg><defs> des
+    // dégradés/marqueurs de flèches est un frère de <ReactFlow>, à inclure
+    // dans la capture pour que les flèches restent visibles dans le PNG.
+    const containerEl = container.querySelector<HTMLElement>('.process-diagram')
     const viewportEl = container.querySelector<HTMLElement>('.react-flow__viewport')
     if (!containerEl) throw new Error('Diagramme introuvable (rendu hors-écran)')
     return await captureReactFlowPng(containerEl, viewportEl)
