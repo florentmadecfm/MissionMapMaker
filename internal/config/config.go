@@ -78,15 +78,20 @@ type Config struct {
 
 	Prompts PromptSettings `json:"prompts,omitempty"`
 
-	// ImageGenerationAPIKey (ADR-073) : clé API Mistral dédiée à la
-	// génération d'image (Agents & Conversations API, outil intégré
-	// image_generation, FLUX1.1 Pro Ultra de Black Forest Labs) —
-	// INDÉPENDANTE de Mistral.APIKey ci-dessus, qui sert la génération de
-	// texte/JSON structuré (POST /v1/chat/completions, un tout autre
-	// endpoint). Un utilisateur peut ainsi garder Anthropic comme
-	// fournisseur de texte actif tout en activant la génération d'image
-	// via Mistral, ou l'inverse — les deux réglages ne se recouvrent pas.
-	ImageGenerationAPIKey string `json:"imageGenerationApiKey,omitempty"`
+	// ImageGenerationProvider/ImageGeneration (ADR-073/ADR-075) : connexion
+	// dédiée à la génération d'image (fournisseur/clé/modèle/URL de base),
+	// INDÉPENDANTE de Provider/Anthropic/Mistral ci-dessus, qui servent la
+	// génération de texte/JSON structuré (POST /v1/chat/completions, un
+	// tout autre endpoint que l'Agents & Conversations API utilisée ici).
+	// Un utilisateur peut ainsi garder Anthropic comme fournisseur de texte
+	// actif tout en activant la génération d'image via Mistral, ou
+	// l'inverse — les deux connexions ne se recouvrent pas. Seul "mistral"
+	// est un fournisseur d'image valide aujourd'hui (validé côté API,
+	// internal/api/router.go) : le champ existe déjà en prévision d'un
+	// futur second fournisseur, plutôt que de devoir retoucher tout le
+	// schéma de configuration à ce moment-là.
+	ImageGenerationProvider string           `json:"imageGenerationProvider,omitempty"`
+	ImageGeneration         ProviderSettings `json:"imageGeneration,omitempty"`
 }
 
 // Active renvoie les réglages du fournisseur actif, ou un ProviderSettings

@@ -28,12 +28,19 @@ const (
 	maxSketchActivities = 40
 )
 
-// ImageService encapsule le client Mistral de génération d'image (ADR-073),
-// indépendant du fournisseur/de la clé actifs pour la génération de texte
-// (GenerateService) — voir Config.ImageGenerationAPIKey.
+// ImageService encapsule la connexion de génération d'image (ADR-073/
+// ADR-075) : fournisseur/clé/modèle/URL de base, indépendants de ceux
+// actifs pour la génération de texte (GenerateService) — voir
+// Config.ImageGeneration/ImageGenerationProvider. "mistral" est le seul
+// fournisseur d'image valide aujourd'hui (validé côté API, router.go) ;
+// provider reste stocké ici pour affichage (écran Paramètres) et en vue
+// d'un futur second fournisseur.
 type ImageService struct {
-	mu     sync.RWMutex
-	apiKey string
+	mu       sync.RWMutex
+	provider string
+	apiKey   string
+	model    string
+	baseURL  string
 
 	// promptImageGeneration/promptImageGenerationContext (ADR-074) : 5e
 	// paire personnalisable, même patron que les 4 de GenerateService
@@ -45,8 +52,8 @@ type ImageService struct {
 	promptImageGenerationContext string
 }
 
-func NewImageService(apiKey string) *ImageService {
-	return &ImageService{apiKey: apiKey}
+func NewImageService(provider, apiKey, model, baseURL string) *ImageService {
+	return &ImageService{provider: provider, apiKey: apiKey, model: model, baseURL: baseURL}
 }
 
 // ImagePromptOverrides / ImagePromptSet : voir PromptOverrides/PromptSet
@@ -95,16 +102,50 @@ func (s *ImageService) Configured() bool {
 	return s.apiKey != ""
 }
 
-func (s *ImageService) SetAPIKey(apiKey string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.apiKey = apiKey
-}
-
-func (s *ImageService) currentAPIKey() string {
+func (s *ImageService) Provider() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.apiKey
+	return s.provider
+}
+
+func (s *ImageService) Model() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.model
+}
+
+func (s *ImageService) BaseURL() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.baseURL
+}
+
+// SetConfig remplace la connexion de génération d'image active — mêmes
+// conventions que GenerateService.SetProvider (model/baseURL vides =
+// valeurs par défaut du fournisseur, résolues par le client lui-même).
+func (s *ImageService) SetConfig(provider, apiKey, model, baseURL string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.provider = provider
+	s.apiKey = apiKey
+	s.model = model
+	s.baseURL = baseURL
+}
+
+// ClearConfig retire la connexion (retour au mode manuel/désactivé).
+func (s *ImageService) ClearConfig() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.provider = ""
+	s.apiKey = ""
+	s.model = ""
+	s.baseURL = ""
+}
+
+func (s *ImageService) currentConfig() (apiKey, model, baseURL string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.apiKey, s.model, s.baseURL
 }
 
 func truncate(items []string, max int) []string {
@@ -120,14 +161,14 @@ func (s *ImageService) GeneratePersonaPortrait(ctx context.Context, name, about,
 	if strings.TrimSpace(name) == "" {
 		return "", errEmptyPersonaName
 	}
-	apiKey := s.currentAPIKey()
+	apiKey, model, baseURL := s.currentConfig()
 	if apiKey == "" {
 		return "", llm.ErrNotConfigured
 	}
 	prompt := llm.PersonaPortraitPrompt(s.styleInstruction(), name, about, bio, goals, painPoints)
 	ctx, cancel := context.WithTimeout(ctx, imageGenerateTimeout)
 	defer cancel()
-	return llm.GenerateMistralImage(ctx, apiKey, prompt)
+	return llm.GenerateMistralImage(ctx, apiKey, model, baseURL, prompt)
 }
 
 // GenerateDiagramSketch génère une illustration "sketch" résumant le
@@ -136,7 +177,7 @@ func (s *ImageService) GenerateDiagramSketch(ctx context.Context, missionName st
 	if strings.TrimSpace(missionName) == "" && len(actorNames) == 0 && len(phaseNames) == 0 {
 		return "", errEmptyDiagram
 	}
-	apiKey := s.currentAPIKey()
+	apiKey, model, baseURL := s.currentConfig()
 	if apiKey == "" {
 		return "", llm.ErrNotConfigured
 	}
@@ -149,7 +190,7 @@ func (s *ImageService) GenerateDiagramSketch(ctx context.Context, missionName st
 	)
 	ctx, cancel := context.WithTimeout(ctx, imageGenerateTimeout)
 	defer cancel()
-	return llm.GenerateMistralImage(ctx, apiKey, prompt)
+	return llm.GenerateMistralImage(ctx, apiKey, model, baseURL, prompt)
 }
 
 var errEmptyPersonaName = &validationError{"le nom du persona est vide"}

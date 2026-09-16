@@ -9,28 +9,30 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
-// Client Mistral pour la GÉNÉRATION D'IMAGE (ADR-073) — un produit Mistral
-// séparé de la génération de texte/JSON structuré (mistralClient ci-dessus,
-// POST /v1/chat/completions) : l'Agents & Conversations API, avec l'outil
-// intégré "image_generation" (propulsé par FLUX1.1 [pro] Ultra de Black
-// Forest Labs), un tout autre endpoint (POST /v1/conversations) et un
-// schéma de requête/réponse différent — pas de function calling, l'image
-// générée revient comme une référence de fichier ("tool_file") à
-// télécharger séparément (GET /v1/files/{file_id}/content), pas inline.
+// Client Mistral pour la GÉNÉRATION D'IMAGE (ADR-073/ADR-075) — un produit
+// Mistral séparé de la génération de texte/JSON structuré (mistralClient
+// ci-dessus, POST /v1/chat/completions) : l'Agents & Conversations API,
+// avec l'outil intégré "image_generation" (propulsé par FLUX1.1 [pro]
+// Ultra de Black Forest Labs), un tout autre endpoint (POST /v1/
+// conversations) et un schéma de requête/réponse différent — pas de
+// function calling, l'image générée revient comme une référence de
+// fichier ("tool_file") à télécharger séparément (GET /v1/files/
+// {file_id}/content), pas inline.
 //
-// Toujours contre le endpoint officiel api.mistral.ai, contrairement à
-// mistralClient dont l'URL de base est surchargeable (ProviderSettings.
-// BaseURL) : cette fonctionnalité n'a de sens que contre le vrai service
-// cloud Mistral (Conversations API + Files API), jamais un proxy ou un
-// déploiement compatible chat-completions-only, qui ne l'implémenterait
-// probablement pas. Voir aussi Config.ImageGenerationAPIKey (internal/
-// config), distinct de Mistral.APIKey.
+// baseURL (l'URL de la Conversations API) est surchargeable comme pour
+// mistralClient (proxy, déploiement régional/entreprise...) — l'URL de
+// téléchargement du fichier généré (Files API) est alors dérivée du même
+// schéma+hôte que baseURL plutôt que codée en dur, pour rester cohérente
+// avec un éventuel déploiement personnalisé. Voir aussi
+// Config.ImageGeneration (internal/config), distinct de Config.Mistral
+// (utilisé pour la génération de texte).
 const (
 	mistralConversationsEndpoint = "https://api.mistral.ai/v1/conversations"
-	mistralFilesContentEndpoint  = "https://api.mistral.ai/v1/files/%s/content"
+	mistralFilesContentPath      = "/v1/files/%s/content"
 	// MistralImageAgentModel pilote l'APPEL DE L'OUTIL image_generation
 	// (un modèle texte "orchestrateur"), pas le modèle d'image lui-même :
 	// celui-ci (FLUX1.1 Pro Ultra) est fixé côté Mistral, non paramétrable
@@ -45,13 +47,26 @@ const (
 
 type mistralImageClient struct {
 	apiKey  string
+	model   string
+	baseURL string
 	http    *http.Client
 	backoff time.Duration // surchargeable dans les tests
 }
 
-func newMistralImageClient(apiKey string) *mistralImageClient {
+// newMistralImageClient construit le client. model="" utilise
+// MistralImageAgentModel ; baseURL="" utilise mistralConversationsEndpoint
+// (api.mistral.ai) — mêmes conventions que newMistralClient (mistral.go).
+func newMistralImageClient(apiKey, model, baseURL string) *mistralImageClient {
+	if model == "" {
+		model = MistralImageAgentModel
+	}
+	if baseURL == "" {
+		baseURL = mistralConversationsEndpoint
+	}
 	return &mistralImageClient{
 		apiKey:  apiKey,
+		model:   model,
+		baseURL: baseURL,
 		http:    &http.Client{Timeout: 90 * time.Second},
 		backoff: mistralImageBaseBackoff,
 	}
@@ -87,18 +102,22 @@ type mistralConversationResponse struct {
 // internal/service (ImageService) — construit un client jetable pour cet
 // appel (pas de connexion persistante à gérer, cohérent avec l'usage
 // ponctuel/manuel de cette fonctionnalité) et renvoie l'image générée en
-// data URL ("data:image/<type>;base64,...").
-func GenerateMistralImage(ctx context.Context, apiKey, prompt string) (string, error) {
-	return newMistralImageClient(apiKey).GenerateImage(ctx, prompt)
+// data URL ("data:image/<type>;base64,..."). model/baseURL vides utilisent
+// les valeurs par défaut (voir newMistralImageClient).
+func GenerateMistralImage(ctx context.Context, apiKey, model, baseURL, prompt string) (string, error) {
+	return newMistralImageClient(apiKey, model, baseURL).GenerateImage(ctx, prompt)
 }
 
-// GenerateImage envoie prompt à l'outil image_generation et renvoie l'image
-// obtenue sous forme de data URL ("data:image/<type>;base64,...") — prête
-// à poser directement dans un attribut src côté frontend, cohérent avec le
-// reste de la persistance de l'app (pas de stockage de fichier séparé).
+// GenerateImage envoie prompt à l'outil "image_generation" — {"type":
+// "image_generation"}, sans autre paramètre (voir la doc Mistral : cet
+// outil n'a pas de configuration propre, contrairement à d'autres tools de
+// l'Agents API) — et renvoie l'image obtenue sous forme de data URL
+// ("data:image/<type>;base64,..."), prête à poser directement dans un
+// attribut src côté frontend, cohérent avec le reste de la persistance de
+// l'app (pas de stockage de fichier séparé).
 func (c *mistralImageClient) GenerateImage(ctx context.Context, prompt string) (string, error) {
 	body, err := json.Marshal(mistralConversationRequest{
-		Model:          MistralImageAgentModel,
+		Model:          c.model,
 		Inputs:         prompt,
 		Tools:          []mistralConversationTool{{Type: "image_generation"}},
 		CompletionArgs: mistralConversationCompArg{ToolChoice: "any"},
@@ -144,7 +163,7 @@ func (c *mistralImageClient) requestImageFile(ctx context.Context, body []byte) 
 }
 
 func (c *mistralImageClient) doConversationRequest(ctx context.Context, body []byte) (fileID, fileType string, retryAfter time.Duration, retryable bool, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mistralConversationsEndpoint, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, bytes.NewReader(body))
 	if err != nil {
 		return "", "", 0, false, err
 	}
@@ -197,10 +216,11 @@ func (c *mistralImageClient) doConversationRequest(ctx context.Context, body []b
 }
 
 // downloadAsDataURL télécharge le fichier généré (GET /v1/files/{id}/content,
-// contenu binaire brut) et l'encode en data URL.
+// contenu binaire brut) et l'encode en data URL. L'URL de téléchargement
+// est dérivée du schéma+hôte de c.baseURL (pas codée en dur sur
+// api.mistral.ai) pour rester cohérente avec un déploiement personnalisé.
 func (c *mistralImageClient) downloadAsDataURL(ctx context.Context, fileID, fileType string) (string, error) {
-	url := fmt.Sprintf(mistralFilesContentEndpoint, fileID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.filesContentURL(fileID), nil)
 	if err != nil {
 		return "", err
 	}
@@ -222,4 +242,17 @@ func (c *mistralImageClient) downloadAsDataURL(ctx context.Context, fileID, file
 
 	encoded := base64.StdEncoding.EncodeToString(data)
 	return fmt.Sprintf("data:image/%s;base64,%s", fileType, encoded), nil
+}
+
+// filesContentURL construit l'URL de téléchargement du fichier généré à
+// partir du schéma+hôte de c.baseURL — retombe sur l'hôte officiel
+// api.mistral.ai si c.baseURL n'est pas une URL absolue valide (ne
+// devrait arriver qu'avec une valeur saisie manuellement invalide, jamais
+// avec la valeur par défaut).
+func (c *mistralImageClient) filesContentURL(fileID string) string {
+	if u, err := url.Parse(c.baseURL); err == nil && u.Scheme != "" && u.Host != "" {
+		return fmt.Sprintf("%s://%s"+mistralFilesContentPath, u.Scheme, u.Host, fileID)
+	}
+	base, _ := url.Parse(mistralConversationsEndpoint)
+	return fmt.Sprintf("%s://%s"+mistralFilesContentPath, base.Scheme, base.Host, fileID)
 }

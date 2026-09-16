@@ -1979,14 +1979,14 @@
 
 /* Sépare le bloc fournisseur/clé (génération de texte) du bloc génération
    d'image ci-dessous (SettingsModal.tsx, ADR-073) — deux clés API
-   indépendantes dans le même onglet Connexion au modèle. */
+   indépendantes dans le même onglet Connexion aux modèles. */
 .settings-divider {
   border: none;
   border-top: 1px solid var(--color-border);
   margin: 0.4rem 0;
 }
 
-/* La modale Paramètres porte deux onglets (Connexion au modèle, Skills) —
+/* La modale Paramètres porte deux onglets (Connexion aux modèles, Skills) —
    plus large et scrollable que la modale d'origine (420px, un seul
    formulaire court) pour accueillir les 3 zones de texte de l'onglet
    Skills sans les écraser. */

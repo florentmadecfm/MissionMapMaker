@@ -33,6 +33,23 @@ const PROVIDER_DEFAULT_BASE_URL: Record<Provider, string> = {
   mistral: 'https://api.mistral.ai/v1/chat/completions',
 }
 
+// Génération d'image (ADR-073/ADR-075) : l'Agents & Conversations API
+// Mistral (outil image_generation) est un produit distinct de la
+// génération de texte ci-dessus — endpoint et modèle par défaut
+// différents. "mistral" est le seul fournisseur d'image valide
+// aujourd'hui (voir Config.ImageGenerationProvider, router.go).
+const IMAGE_PROVIDER_LABELS: Partial<Record<Provider, string>> = {
+  mistral: 'Mistral AI',
+}
+
+const IMAGE_PROVIDER_DEFAULT_MODEL: Partial<Record<Provider, string>> = {
+  mistral: 'mistral-medium-latest',
+}
+
+const IMAGE_PROVIDER_DEFAULT_BASE_URL: Partial<Record<Provider, string>> = {
+  mistral: 'https://api.mistral.ai/v1/conversations',
+}
+
 type SettingsTab = 'connexion' | 'prompts' | 'skills'
 
 export function SettingsModal({ onClose, onSettingsChange }: Props) {
@@ -47,13 +64,16 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
 
-  // Génération d'image (ADR-073) : bloc indépendant de la section
-  // fournisseur/clé ci-dessus (Provider|apiKey|model|baseUrl) — une clé
-  // Mistral séparée, dédiée à l'Agents API (portrait de persona, sketch de
-  // diagramme), utilisable même quand le fournisseur de texte actif est
-  // Anthropic. Même patron état/handlers, en plus compact (pas de
-  // modèle/URL de base : rien à personnaliser sur ce point d'entrée fixe).
+  // Génération d'image (ADR-073/ADR-075) : bloc indépendant de la section
+  // fournisseur/clé ci-dessus (Provider|apiKey|model|baseUrl) — une
+  // connexion Mistral séparée, dédiée à l'Agents API (portrait de persona,
+  // sketch de diagramme), utilisable même quand le fournisseur de texte
+  // actif est Anthropic. Même patron état/handlers que la section
+  // principale.
+  const [imageProvider, setImageProvider] = useState<Provider>('mistral')
   const [imageApiKey, setImageApiKey] = useState('')
+  const [imageModel, setImageModel] = useState('')
+  const [imageBaseUrl, setImageBaseUrl] = useState('')
   const [imageSaving, setImageSaving] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
   const [imageInfo, setImageInfo] = useState<string | null>(null)
@@ -64,6 +84,7 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
       .then((s) => {
         setSettings(s)
         if (s.provider) setProvider(s.provider)
+        if (s.imageGenerationProvider) setImageProvider(s.imageGenerationProvider)
         onSettingsChange?.(s.configured)
       })
       .catch((e) => setError(String(e)))
@@ -110,6 +131,9 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
         model: '',
         baseUrl: '',
         imageGenerationConfigured: s?.imageGenerationConfigured ?? false,
+        imageGenerationProvider: s?.imageGenerationProvider ?? '',
+        imageGenerationModel: s?.imageGenerationModel ?? '',
+        imageGenerationBaseUrl: s?.imageGenerationBaseUrl ?? '',
       }))
       setInfo('Clé retirée. La génération assistée est désactivée.')
       onSettingsChange?.(false)
@@ -120,16 +144,38 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
     }
   }
 
+  function handleImageProviderChange(next: Provider) {
+    setImageProvider(next)
+    setImageModel('')
+    setImageBaseUrl('')
+    setImageInfo(null)
+  }
+
   async function handleImageSave() {
     if (!imageApiKey.trim()) return
     setImageSaving(true)
     setImageError(null)
     setImageInfo(null)
     try {
-      const result = await api.saveImageGenerationApiKey(imageApiKey.trim())
-      setSettings((s) => (s ? { ...s, imageGenerationConfigured: result.imageGenerationConfigured } : s))
+      const result = await api.saveImageGenerationApiKey(
+        imageProvider,
+        imageApiKey.trim(),
+        imageModel.trim() || undefined,
+        imageBaseUrl.trim() || undefined,
+      )
+      setSettings((s) =>
+        s
+          ? {
+              ...s,
+              imageGenerationConfigured: result.imageGenerationConfigured,
+              imageGenerationProvider: (result.imageGenerationProvider || '') as Provider | '',
+              imageGenerationModel: result.imageGenerationModel,
+              imageGenerationBaseUrl: result.imageGenerationBaseUrl,
+            }
+          : s,
+      )
       setImageApiKey('')
-      setImageInfo('Clé enregistrée. La génération d’image est activée dès maintenant.')
+      setImageInfo('Connexion enregistrée. La génération d’image est activée dès maintenant.')
     } catch (e) {
       setImageError(String(e))
     } finally {
@@ -143,8 +189,12 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
     setImageInfo(null)
     try {
       await api.clearImageGenerationApiKey()
-      setSettings((s) => (s ? { ...s, imageGenerationConfigured: false } : s))
-      setImageInfo('Clé retirée. La génération d’image est désactivée.')
+      setSettings((s) =>
+        s
+          ? { ...s, imageGenerationConfigured: false, imageGenerationProvider: '', imageGenerationModel: '', imageGenerationBaseUrl: '' }
+          : s,
+      )
+      setImageInfo('Connexion retirée. La génération d’image est désactivée.')
     } catch (e) {
       setImageError(String(e))
     } finally {
@@ -170,7 +220,7 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
             className={settingsTab === 'connexion' ? 'active' : ''}
             onClick={() => setSettingsTab('connexion')}
           >
-            Connexion au modèle
+            Connexion aux modèles
           </button>
           <button
             type="button"
@@ -301,21 +351,80 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
               )}
             </div>
             <p className="nl-hint">
-              Clé API Mistral dédiée (Agents API, outil image_generation, FLUX1.1 Pro Ultra) — indépendante de la clé
+              Connexion dédiée (Agents API, outil image_generation, FLUX1.1 Pro Ultra) — indépendante de la connexion
               ci-dessus, utilisable même si Anthropic est le fournisseur de texte actif. Permet de générer un
               portrait pour un persona (fiche persona) ou un sketch du diagramme de processus (onglet Diagramme).
             </p>
+
+            <label className="field-label" htmlFor="settings-image-provider">
+              Fournisseur
+            </label>
+            <select
+              id="settings-image-provider"
+              value={imageProvider}
+              onChange={(e) => handleImageProviderChange(e.target.value as Provider)}
+            >
+              {(Object.keys(IMAGE_PROVIDER_LABELS) as Provider[]).map((p) => (
+                <option key={p} value={p}>
+                  {IMAGE_PROVIDER_LABELS[p]}
+                </option>
+              ))}
+            </select>
+
             <label className="field-label" htmlFor="settings-image-api-key">
-              Clé API Mistral (génération d'image)
+              Clé API {IMAGE_PROVIDER_LABELS[imageProvider]}
             </label>
             <input
               id="settings-image-api-key"
               type="password"
-              placeholder="Clé API Mistral"
+              placeholder={`Clé API ${IMAGE_PROVIDER_LABELS[imageProvider]}`}
               value={imageApiKey}
               onChange={(e) => setImageApiKey(e.target.value)}
               autoComplete="off"
             />
+
+            <label className="field-label" htmlFor="settings-image-model">
+              Modèle (optionnel)
+            </label>
+            <input
+              id="settings-image-model"
+              type="text"
+              placeholder={
+                settings?.imageGenerationConfigured &&
+                settings.imageGenerationProvider === imageProvider &&
+                settings.imageGenerationModel
+                  ? settings.imageGenerationModel
+                  : IMAGE_PROVIDER_DEFAULT_MODEL[imageProvider]
+              }
+              value={imageModel}
+              onChange={(e) => setImageModel(e.target.value)}
+            />
+            <p className="settings-hint">
+              Pilote l'appel de l'outil image_generation (un modèle texte "orchestrateur") — pas le modèle d'image
+              lui-même, fixé côté Mistral et non paramétrable.
+            </p>
+
+            <label className="field-label" htmlFor="settings-image-base-url">
+              URL de base (optionnel)
+            </label>
+            <input
+              id="settings-image-base-url"
+              type="text"
+              placeholder={
+                settings?.imageGenerationConfigured &&
+                settings.imageGenerationProvider === imageProvider &&
+                settings.imageGenerationBaseUrl
+                  ? settings.imageGenerationBaseUrl
+                  : IMAGE_PROVIDER_DEFAULT_BASE_URL[imageProvider]
+              }
+              value={imageBaseUrl}
+              onChange={(e) => setImageBaseUrl(e.target.value)}
+            />
+            <p className="settings-hint">
+              Pour un proxy, un déploiement régional/entreprise ou un service compatible auto-hébergé. Laissez vide
+              pour utiliser l'API Conversations Mistral standard.
+            </p>
+
             <div className="nl-actions">
               <button
                 type="button"
@@ -327,7 +436,7 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
               </button>
               {settings?.imageGenerationConfigured && (
                 <button type="button" className="danger" onClick={handleImageClear} disabled={imageSaving}>
-                  Retirer la clé
+                  Retirer la connexion
                 </button>
               )}
             </div>
