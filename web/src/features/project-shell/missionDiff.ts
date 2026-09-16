@@ -44,41 +44,62 @@ function diffById<T extends { id: string }>(before: T[], after: T[], contentEqua
 // Actor.subLanes, Phase.subColumns) : deux cartes identiques mais
 // repositionnées par glisser-déposer ne doivent pas ressortir comme
 // "modifiées", sous peine de rendre le surlignage inutilisable dès que
-// l'utilisateur réorganise l'un des deux diagrammes.
-const activityEqual = (a: Activity, b: Activity) =>
-  a.name === b.name &&
-  a.actorId === b.actorId &&
-  a.phaseId === b.phaseId &&
-  a.order === b.order &&
-  a.description === b.description &&
-  JSON.stringify(a.userStories) === JSON.stringify(b.userStories) &&
-  JSON.stringify(a.traceLinks) === JSON.stringify(b.traceLinks) &&
-  JSON.stringify(a.painPoints) === JSON.stringify(b.painPoints)
+// l'utilisateur réorganise l'un des deux diagrammes. Renvoie la liste des
+// CHAMPS qui diffèrent (étiquettes lisibles, pour la liste détaillée de
+// VariantComparisonScreen.tsx) plutôt qu'un simple booléen — "égal" n'est
+// alors que "cette liste est vide" (voir *_EQUAL ci-dessous), sans dupliquer
+// la comparaison entre le diff et le détail affiché à l'utilisateur.
+function activityChangedFields(a: Activity, b: Activity): string[] {
+  const fields: string[] = []
+  if (a.name !== b.name) fields.push('nom')
+  if (a.actorId !== b.actorId) fields.push('persona')
+  if (a.phaseId !== b.phaseId) fields.push('phase')
+  if (a.order !== b.order) fields.push('ordre')
+  if (a.description !== b.description) fields.push('description')
+  if (JSON.stringify(a.userStories) !== JSON.stringify(b.userStories)) fields.push('user stories')
+  if (JSON.stringify(a.traceLinks) !== JSON.stringify(b.traceLinks)) fields.push('traçabilité')
+  if (JSON.stringify(a.painPoints) !== JSON.stringify(b.painPoints)) fields.push('points de friction')
+  return fields
+}
 
-const actorEqual = (a: Actor, b: Actor) =>
-  a.name === b.name &&
-  a.color === b.color &&
-  a.description === b.description &&
-  Boolean(a.backstage) === Boolean(b.backstage) &&
-  a.about === b.about &&
-  a.bio === b.bio &&
-  JSON.stringify(a.goals) === JSON.stringify(b.goals) &&
-  JSON.stringify(a.painPoints) === JSON.stringify(b.painPoints)
+function actorChangedFields(a: Actor, b: Actor): string[] {
+  const fields: string[] = []
+  if (a.name !== b.name) fields.push('nom')
+  if (a.color !== b.color) fields.push('couleur')
+  if (a.description !== b.description) fields.push('description')
+  if (Boolean(a.backstage) !== Boolean(b.backstage)) fields.push('back-stage')
+  if (a.about !== b.about) fields.push('à propos')
+  if (a.bio !== b.bio) fields.push('bio')
+  if (JSON.stringify(a.goals) !== JSON.stringify(b.goals)) fields.push('objectifs')
+  if (JSON.stringify(a.painPoints) !== JSON.stringify(b.painPoints)) fields.push('points de friction')
+  return fields
+}
 
-const phaseEqual = (a: Phase, b: Phase) =>
-  a.name === b.name &&
-  a.order === b.order &&
-  a.icon === b.icon &&
-  (a.duration || '') === (b.duration || '') &&
-  (a.satisfactionScore || 0) === (b.satisfactionScore || 0)
+function phaseChangedFields(a: Phase, b: Phase): string[] {
+  const fields: string[] = []
+  if (a.name !== b.name) fields.push('nom')
+  if (a.order !== b.order) fields.push('ordre')
+  if (a.icon !== b.icon) fields.push('icône')
+  if ((a.duration || '') !== (b.duration || '')) fields.push('durée')
+  if ((a.satisfactionScore || 0) !== (b.satisfactionScore || 0)) fields.push('satisfaction')
+  return fields
+}
 
-const interactionEqual = (a: Interaction, b: Interaction) =>
-  a.fromActivityId === b.fromActivityId &&
-  a.toActivityId === b.toActivityId &&
-  a.information === b.information &&
-  (a.description || '') === (b.description || '') &&
-  (a.condition || '') === (b.condition || '') &&
-  (a.physicalEvidence || '') === (b.physicalEvidence || '')
+function interactionChangedFields(a: Interaction, b: Interaction): string[] {
+  const fields: string[] = []
+  if (a.fromActivityId !== b.fromActivityId) fields.push('origine')
+  if (a.toActivityId !== b.toActivityId) fields.push('destination')
+  if (a.information !== b.information) fields.push('information')
+  if ((a.description || '') !== (b.description || '')) fields.push('description')
+  if ((a.condition || '') !== (b.condition || '')) fields.push('condition')
+  if ((a.physicalEvidence || '') !== (b.physicalEvidence || '')) fields.push('preuve physique')
+  return fields
+}
+
+const activityEqual = (a: Activity, b: Activity) => activityChangedFields(a, b).length === 0
+const actorEqual = (a: Actor, b: Actor) => actorChangedFields(a, b).length === 0
+const phaseEqual = (a: Phase, b: Phase) => phaseChangedFields(a, b).length === 0
+const interactionEqual = (a: Interaction, b: Interaction) => interactionChangedFields(a, b).length === 0
 
 // Compare l'état Actuel et Cible d'UNE MÊME mission, élément par élément
 // (rapprochement par id — la cible partage les ids des éléments inchangés
@@ -125,4 +146,110 @@ export function combinedDiffCounts(summary: MissionDiffSummary): DiffCounts {
     total.modified += c.modified
   }
   return total
+}
+
+// Une ligne de la liste détaillée des différences (VariantComparisonScreen.tsx,
+// ADR-081) — le pendant textuel du surlignage sur le diagramme : les
+// mêmes statuts et les mêmes 4 catégories, mais consultables d'un coup
+// d'œil sans avoir à repérer chaque badge sur les deux diagrammes.
+export interface DiffEntry {
+  kind: 'actor' | 'phase' | 'activity' | 'interaction'
+  status: DiffStatus
+  id: string
+  // Nom de l'élément — "Ancien nom → Nouveau nom" quand le champ `name`
+  // lui-même fait partie de ce qui a changé (le seul champ assez central
+  // pour mériter d'apparaître dans le libellé plutôt que dans le détail).
+  label: string
+  // Contexte supplémentaire : persona/phase pour une activité, origine →
+  // destination pour une interaction — absent pour un persona/une phase,
+  // qui n'ont rien de plus pertinent à afficher ici.
+  subtitle?: string
+  // Champs qui diffèrent (voir *ChangedFields ci-dessus) — uniquement pour
+  // un élément "modifié" ; absent pour ajouté/supprimé (tout le contenu
+  // est nouveau/disparu, énumérer les champs n'apporterait rien).
+  changedFields?: string[]
+}
+
+const KIND_SORT_ORDER: Record<DiffStatus, number> = { added: 0, modified: 1, removed: 2 }
+
+function sortEntries(entries: DiffEntry[]): DiffEntry[] {
+  return entries.sort((a, b) => KIND_SORT_ORDER[a.status] - KIND_SORT_ORDER[b.status] || a.label.localeCompare(b.label))
+}
+
+// Construit la liste détaillée à partir des mêmes Maps que computeMissionDiff
+// (calculées une seule fois, réutilisées ici) — plutôt que de refaire le
+// rapprochement par id, ce qui dupliquerait diffById pour un résultat
+// nécessairement cohérent avec le surlignage du diagramme.
+export function buildDiffEntries(current: DiffableCollections, target: DiffableCollections, diff: MissionDiff): DiffEntry[] {
+  const activityNameById = new Map<string, string>()
+  for (const a of current.activities) activityNameById.set(a.id, a.name)
+  for (const a of target.activities) activityNameById.set(a.id, a.name)
+  const actorNameById = new Map<string, string>()
+  for (const a of current.actors) actorNameById.set(a.id, a.name)
+  for (const a of target.actors) actorNameById.set(a.id, a.name)
+  const phaseNameById = new Map<string, string>()
+  for (const p of current.phases) phaseNameById.set(p.id, p.name)
+  for (const p of target.phases) phaseNameById.set(p.id, p.name)
+
+  const currentActivityById = new Map(current.activities.map((a) => [a.id, a]))
+  const targetActivityById = new Map(target.activities.map((a) => [a.id, a]))
+  const currentActorById = new Map(current.actors.map((a) => [a.id, a]))
+  const targetActorById = new Map(target.actors.map((a) => [a.id, a]))
+  const currentPhaseById = new Map(current.phases.map((p) => [p.id, p]))
+  const targetPhaseById = new Map(target.phases.map((p) => [p.id, p]))
+  const currentInteractionById = new Map(current.interactions.map((i) => [i.id, i]))
+  const targetInteractionById = new Map(target.interactions.map((i) => [i.id, i]))
+
+  const entries: DiffEntry[] = []
+
+  for (const [id, status] of diff.actors) {
+    const before = currentActorById.get(id)
+    const after = targetActorById.get(id)
+    const item = after ?? before!
+    const label = before && after && before.name !== after.name ? `${before.name} → ${after.name}` : item.name
+    entries.push({ kind: 'actor', status, id, label, changedFields: before && after ? actorChangedFields(before, after) : undefined })
+  }
+
+  for (const [id, status] of diff.phases) {
+    const before = currentPhaseById.get(id)
+    const after = targetPhaseById.get(id)
+    const item = after ?? before!
+    const label = before && after && before.name !== after.name ? `${before.name} → ${after.name}` : item.name
+    entries.push({ kind: 'phase', status, id, label, changedFields: before && after ? phaseChangedFields(before, after) : undefined })
+  }
+
+  for (const [id, status] of diff.activities) {
+    const before = currentActivityById.get(id)
+    const after = targetActivityById.get(id)
+    const item = after ?? before!
+    const label = before && after && before.name !== after.name ? `${before.name} → ${after.name}` : item.name
+    const actorName = actorNameById.get(item.actorId) ?? '?'
+    const phaseName = phaseNameById.get(item.phaseId) ?? '?'
+    entries.push({
+      kind: 'activity',
+      status,
+      id,
+      label,
+      subtitle: `${actorName} · ${phaseName}`,
+      changedFields: before && after ? activityChangedFields(before, after) : undefined,
+    })
+  }
+
+  for (const [id, status] of diff.interactions) {
+    const before = currentInteractionById.get(id)
+    const after = targetInteractionById.get(id)
+    const item = after ?? before!
+    const fromName = activityNameById.get(item.fromActivityId) ?? '?'
+    const toName = activityNameById.get(item.toActivityId) ?? '?'
+    entries.push({
+      kind: 'interaction',
+      status,
+      id,
+      label: item.information || '(sans libellé)',
+      subtitle: `${fromName} → ${toName}`,
+      changedFields: before && after ? interactionChangedFields(before, after) : undefined,
+    })
+  }
+
+  return sortEntries(entries)
 }

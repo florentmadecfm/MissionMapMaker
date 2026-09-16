@@ -612,6 +612,143 @@
   background: #d97706;
 }
 
+.variant-comparison-diff-list-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.variant-comparison-diff-list-toggle:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Liste détaillée des différences (DiffList.tsx, ADR-081) — pendant
+   textuel du surlignage sur le diagramme : hauteur bornée avec défilement
+   interne plutôt que de pouvoir repousser indéfiniment les deux panneaux
+   de diagramme (variant-comparison-panels, flex: 1 juste en dessous) sur
+   une mission avec beaucoup de différences. */
+.variant-comparison-diff-list {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.diff-list-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+}
+
+.diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.diff-list-group-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+}
+
+.diff-list-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.diff-list-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  background: var(--color-surface-muted);
+}
+
+.diff-list-entry-added {
+  border-left-color: #16a34a;
+}
+
+.diff-list-entry-removed {
+  border-left-color: #dc2626;
+}
+
+.diff-list-entry-modified {
+  border-left-color: #d97706;
+}
+
+.diff-list-entry-tag {
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.diff-list-entry-tag-added {
+  background: #16a34a;
+}
+
+.diff-list-entry-tag-removed {
+  background: #dc2626;
+}
+
+.diff-list-entry-tag-modified {
+  background: #d97706;
+}
+
+.diff-list-entry-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.diff-list-entry-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.diff-list-entry-subtitle {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.diff-list-entry-fields {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .variant-comparison-panels {
   flex: 1;
   min-height: 0;
