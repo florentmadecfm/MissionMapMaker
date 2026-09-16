@@ -1,4 +1,4 @@
-import { GitCompareArrows } from 'lucide-react'
+import { GitCompareArrows, Trash2 } from 'lucide-react'
 import type { Project } from '../../api/types'
 import type { ActiveVariant } from './activeVariant'
 
@@ -7,6 +7,7 @@ interface Props {
   active: ActiveVariant
   onSwitch: (variant: ActiveVariant) => void
   onCreateTarget: () => void
+  onDeleteTarget: () => void
   onCompare: () => void
   creating: boolean
 }
@@ -20,7 +21,7 @@ interface Props {
 // qu'un simple onglet, pour qu'on distingue immédiatement quelle version
 // est à l'écran — demandé explicitement par l'utilisateur, une confusion
 // actuel/cible pouvant faire éditer par erreur la mauvaise version.
-export function VariantToggle({ project, active, onSwitch, onCreateTarget, onCompare, creating }: Props) {
+export function VariantToggle({ project, active, onSwitch, onCreateTarget, onDeleteTarget, onCompare, creating }: Props) {
   const hasTarget = Boolean(project.target)
 
   return (
@@ -54,6 +55,17 @@ export function VariantToggle({ project, active, onSwitch, onCreateTarget, onCom
       {hasTarget && (
         <button type="button" className="variant-compare" onClick={onCompare} title="Comparer Actuel et Cible côte à côte">
           <GitCompareArrows size={14} aria-hidden="true" /> Comparer
+        </button>
+      )}
+      {hasTarget && (
+        <button
+          type="button"
+          className="variant-delete-target"
+          onClick={onDeleteTarget}
+          title="Supprimer la cible (l'état Actuel n'est pas affecté)"
+          aria-label="Supprimer la cible"
+        >
+          <Trash2 size={14} aria-hidden="true" />
         </button>
       )}
     </div>

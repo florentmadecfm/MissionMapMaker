@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Map, Settings, Users } from 'lucide-react'
+import { CircleHelp, Map, Settings, Users } from 'lucide-react'
 import { api } from '../../api/client'
 import type { ActorSummary, Project, ProjectSummary } from '../../api/types'
 import { Logo } from '../../components/Logo'
@@ -7,9 +7,16 @@ import { ActorView } from '../actor-view/ActorView'
 import { ActorMissionsScreen } from '../actor-missions/ActorMissionsScreen'
 import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
+import { WelcomeTour } from '../onboarding/WelcomeTour'
 import { SettingsModal } from '../settings/SettingsModal'
 import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
-import { type ActiveVariant, createTargetFromCurrent, fromWorkingProject, toWorkingProject } from './activeVariant'
+import {
+  type ActiveVariant,
+  createTargetFromCurrent,
+  fromWorkingProject,
+  removeTargetFromProject,
+  toWorkingProject,
+} from './activeVariant'
 import { ExportImportMenu } from './ExportImportMenu'
 import { ProjectEditor } from './ProjectEditor'
 import { VariantComparisonScreen } from './VariantComparisonScreen'
@@ -26,6 +33,11 @@ type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
 type View = 'project' | 'actors' | 'compare'
 
 const SIDEBAR_COLLAPSED_KEY = 'mmm-sidebar-collapsed'
+// Visite guidée (ADR-078, WelcomeTour.tsx) : affichée automatiquement tant
+// que cette clé est absente du stockage local de ce navigateur — posée dès
+// la fermeture (Passer ou Terminer, même geste), jamais réaffichée
+// ensuite sans action explicite ("Revoir la visite guidée", sidebar).
+const WELCOME_TOUR_SEEN_KEY = 'mmm-welcome-tour-seen'
 // Délai d'inactivité avant sauvegarde automatique (voir runSave) — assez
 // court pour que rien ne se perde en cas de fermeture accidentelle de
 // l'onglet, assez long pour ne pas envoyer une requête à chaque frappe.
@@ -34,6 +46,14 @@ const AUTOSAVE_DEBOUNCE_MS = 900
 function loadSidebarCollapsed(): boolean {
   try {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function loadWelcomeTourSeen(): boolean {
+  try {
+    return localStorage.getItem(WELCOME_TOUR_SEEN_KEY) === '1'
   } catch {
     return false
   }
@@ -55,6 +75,10 @@ export function ProjectShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
+  // Visite guidée (voir WELCOME_TOUR_SEEN_KEY ci-dessus) : initialisée à
+  // l'inverse de "déjà vue" — s'ouvre donc seule au tout premier chargement
+  // de l'app sur ce navigateur, sans attendre un effet après montage.
+  const [tourOpen, setTourOpen] = useState(() => !loadWelcomeTourSeen())
   // Quel état du diagramme de la mission ouverte est affiché/édité (voir
   // activeVariant.ts) — remis à 'current' à chaque changement de projet
   // ouvert (handleOpen/handleCreate/handleOpenFromActorMissions), comme
@@ -90,6 +114,19 @@ export function ProjectShell() {
       }
       return next
     })
+  }
+
+  // "Passer" et "Terminer" de la visite guidée (WelcomeTour.tsx) déclenchent
+  // tous deux ce même geste : une fois vue (même partiellement), elle ne se
+  // rouvre plus seule — seul "Revoir la visite guidée" (sidebar) la
+  // rouvre explicitement, sans re-toucher au stockage (déjà à '1').
+  function closeTour() {
+    setTourOpen(false)
+    try {
+      localStorage.setItem(WELCOME_TOUR_SEEN_KEY, '1')
+    } catch {
+      // stockage indisponible (navigation privée...) : la visite guidée réapparaîtra au prochain chargement
+    }
   }
 
   const refreshList = () => api.listProjects().then(setSummaries)
@@ -260,6 +297,27 @@ export function ProjectShell() {
     }
   }
 
+  // Symétrique de handleCreateTarget : retire la cible, sans toucher à
+  // l'état Actuel. Confirmation requise (perte du travail propre à la
+  // cible, hors historique des versions) — même garde-fou que l'import
+  // Excel, seule autre opération destructive de remplacement de cet écran
+  // (voir ExportImportMenu.tsx). Rebascule sur Actuel si la cible
+  // supprimée était la variante affichée : rester sur 'target' afficherait
+  // alors l'état Actuel par défaut de toWorkingProject (project.target
+  // absent) sans le signaler, une confusion à éviter (ADR-062, même
+  // raison que le bouton radio explicite Actuel/Cible).
+  async function handleDeleteTarget() {
+    if (!project?.target) return
+    if (!window.confirm('Supprimer la cible de cette mission ? L\'état Actuel ne sera pas affecté.')) return
+    try {
+      const updated = await api.saveProject(removeTargetFromProject(project))
+      setProject(updated)
+      if (activeVariant === 'target') setActiveVariant('current')
+    } catch (e) {
+      setError(String(e))
+    }
+  }
+
   // Projection du projet réel vers la version consommée par les onglets
   // (voir activeVariant.ts) — identité en 'current', recopie de la cible
   // en 'target'. handleWorkingChange fait le trajet inverse à chaque
@@ -354,8 +412,17 @@ export function ProjectShell() {
             {!sidebarCollapsed && 'Paramètres'}
             {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
           </button>
+          {/* Rappel manuel de la visite guidée (WelcomeTour.tsx) pour qui
+              l'a passée ou veut la revoir — seul point d'entrée hors du
+              tout premier chargement de l'app. */}
+          <button type="button" className="sidebar-replay-tour" onClick={() => setTourOpen(true)} title="Revoir la visite guidée">
+            <CircleHelp size={16} aria-hidden="true" />
+            {!sidebarCollapsed && 'Revoir la visite guidée'}
+          </button>
         </div>
       </aside>
+
+      {tourOpen && <WelcomeTour onClose={closeTour} />}
 
       {settingsOpen && (
         <SettingsModal onClose={() => setSettingsOpen(false)} onSettingsChange={setLlmConfigured} />
@@ -416,6 +483,7 @@ export function ProjectShell() {
                 active={activeVariant}
                 onSwitch={setActiveVariant}
                 onCreateTarget={handleCreateTarget}
+                onDeleteTarget={handleDeleteTarget}
                 onCompare={() => setView('compare')}
                 creating={creatingTarget}
               />

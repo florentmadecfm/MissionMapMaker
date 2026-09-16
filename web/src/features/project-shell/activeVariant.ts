@@ -71,6 +71,18 @@ export function createTargetFromCurrent(project: Project): Project {
   return { ...project, target: variant }
 }
 
+// Opération inverse de createTargetFromCurrent : retire la cible d'une
+// mission, sans toucher à l'état Actuel. `target` devient `undefined`
+// plutôt qu'un objet vide — le serveur (domain.Project.Target
+// *ProjectVariant, `omitempty`) le traite alors comme "aucune cible",
+// exactement l'état avant sa création (voir toWorkingProject : `!project
+// .target` retombe déjà sur l'identité pour 'current'). Récupérable en
+// dernier recours via l'historique des versions (chaque sauvegarde,
+// celle-ci comprise, garde une copie horodatée de l'état précédent).
+export function removeTargetFromProject(project: Project): Project {
+  return { ...project, target: undefined }
+}
+
 export function pickVariantCollections(project: VariantCollections): VariantCollections {
   const result = {} as VariantCollections
   for (const key of VARIANT_COLLECTIONS) {
