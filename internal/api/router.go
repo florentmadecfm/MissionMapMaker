@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"strings"
 
-	"missionmapmaker/internal/config"
-	"missionmapmaker/internal/domain"
-	"missionmapmaker/internal/llm"
-	"missionmapmaker/internal/service"
-	"missionmapmaker/internal/storage"
-	"missionmapmaker/web"
+	"pulse-missionmap/internal/config"
+	"pulse-missionmap/internal/domain"
+	"pulse-missionmap/internal/llm"
+	"pulse-missionmap/internal/service"
+	"pulse-missionmap/internal/storage"
+	"pulse-missionmap/web"
 )
 
 type Handler struct {

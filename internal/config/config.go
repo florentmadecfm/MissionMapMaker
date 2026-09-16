@@ -112,7 +112,7 @@ func path() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "missionmapmaker", "config.json"), nil
+	return filepath.Join(dir, "pulse-missionmap", "config.json"), nil
 }
 
 // Load lit la configuration existante. Une configuration vide (aucun

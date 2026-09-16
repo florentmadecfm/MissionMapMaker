@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"missionmapmaker/internal/llm"
+	"pulse-missionmap/internal/llm"
 )
 
 // stubGenerator est un llm.Generator minimal pour tester GenerateService sans

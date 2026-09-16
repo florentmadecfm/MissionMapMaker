@@ -18,7 +18,7 @@ export interface TourStep {
 export const TOUR_STEPS: TourStep[] = [
   {
     icon: Map,
-    title: 'Bienvenue dans MissionMapMaker',
+    title: 'Bienvenue dans Pulse.MissionMap',
     body: "Cartographiez un processus métier — personas, étapes, échanges — avec traçabilité vers vos exigences et vos tests. Tout commence ici : donnez un nom à votre mission.",
     target: '.new-project',
   },

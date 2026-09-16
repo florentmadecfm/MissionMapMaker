@@ -1,4 +1,4 @@
-// Package domain définit le modèle métier de MissionMapMaker : un projet
+// Package domain définit le modèle métier de Pulse.MissionMap : un projet
 // regroupe des acteurs, des phases, des activités (avec leurs user stories
 // et leurs liens de traçabilité), des interactions et des spécifications.
 package domain

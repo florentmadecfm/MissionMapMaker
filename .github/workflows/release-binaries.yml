@@ -63,15 +63,15 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -o bin/missionmapmaker-${{ matrix.suffix }} ./cmd/server
+        run: go build -o bin/pulse-missionmap-${{ matrix.suffix }} ./cmd/server
       - name: Publier sur la release GitHub
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: bin/missionmapmaker-${{ matrix.suffix }}
+          files: bin/pulse-missionmap-${{ matrix.suffix }}
       - name: Archiver le binaire (déclenchement manuel)
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: missionmapmaker-${{ matrix.suffix }}
-          path: bin/missionmapmaker-${{ matrix.suffix }}
+          name: pulse-missionmap-${{ matrix.suffix }}
+          path: bin/pulse-missionmap-${{ matrix.suffix }}

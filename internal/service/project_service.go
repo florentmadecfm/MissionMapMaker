@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"missionmapmaker/internal/domain"
-	"missionmapmaker/internal/storage"
+	"pulse-missionmap/internal/domain"
+	"pulse-missionmap/internal/storage"
 )
 
 type ProjectService struct {

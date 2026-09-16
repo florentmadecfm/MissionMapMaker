@@ -1,4 +1,4 @@
-module missionmapmaker
+module pulse-missionmap
 
 go 1.24.7
 
