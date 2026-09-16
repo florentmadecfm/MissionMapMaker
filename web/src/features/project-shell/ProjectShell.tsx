@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Map, Settings, Users } from 'lucide-react'
 import { api } from '../../api/client'
 import type { ActorSummary, Project, ProjectSummary } from '../../api/types'
+import { Logo } from '../../components/Logo'
 import { ActorView } from '../actor-view/ActorView'
 import { ActorMissionsScreen } from '../actor-missions/ActorMissionsScreen'
 import { NlInput } from '../nl-input/NlInput'
@@ -283,7 +284,12 @@ export function ProjectShell() {
     <div className="shell">
       <aside className={`shell-sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
         <div className="sidebar-top">
-          {!sidebarCollapsed && <h1>MissionMapMaker</h1>}
+          {!sidebarCollapsed && (
+            <h1>
+              <Logo size={20} />
+              MissionMapMaker
+            </h1>
+          )}
           <button
             type="button"
             className="sidebar-toggle"

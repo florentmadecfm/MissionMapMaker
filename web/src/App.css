@@ -23,6 +23,9 @@
   align-items: center;
 }
 
+/* Logo (components/Logo.tsx) affiché en icône avant le nom de l'app —
+   remplace l'ancien repère purement CSS (::before, un simple carré
+   arrondi sans glyphe). */
 .shell-sidebar h1 {
   font-size: 1.05rem;
   letter-spacing: -0.01em;
@@ -35,14 +38,8 @@
   white-space: nowrap;
 }
 
-.shell-sidebar h1::before {
-  content: '';
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+.shell-sidebar h1 svg {
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
 }
 
 .sidebar-top {
