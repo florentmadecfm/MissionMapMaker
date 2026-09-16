@@ -15,7 +15,7 @@ import (
 // intercepter l'appel réseau comme stubGenerator/recordingGenerator le
 // font pour GenerateService.
 func TestImageService_Prompts_DefaultsWhenNotCustomized(t *testing.T) {
-	s := NewImageService("fake-key")
+	s := NewImageService("mistral", "fake-key", "", "")
 	p := s.Prompts()
 	if p.Generation.Customized || p.Generation.Value != llm.DefaultImageGenerationPrompt {
 		t.Fatalf("expected default, non-customized skill, got customized=%v value=%q", p.Generation.Customized, p.Generation.Value)
@@ -31,7 +31,7 @@ func TestImageService_Prompts_DefaultsWhenNotCustomized(t *testing.T) {
 }
 
 func TestImageService_Prompts_ComposesCustomizedStyle(t *testing.T) {
-	s := NewImageService("fake-key")
+	s := NewImageService("mistral", "fake-key", "", "")
 	s.SetPrompts(ImagePromptOverrides{Generation: "Style personnalisé : illustration couleur."})
 
 	p := s.Prompts()

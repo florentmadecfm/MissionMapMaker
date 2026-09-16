@@ -366,6 +366,9 @@ func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 		"model":                     h.generate.Model(),
 		"baseUrl":                   h.generate.BaseURL(),
 		"imageGenerationConfigured": h.images.Configured(),
+		"imageGenerationProvider":   h.images.Provider(),
+		"imageGenerationModel":      h.images.Model(),
+		"imageGenerationBaseUrl":    h.images.BaseURL(),
 	})
 }
 
@@ -427,6 +430,9 @@ func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
 		"model":                     h.generate.Model(),
 		"baseUrl":                   h.generate.BaseURL(),
 		"imageGenerationConfigured": h.images.Configured(),
+		"imageGenerationProvider":   h.images.Provider(),
+		"imageGenerationModel":      h.images.Model(),
+		"imageGenerationBaseUrl":    h.images.BaseURL(),
 	})
 }
 
@@ -453,13 +459,17 @@ func (h *Handler) deleteSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// saveImageGenerationSettings (ADR-073) enregistre la clé API Mistral
-// dédiée à la génération d'image — indépendante de la clé Mistral pour la
-// génération de texte (saveSettings ci-dessus) : voir
-// Config.ImageGenerationAPIKey.
+// saveImageGenerationSettings (ADR-073/ADR-075) enregistre la connexion
+// dédiée à la génération d'image (fournisseur/clé/modèle/URL de base) —
+// indépendante de celle utilisée pour la génération de texte (saveSettings
+// ci-dessus) : voir Config.ImageGenerationProvider/ImageGeneration. Seul
+// "mistral" est un fournisseur d'image valide aujourd'hui.
 func (h *Handler) saveImageGenerationSettings(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		APIKey string `json:"apiKey"`
+		Provider string `json:"provider"`
+		APIKey   string `json:"apiKey"`
+		Model    string `json:"model"`
+		BaseURL  string `json:"baseUrl"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -469,31 +479,42 @@ func (h *Handler) saveImageGenerationSettings(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, errors.New("la clé API ne peut pas être vide"))
 		return
 	}
+	if body.Provider != "mistral" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("%w : %q", llm.ErrUnknownProvider, body.Provider))
+		return
+	}
 
-	h.images.SetAPIKey(body.APIKey)
+	h.images.SetConfig(body.Provider, body.APIKey, body.Model, body.BaseURL)
 
 	cfg, err := config.Load()
 	if err != nil {
 		log.Printf("lecture de la configuration existante : %v", err)
 		cfg = &config.Config{}
 	}
-	cfg.ImageGenerationAPIKey = body.APIKey
+	cfg.ImageGenerationProvider = body.Provider
+	cfg.ImageGeneration = config.ProviderSettings{APIKey: body.APIKey, Model: body.Model, BaseURL: body.BaseURL}
 	if err := config.Save(cfg); err != nil {
 		log.Printf("sauvegarde de la configuration : %v", err)
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"imageGenerationConfigured": true})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"imageGenerationConfigured": true,
+		"imageGenerationProvider":   h.images.Provider(),
+		"imageGenerationModel":      h.images.Model(),
+		"imageGenerationBaseUrl":    h.images.BaseURL(),
+	})
 }
 
-// deleteImageGenerationSettings retire la clé API de génération d'image.
+// deleteImageGenerationSettings retire la connexion de génération d'image.
 func (h *Handler) deleteImageGenerationSettings(w http.ResponseWriter, r *http.Request) {
-	h.images.SetAPIKey("")
+	h.images.ClearConfig()
 
 	cfg, err := config.Load()
 	if err != nil {
 		cfg = &config.Config{}
 	}
-	cfg.ImageGenerationAPIKey = ""
+	cfg.ImageGenerationProvider = ""
+	cfg.ImageGeneration = config.ProviderSettings{}
 	if err := config.Save(cfg); err != nil {
 		log.Printf("suppression de la configuration : %v", err)
 	}

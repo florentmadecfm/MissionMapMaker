@@ -319,10 +319,15 @@ export interface Settings {
   provider: Provider | ''
   model: string
   baseUrl: string
-  // Génération d'image (ADR-073, portrait de persona / sketch de
-  // diagramme) — clé API Mistral INDÉPENDANTE de celle utilisée ci-dessus
-  // pour la génération de texte, voir SettingsModal.tsx.
+  // Génération d'image (ADR-073/ADR-075, portrait de persona / sketch de
+  // diagramme) — connexion (fournisseur/clé/modèle/URL de base)
+  // INDÉPENDANTE de celle utilisée ci-dessus pour la génération de texte,
+  // voir SettingsModal.tsx. "mistral" est le seul fournisseur valide
+  // aujourd'hui.
   imageGenerationConfigured: boolean
+  imageGenerationProvider: Provider | ''
+  imageGenerationModel: string
+  imageGenerationBaseUrl: string
 }
 
 // Deux couches distinctes par capacité de génération assistée, concaténées
