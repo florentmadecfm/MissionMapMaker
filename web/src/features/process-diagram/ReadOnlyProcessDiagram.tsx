@@ -62,7 +62,7 @@ export function ReadOnlyProcessDiagram({ project }: Props) {
       </svg>
       <ReactFlow
         nodes={displayNodes as unknown as Node[]}
-        edges={edges.map(toFlowEdge)}
+        edges={edges.map((e) => toFlowEdge(e))}
         nodeTypes={nodeTypes}
         fitView
         nodesDraggable={false}

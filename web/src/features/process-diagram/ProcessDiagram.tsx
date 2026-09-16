@@ -18,6 +18,7 @@ import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
 import { toWorkingProject } from '../project-shell/activeVariant'
 import { HeaderMenu } from '../project-shell/HeaderMenu'
+import type { MissionDiff } from '../project-shell/missionDiff'
 import { ActivityDetailModal } from './ActivityDetailModal'
 import { dotMarkerId, gradientId, toFlowEdge } from './edgeRendering'
 import { InteractionDetailModal } from './InteractionDetailModal'
@@ -30,6 +31,7 @@ import {
   MAX_OFFSET_X,
   MAX_OFFSET_Y,
   type DropTarget,
+  type LayoutNode,
 } from './layout'
 import { nodeTypes } from './nodes'
 import { captureReactFlowPng, exportOffscreenProjectToPng, triggerPngDownload, waitForTransformSettled } from './pngExport'
@@ -50,6 +52,21 @@ interface Props {
   // activeVariant.ts, toWorkingProject). Optionnel : omis, seule la
   // variante affichée est proposée à l'export (ex. tests).
   rootProject?: Project | null
+  // Surlignage des différences avec l'autre variante — uniquement fourni
+  // depuis VariantComparisonScreen.tsx (voir missionDiff.ts), absent (donc
+  // aucun surlignage) partout ailleurs : onglet Diagramme normal, tests...
+  diff?: MissionDiff
+}
+
+// Retrouve le statut de comparaison (ajouté/supprimé/modifié) d'un nœud du
+// diagramme, si `diff` en fournit un pour son type — les en-têtes
+// d'acteur/phase portent un id préfixé (voir computeLayout, layout.ts),
+// contrairement aux cartes d'activité qui gardent l'id métier brut.
+function diffStatusForNode(node: LayoutNode, diff: MissionDiff) {
+  if (node.type === 'activity') return diff.activities.get(node.id)
+  if (node.type === 'actorHeader') return diff.actors.get(node.id.replace(/^actor-header-/, ''))
+  if (node.type === 'phaseHeader') return diff.phases.get(node.id.replace(/^phase-header-/, ''))
+  return undefined
 }
 
 // Doit rester cohérent avec maxTextLength côté serveur
@@ -315,8 +332,21 @@ function DownloadPngButton({
 
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null }: Props) {
+export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null, diff }: Props) {
   const { nodes, edges } = useMemo(() => computeLayout(project), [project])
+  // Nœuds effectivement passés à <ReactFlow> ci-dessous : identiques à
+  // `nodes` hors comparaison (diff absent), sinon chaque nœud concerné
+  // reçoit son statut dans `data.diffStatus` (lu par ActivityNode/
+  // ActorHeaderNode/PhaseHeaderNode, voir nodes.tsx). `nodes` lui-même
+  // reste inchangé : cellTopLeft/computeDropTarget ci-dessous n'ont besoin
+  // que de la géométrie, jamais du statut de comparaison.
+  const displayNodes = useMemo(() => {
+    if (!diff) return nodes
+    return nodes.map((n) => {
+      const status = diffStatusForNode(n, diff)
+      return status ? { ...n, data: { ...n.data, diffStatus: status } } : n
+    })
+  }, [nodes, diff])
   // Astuces d'utilisation du diagramme (glisser-déposer, boutons "+"...) :
   // repliées par défaut plutôt qu'un paragraphe dense toujours affiché en
   // haut de l'écran — trouvé lors de l'audit UX/UI (ADR-068), c'était le
@@ -734,8 +764,8 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           </defs>
         </svg>
         <ReactFlow
-          nodes={nodes as unknown as Node[]}
-          edges={edges.map(toFlowEdge)}
+          nodes={displayNodes as unknown as Node[]}
+          edges={edges.map((e) => toFlowEdge(e, diff?.interactions.get(e.id)))}
           nodeTypes={nodeTypes}
           fitView
           nodesConnectable

@@ -1,5 +1,6 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { GitBranch, TriangleAlert } from 'lucide-react'
+import type { DiffStatus } from '../project-shell/missionDiff'
 import {
   ADD_LANE_WIDTH,
   HANDLES_PER_SIDE,
@@ -9,6 +10,16 @@ import {
   type PainPointRowEntry,
   type PhaseMetricEntry,
 } from './layout'
+
+// Libellé court affiché sur le badge de comparaison (voir
+// VariantComparisonScreen.tsx) — data.diffStatus, posé par
+// ProcessDiagram.tsx uniquement quand une comparaison Actuel/Cible est en
+// cours, absent (donc aucun badge) partout ailleurs.
+const DIFF_LABELS: Record<DiffStatus, string> = {
+  added: 'Ajouté',
+  removed: 'Supprimé',
+  modified: 'Modifié',
+}
 
 // Points d'ancrage répartis verticalement (25/50/75% par défaut pour 3
 // poignées) plutôt qu'un unique point central, pour que plusieurs liens
@@ -48,8 +59,12 @@ export function PhaseHeaderNode({ data }: NodeProps) {
   // ProcessDiagram.tsx), qui distingue le bouton du reste de l'en-tête
   // via son élément cible (event.target).
   const icon = data.icon as string
+  const diffStatus = data.diffStatus as DiffStatus | undefined
   return (
-    <div className="lane-node phase-header" style={{ width: (data.width as number) - 8, height: PHASE_HEADER_HEIGHT - 8 }}>
+    <div
+      className={`lane-node phase-header${diffStatus ? ` lane-node-diff-${diffStatus}` : ''}`}
+      style={{ width: (data.width as number) - 8, height: PHASE_HEADER_HEIGHT - 8 }}
+    >
       {/* Emoji illustrant concrètement la phase (mode storyboard,
           ADR-059) — absent pour une phase sans icône (jamais générée
           artificiellement), qui garde simplement son nom centré. */}
@@ -59,6 +74,9 @@ export function PhaseHeaderNode({ data }: NodeProps) {
         </span>
       )}
       <span className="phase-header-label">{data.label as string}</span>
+      {/* Étiquette de comparaison (voir DIFF_LABELS ci-dessus) — même
+          patron que .actor-header-backstage-tag, couleur selon le statut. */}
+      {diffStatus && <span className={`lane-node-diff-tag lane-node-diff-tag-${diffStatus}`}>{DIFF_LABELS[diffStatus]}</span>}
       <button type="button" className="add-subcolumn-button" title="Ajouter une colonne pour cette phase">
         +
       </button>
@@ -72,9 +90,10 @@ export function ActorHeaderNode({ data }: NodeProps) {
   // Activity.subRow > 0, ou une réservation manuelle via le bouton "+"
   // ci-dessous) a un en-tête plus haut, symétrique de PhaseHeaderNode.
   const backstage = data.backstage as boolean
+  const diffStatus = data.diffStatus as DiffStatus | undefined
   return (
     <div
-      className="lane-node actor-header"
+      className={`lane-node actor-header${diffStatus ? ` lane-node-diff-${diffStatus}` : ''}`}
       style={{ width: LANE_LABEL_WIDTH - 8, height: (data.height as number) - 8, borderLeftColor: data.color as string }}
     >
       {data.label as string}
@@ -83,6 +102,7 @@ export function ActorHeaderNode({ data }: NodeProps) {
           acteur front-stage n'a lui aucune étiquette (comportement par
           défaut, pas besoin d'être signalé). */}
       {backstage && <span className="actor-header-backstage-tag">back-stage</span>}
+      {diffStatus && <span className={`lane-node-diff-tag lane-node-diff-tag-${diffStatus}`}>{DIFF_LABELS[diffStatus]}</span>}
       <button type="button" className="add-sublane-button" title="Ajouter une ligne pour ce persona">
         +
       </button>
@@ -200,11 +220,19 @@ export function ActivityNode({ data }: NodeProps) {
   const painPointCount = data.painPointCount as number
   const branchCount = data.branchCount as number
   const color = data.color as string
+  const diffStatus = data.diffStatus as DiffStatus | undefined
   return (
     <div
-      className="activity-card"
+      className={`activity-card${diffStatus ? ` activity-card-diff-${diffStatus}` : ''}`}
       style={{ borderTopColor: color, borderLeftColor: color, ['--card-color' as string]: color }}
     >
+      {/* Étiquette de comparaison (voir DIFF_LABELS ci-dessus) — chevauche
+          le bord bas de la carte, seul bord encore libre (les deux coins
+          hauts portent déjà les badges point de friction/embranchement
+          ci-dessous). */}
+      {diffStatus && (
+        <span className={`activity-card-diff-badge activity-card-diff-badge-${diffStatus}`}>{DIFF_LABELS[diffStatus]}</span>
+      )}
       {/* Signale, sans avoir à ouvrir la carte, qu'au moins un point de
           friction a été noté (voir ActivityDetailModal.tsx, ADR-053). */}
       {painPointCount > 0 && (
