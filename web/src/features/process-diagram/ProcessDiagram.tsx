@@ -33,6 +33,7 @@ import {
 } from './layout'
 import { nodeTypes } from './nodes'
 import { captureReactFlowPng, exportOffscreenProjectToPng, triggerPngDownload, waitForTransformSettled } from './pngExport'
+import { SketchPreviewModal } from './SketchPreviewModal'
 import './process-diagram.css'
 
 interface Props {
@@ -120,6 +121,7 @@ function DownloadPngButton({
   project,
   isTargetActive,
   rootProject,
+  onSketchGenerated,
 }: {
   // Le diagramme actuellement affiché (variante active) — sert à la fois
   // à l'export PNG technique (projectName) et au sketch IA ci-dessous
@@ -130,6 +132,12 @@ function DownloadPngButton({
   // null si non fourni (aucun choix de variante proposé, seule celle
   // affichée à l'écran est exportable).
   rootProject: Project | null
+  // Remonte le sketch généré au parent (ProcessDiagram) plutôt que de le
+  // télécharger directement d'ici — voir handleGenerateSketch : affiché
+  // dans SketchPreviewModal (rendue hors de <ReactFlow>, ce composant-ci
+  // vit dedans) avant tout téléchargement, jamais un fichier livré à
+  // l'aveugle sans que l'utilisateur ait vu le résultat.
+  onSketchGenerated: (dataUrl: string, filename: string) => void
 }) {
   const { fitView } = useReactFlow()
   const [exporting, setExporting] = useState(false)
@@ -197,7 +205,12 @@ function DownloadPngButton({
   // diagramme actuellement affiché (variante active uniquement — pas de
   // choix Actuel/Cible/Les deux comme l'export PNG technique ci-dessus,
   // une illustration d'ensemble a moins besoin de cette granularité).
-  // Jamais persistée : simple téléchargement, comme l'export PNG.
+  // Jamais persistée sur le projet — mais affichée (onSketchGenerated,
+  // voir SketchPreviewModal) avant tout téléchargement, contrairement à
+  // l'export PNG technique ci-dessus qui télécharge directement (c'est
+  // déjà un rendu FIDÈLE du diagramme affiché à l'écran, pas besoin d'un
+  // second aperçu ; le sketch, lui, est une génération dont le résultat
+  // mérite d'être vu avant de l'enregistrer).
   async function handleGenerateSketch() {
     setSketching(true)
     setSketchError(null)
@@ -208,7 +221,7 @@ function DownloadPngButton({
         phaseNames: [...project.phases].sort((a, b) => a.order - b.order).map((p) => p.name),
         activityNames: project.activities.map((a) => a.name),
       })
-      triggerPngDownload(imageDataUrl, `${project.name || 'diagramme'} — sketch.png`)
+      onSketchGenerated(imageDataUrl, `${project.name || 'diagramme'} — sketch.png`)
     } catch (e) {
       setSketchError(String(e))
     } finally {
@@ -273,6 +286,9 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null)
   const [selectedActorProfileId, setSelectedActorProfileId] = useState<string | null>(null)
+  // Sketch IA généré (ADR-073) en attente d'aperçu/téléchargement — voir
+  // DownloadPngButton.onSketchGenerated et SketchPreviewModal ci-dessous.
+  const [sketchPreview, setSketchPreview] = useState<{ dataUrl: string; filename: string } | null>(null)
   const [updateText, setUpdateText] = useState('')
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
@@ -632,7 +648,12 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           <Controls showInteractive={false} />
           <DropTargetPreview cellPosition={dragTargetPosition} />
           <AutoFitOnChange nodeCount={nodes.length} />
-          <DownloadPngButton project={project} isTargetActive={isTargetActive} rootProject={rootProject} />
+          <DownloadPngButton
+            project={project}
+            isTargetActive={isTargetActive}
+            rootProject={rootProject}
+            onSketchGenerated={(dataUrl, filename) => setSketchPreview({ dataUrl, filename })}
+          />
         </ReactFlow>
       </div>
       {selectedActivityId && (
@@ -658,6 +679,13 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           actorId={selectedActorProfileId}
           onChange={onChange}
           onClose={() => setSelectedActorProfileId(null)}
+        />
+      )}
+      {sketchPreview && (
+        <SketchPreviewModal
+          dataUrl={sketchPreview.dataUrl}
+          filename={sketchPreview.filename}
+          onClose={() => setSketchPreview(null)}
         />
       )}
     </div>

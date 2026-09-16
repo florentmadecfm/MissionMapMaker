@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
 import type { ActorGoal, ActorPainPoint, Project } from '../../api/types'
+import { triggerPngDownload } from '../process-diagram/pngExport'
 import { ActorDetail } from './ActorDetail'
 
 interface Props {
@@ -121,6 +122,14 @@ export function ActorProfileModal({ project, actorId, onChange, onClose, onSave,
             <button type="button" onClick={generatePortrait} disabled={portraitLoading}>
               {portraitLoading ? 'Génération…' : actor.portraitImage ? 'Régénérer le portrait' : 'Générer un portrait'}
             </button>
+            {actor.portraitImage && (
+              <button
+                type="button"
+                onClick={() => triggerPngDownload(actor.portraitImage as string, `${actor.name || 'portrait'}.png`)}
+              >
+                Télécharger
+              </button>
+            )}
             {portraitError && <span className="error">{portraitError}</span>}
           </div>
         </div>
