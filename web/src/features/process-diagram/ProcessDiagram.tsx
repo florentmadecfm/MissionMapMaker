@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, CircleHelp, ImageDown, Sparkles } from 'lucide-react'
+import { CircleHelp, Redo2, Undo2 } from 'lucide-react'
 import {
   ReactFlow,
   Background,
@@ -56,6 +56,12 @@ interface Props {
 // (internal/service/generate_service.go) et avec la même constante de
 // NlInput.tsx : au-delà, la génération est de toute façon rejetée.
 const MAX_TEXT_LENGTH = 20000
+
+// Profondeur maximale de l'historique annuler/rétablir du diagramme (voir
+// commitChange, ProcessDiagram) — un état complet du projet par entrée,
+// bornée pour ne pas accumuler indéfiniment en mémoire sur une longue
+// session d'édition.
+const MAX_UNDO_HISTORY = 50
 
 function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
@@ -122,6 +128,10 @@ function DownloadPngButton({
   isTargetActive,
   rootProject,
   onSketchGenerated,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: {
   // Le diagramme actuellement affiché (variante active) — sert à la fois
   // à l'export PNG technique (projectName) et au sketch IA ci-dessous
@@ -138,6 +148,14 @@ function DownloadPngButton({
   // vit dedans) avant tout téléchargement, jamais un fichier livré à
   // l'aveugle sans que l'utilisateur ait vu le résultat.
   onSketchGenerated: (dataUrl: string, filename: string) => void
+  // Annuler/rétablir (voir commitChange/handleUndo/handleRedo,
+  // ProcessDiagram) : l'historique lui-même vit dans le composant parent
+  // (partagé avec tous les autres gestes d'édition du diagramme, pas
+  // seulement l'export), ce bouton ne fait que déclencher/désactiver.
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
 }) {
   const { fitView } = useReactFlow()
   const [exporting, setExporting] = useState(false)
@@ -239,38 +257,56 @@ function DownloadPngButton({
 
   return (
     <Panel position="top-right" className="diagram-export-panel">
-      {hasTarget ? (
-        <HeaderMenu
-          trigger={
-            <>
-              <ImageDown size={14} aria-hidden="true" />
-              {exporting ? 'Export…' : 'Exporter en PNG'}
-              <ChevronDown size={12} aria-hidden="true" />
-            </>
-          }
-          triggerClassName="png-export-trigger"
-          triggerLabel="Choisir quelle version exporter en PNG"
+      <div className="diagram-toolbar-row">
+        <button
+          type="button"
+          className="diagram-history-btn"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Annuler (Ctrl+Z)"
+          aria-label="Annuler la dernière action du diagramme"
         >
-          <button type="button" onClick={() => handleExport('current')} disabled={exporting}>
-            Actuel seulement
-          </button>
-          <button type="button" onClick={() => handleExport('target')} disabled={exporting}>
-            Cible seulement
-          </button>
-          <button type="button" onClick={() => handleExport('both')} disabled={exporting}>
-            Les deux
+          <Undo2 size={14} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="diagram-history-btn"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Rétablir (Ctrl+Maj+Z)"
+          aria-label="Rétablir l'action annulée"
+        >
+          <Redo2 size={14} aria-hidden="true" />
+        </button>
+        {/* Menu burger unique : regroupe l'export PNG (technique, fidèle au
+            diagramme affiché) ET la génération de sketch (illustration IA)
+            — deux boutons séparés auparavant, fusionnés ici pour ne garder
+            qu'un seul déclencheur dans ce coin du canevas, cohérent avec le
+            menu burger des actions fichier (ExportImportMenu.tsx,
+            ProjectShell.tsx). */}
+        <HeaderMenu triggerClassName="png-export-trigger" triggerLabel="Export du diagramme (PNG) et génération d'un sketch IA">
+          {hasTarget ? (
+            <>
+              <button type="button" onClick={() => handleExport('current')} disabled={exporting}>
+                {exporting ? 'Export…' : 'Exporter en PNG — Actuel seulement'}
+              </button>
+              <button type="button" onClick={() => handleExport('target')} disabled={exporting}>
+                {exporting ? 'Export…' : 'Exporter en PNG — Cible seulement'}
+              </button>
+              <button type="button" onClick={() => handleExport('both')} disabled={exporting}>
+                {exporting ? 'Export…' : 'Exporter en PNG — Les deux'}
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => handleExport('current')} disabled={exporting}>
+              {exporting ? 'Export…' : 'Exporter en PNG'}
+            </button>
+          )}
+          <button type="button" onClick={handleGenerateSketch} disabled={sketching}>
+            {sketching ? 'Génération…' : 'Générer un sketch'}
           </button>
         </HeaderMenu>
-      ) : (
-        <button type="button" className="png-export-trigger" onClick={() => handleExport('current')} disabled={exporting}>
-          <ImageDown size={14} aria-hidden="true" />
-          {exporting ? 'Export…' : 'Exporter en PNG'}
-        </button>
-      )}
-      <button type="button" className="png-export-trigger" onClick={handleGenerateSketch} disabled={sketching}>
-        <Sparkles size={14} aria-hidden="true" />
-        {sketching ? 'Génération…' : 'Générer un sketch'}
-      </button>
+      </div>
       {error && <span className="error">{error}</span>}
       {sketchError && <span className="error">{sketchError}</span>}
     </Panel>
@@ -302,6 +338,74 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   const [updateError, setUpdateError] = useState<string | null>(null)
   const [updateNotConfigured, setUpdateNotConfigured] = useState(false)
 
+  // Annuler/rétablir une action du diagramme — pile locale d'états
+  // précédents, indépendante de la sauvegarde automatique (ProjectShell.tsx) :
+  // chaque geste d'édition (glisser-déposer, ajout de phase/activité,
+  // création d'interaction, modification via une modale de détail...)
+  // passe par commitChange ci-dessous plutôt que d'appeler onChange
+  // directement, pour être capturé dans l'historique. Bornée
+  // (MAX_UNDO_HISTORY) pour ne pas accumuler indéfiniment en mémoire sur
+  // une longue session d'édition.
+  const [past, setPast] = useState<Project[]>([])
+  const [future, setFuture] = useState<Project[]>([])
+
+  // Changer de variante (Actuel/Cible) remplace entièrement `project` par
+  // un diagramme sans rapport avec l'historique accumulé jusque-là — sans
+  // remonter ProcessDiagram (contrairement à l'ouverture d'un autre
+  // projet, qui le fait via key={project.id}, voir ProjectShell.tsx),
+  // donc à vider explicitement ici plutôt que de laisser les piles
+  // pointer vers la mauvaise variante.
+  useEffect(() => {
+    setPast([])
+    setFuture([])
+  }, [isTargetActive])
+
+  function commitChange(next: Project) {
+    setPast((p) => [...p, project].slice(-MAX_UNDO_HISTORY))
+    setFuture([])
+    onChange(next)
+  }
+
+  function handleUndo() {
+    if (past.length === 0) return
+    const previous = past[past.length - 1]
+    setPast((p) => p.slice(0, -1))
+    setFuture((f) => [project, ...f].slice(0, MAX_UNDO_HISTORY))
+    onChange(previous)
+  }
+
+  function handleRedo() {
+    if (future.length === 0) return
+    const next = future[0]
+    setFuture((f) => f.slice(1))
+    setPast((p) => [...p, project].slice(-MAX_UNDO_HISTORY))
+    onChange(next)
+  }
+
+  // Raccourcis clavier standards — ignorés si le focus est dans un champ
+  // texte (saisie en cours dans une modale de détail, le champ de mise à
+  // jour en langage naturel...) : Ctrl/Cmd+Z y doit annuler la frappe
+  // elle-même (comportement natif du navigateur), pas une action du
+  // diagramme.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return
+      const key = e.key.toLowerCase()
+      if (!(e.ctrlKey || e.metaKey) || key !== 'z') return
+      e.preventDefault()
+      if (e.shiftKey) {
+        handleRedo()
+      } else {
+        handleUndo()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, past, future])
+
   const startColors = useMemo(() => [...new Set(edges.map((e) => e.sourceColor))], [edges])
 
   const dragTargetPosition = useMemo(
@@ -323,7 +427,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
     setUpdateError(null)
     setUpdateNotConfigured(false)
     try {
-      onChange(await generateAndMerge(project, updateText))
+      commitChange(await generateAndMerge(project, updateText))
       setUpdateText('')
     } catch (e) {
       const message = String(e)
@@ -426,7 +530,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
     const offsetX = Math.min(Math.max(node.position.x - defaultPosition.x, 0), MAX_OFFSET_X)
     const offsetY = Math.min(Math.max(node.position.y - defaultPosition.y, 0), MAX_OFFSET_Y)
 
-    onChange({
+    commitChange({
       ...project,
       activities: zeroed.map((a) => (a.id === activity.id ? { ...a, offsetX, offsetY } : a)),
     })
@@ -454,7 +558,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
       toActivityId: target,
       information: 'Information échangée',
     }
-    onChange({ ...project, interactions: [...project.interactions, interaction] })
+    commitChange({ ...project, interactions: [...project.interactions, interaction] })
   }
 
   // Bouton "+ Phase" de la colonne ajoutée après la dernière phase : même
@@ -463,7 +567,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   // aller et venir.
   function addPhase() {
     const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0, icon: '' }
-    onChange({ ...project, phases: [...project.phases, phase] })
+    commitChange({ ...project, phases: [...project.phases, phase] })
   }
 
   // Bouton "+" en coin de l'en-tête de phase : réserve une sous-colonne
@@ -471,7 +575,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   // qu'une activité y soit déposée — sans quoi il n'y aurait nulle part où
   // glisser-déposer une activité pour la faire apparaître.
   function addSubColumnForPhase(phaseId: string) {
-    onChange({
+    commitChange({
       ...project,
       phases: project.phases.map((p) => (p.id === phaseId ? { ...p, subColumns: Math.max(p.subColumns, 1) + 1 } : p)),
     })
@@ -480,7 +584,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   // Symétrique de addSubColumnForPhase, sur l'axe vertical (voir
   // Actor.subLanes).
   function addSubLaneForActor(actorId: string) {
-    onChange({
+    commitChange({
       ...project,
       actors: project.actors.map((a) => (a.id === actorId ? { ...a, subLanes: Math.max(a.subLanes, 1) + 1 } : a)),
     })
@@ -509,7 +613,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
       traceLinks: [],
       painPoints: [],
     }
-    onChange({ ...project, activities: [...project.activities, activity] })
+    commitChange({ ...project, activities: [...project.activities, activity] })
   }
 
   // Clic sur une carte d'activité : ouvre la consultation de ses
@@ -661,6 +765,10 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
             isTargetActive={isTargetActive}
             rootProject={rootProject}
             onSketchGenerated={(dataUrl, filename) => setSketchPreview({ dataUrl, filename })}
+            canUndo={past.length > 0}
+            canRedo={future.length > 0}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
           />
         </ReactFlow>
       </div>
@@ -668,7 +776,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
         <ActivityDetailModal
           project={project}
           activityId={selectedActivityId}
-          onChange={onChange}
+          onChange={commitChange}
           onClose={() => setSelectedActivityId(null)}
           isTargetActive={isTargetActive}
         />
@@ -677,7 +785,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
         <InteractionDetailModal
           project={project}
           interactionId={selectedInteractionId}
-          onChange={onChange}
+          onChange={commitChange}
           onClose={() => setSelectedInteractionId(null)}
         />
       )}
@@ -685,7 +793,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
         <ActorProfileModal
           project={project}
           actorId={selectedActorProfileId}
-          onChange={onChange}
+          onChange={commitChange}
           onClose={() => setSelectedActorProfileId(null)}
         />
       )}
