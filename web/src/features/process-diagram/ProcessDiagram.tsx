@@ -18,7 +18,7 @@ import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
 import { toWorkingProject } from '../project-shell/activeVariant'
 import { HeaderMenu } from '../project-shell/HeaderMenu'
-import type { MissionDiff } from '../project-shell/missionDiff'
+import type { DiffFocusTarget, DiffSelection, MissionDiff } from '../project-shell/missionDiff'
 import { ActivityDetailModal } from './ActivityDetailModal'
 import { dotMarkerId, gradientId, toFlowEdge } from './edgeRendering'
 import { InteractionDetailModal } from './InteractionDetailModal'
@@ -31,6 +31,7 @@ import {
   MAX_OFFSET_X,
   MAX_OFFSET_Y,
   type DropTarget,
+  type LayoutEdge,
   type LayoutNode,
 } from './layout'
 import { nodeTypes } from './nodes'
@@ -56,6 +57,12 @@ interface Props {
   // depuis VariantComparisonScreen.tsx (voir missionDiff.ts), absent (donc
   // aucun surlignage) partout ailleurs : onglet Diagramme normal, tests...
   diff?: MissionDiff
+  // Différence précise sélectionnée depuis la liste détaillée
+  // (DiffList.tsx, ADR-082) — surligne CET élément (et estompe le reste)
+  // sur ce panneau s'il y existe, absent/no-op sinon (ex. un élément
+  // "ajouté" sélectionné ne concerne que le panneau Cible). Sans effet si
+  // `diff` lui-même est absent.
+  focusedDiff?: DiffFocusTarget | null
 }
 
 // Retrouve le statut de comparaison (ajouté/supprimé/modifié) d'un nœud du
@@ -67,6 +74,33 @@ function diffStatusForNode(node: LayoutNode, diff: MissionDiff) {
   if (node.type === 'actorHeader') return diff.actors.get(node.id.replace(/^actor-header-/, ''))
   if (node.type === 'phaseHeader') return diff.phases.get(node.id.replace(/^phase-header-/, ''))
   return undefined
+}
+
+// Traduit une sélection de la liste détaillée (kind + id métier) en id(s)
+// de NŒUD React Flow — les en-têtes d'acteur/phase ont un id préfixé (voir
+// diffStatusForNode ci-dessus), une interaction n'a pas de "nœud" propre
+// mais ses deux extrémités (activités source/cible) en ont. `null` quand
+// l'élément désigné n'existe pas DANS CE panneau (ex. une activité
+// "ajoutée" sélectionnée depuis la Cible n'a pas d'équivalent côté
+// Actuel) : le panneau reste alors inchangé plutôt que de recadrer sur
+// rien ou de laisser un id orphelin dans data.diffSelection.
+function resolveFocusNodeIds(focusedDiff: DiffFocusTarget | null | undefined, nodes: LayoutNode[], edges: LayoutEdge[]): string[] | null {
+  if (!focusedDiff) return null
+  const nodeIds = nodes.map((n) => n.id)
+  if (focusedDiff.kind === 'activity') {
+    return nodeIds.includes(focusedDiff.id) ? [focusedDiff.id] : null
+  }
+  if (focusedDiff.kind === 'actor') {
+    const id = `actor-header-${focusedDiff.id}`
+    return nodeIds.includes(id) ? [id] : null
+  }
+  if (focusedDiff.kind === 'phase') {
+    const id = `phase-header-${focusedDiff.id}`
+    return nodeIds.includes(id) ? [id] : null
+  }
+  // interaction : pas de nœud dédié, seulement ses deux extrémités.
+  const edge = edges.find((e) => e.id === focusedDiff.id)
+  return edge ? [edge.source, edge.target] : null
 }
 
 // Doit rester cohérent avec maxTextLength côté serveur
@@ -129,6 +163,26 @@ function AutoFitOnChange({ nodeCount }: { nodeCount: number }) {
       prevCount.current = nodeCount
     }
   }, [nodeCount, fitView])
+  return null
+}
+
+// Recadre la vue sur l'élément sélectionné depuis la liste détaillée des
+// différences (DiffList.tsx, ADR-082) dès que cette sélection change —
+// sans quoi rien ne garantit que l'élément désigné (surligné via
+// data.diffSelection, voir nodes.tsx/edgeRendering.ts) soit seulement
+// visible dans le cadre actuel du diagramme. `nodeIds` vient déjà résolu
+// (resolveFocusNodeIds ci-dessus) : ce composant se contente de recadrer,
+// jamais de décider QUOI recadrer — même séparation des responsabilités
+// qu'AutoFitOnChange juste au-dessus. `null` (rien à recadrer, sélection
+// absente ou sans équivalent dans ce panneau) ne fait rien.
+function FocusOnDiffSelection({ nodeIds }: { nodeIds: string[] | null }) {
+  const { fitView } = useReactFlow()
+  const key = nodeIds?.join('|') ?? null
+  useEffect(() => {
+    if (!nodeIds || nodeIds.length === 0) return
+    fitView({ nodes: nodeIds.map((id) => ({ id })), duration: 400, padding: 0.6, maxZoom: 1.2 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
   return null
 }
 
@@ -332,21 +386,48 @@ function DownloadPngButton({
 
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null, diff }: Props) {
+export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null, diff, focusedDiff }: Props) {
   const { nodes, edges } = useMemo(() => computeLayout(project), [project])
+  // Id(s) de nœud correspondant à la différence sélectionnée dans la liste
+  // détaillée (DiffList.tsx), résolus pour CE panneau — `null` si absente
+  // ou sans équivalent ici (voir resolveFocusNodeIds ci-dessus), auquel
+  // cas rien dans ce panneau ne doit changer d'apparence.
+  const focusNodeIds = useMemo(() => resolveFocusNodeIds(focusedDiff, nodes, edges), [focusedDiff, nodes, edges])
   // Nœuds effectivement passés à <ReactFlow> ci-dessous : identiques à
-  // `nodes` hors comparaison (diff absent), sinon chaque nœud concerné
-  // reçoit son statut dans `data.diffStatus` (lu par ActivityNode/
-  // ActorHeaderNode/PhaseHeaderNode, voir nodes.tsx). `nodes` lui-même
-  // reste inchangé : cellTopLeft/computeDropTarget ci-dessous n'ont besoin
-  // que de la géométrie, jamais du statut de comparaison.
+  // `nodes` hors comparaison (diff absent) et hors sélection (focusNodeIds
+  // absent), sinon chaque nœud concerné reçoit son statut dans
+  // `data.diffStatus` et/ou son état de sélection dans `data.diffSelection`
+  // (lus par ActivityNode/ActorHeaderNode/PhaseHeaderNode, voir nodes.tsx).
+  // `nodes` lui-même reste inchangé : cellTopLeft/computeDropTarget
+  // ci-dessous n'ont besoin que de la géométrie, jamais de ces deux-là.
+  // Seuls les types de nœud "de contenu" (activité, en-tête d'acteur/de
+  // phase) participent à l'effet d'estompage — la grille de repère, la
+  // ligne de synthèse des points de friction... restent des éléments de
+  // fond, sans rapport avec la comparaison.
   const displayNodes = useMemo(() => {
-    if (!diff) return nodes
+    if (!diff && !focusNodeIds) return nodes
+    // Une interaction sélectionnée n'a pas de "nœud" propre : ses deux
+    // extrémités (focusNodeIds) sont seulement ÉPARGNÉES par l'estompage
+    // (spareIds), jamais mises en avant elles-mêmes — c'est la FLÈCHE qui
+    // porte le surlignage 'focused' (voir plus bas, edges.map). Pour une
+    // activité/un acteur/une phase sélectionné, focusNodeIds désigne au
+    // contraire directement le nœud à mettre en avant (focusedIds).
+    const spareIds = new Set(focusNodeIds ?? [])
+    const focusedIds = focusedDiff?.kind === 'interaction' ? new Set<string>() : spareIds
     return nodes.map((n) => {
-      const status = diffStatusForNode(n, diff)
-      return status ? { ...n, data: { ...n.data, diffStatus: status } } : n
+      const status = diff ? diffStatusForNode(n, diff) : undefined
+      let selection: DiffSelection | undefined
+      if (focusNodeIds && (n.type === 'activity' || n.type === 'actorHeader' || n.type === 'phaseHeader')) {
+        if (focusedIds.has(n.id)) selection = 'focused'
+        else if (!spareIds.has(n.id)) selection = 'dimmed'
+      }
+      if (!status && !selection) return n
+      return {
+        ...n,
+        data: { ...n.data, ...(status ? { diffStatus: status } : {}), ...(selection ? { diffSelection: selection } : {}) },
+      }
     })
-  }, [nodes, diff])
+  }, [nodes, diff, focusNodeIds, focusedDiff])
   // Astuces d'utilisation du diagramme (glisser-déposer, boutons "+"...) :
   // repliées par défaut plutôt qu'un paragraphe dense toujours affiché en
   // haut de l'écran — trouvé lors de l'audit UX/UI (ADR-068), c'était le
@@ -765,7 +846,13 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
         </svg>
         <ReactFlow
           nodes={displayNodes as unknown as Node[]}
-          edges={edges.map((e) => toFlowEdge(e, diff?.interactions.get(e.id)))}
+          edges={edges.map((e) =>
+            toFlowEdge(
+              e,
+              diff?.interactions.get(e.id),
+              focusNodeIds ? (focusedDiff?.kind === 'interaction' && e.id === focusedDiff.id ? 'focused' : 'dimmed') : undefined,
+            ),
+          )}
           nodeTypes={nodeTypes}
           fitView
           nodesConnectable
@@ -790,6 +877,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           <Controls showInteractive={false} />
           <DropTargetPreview cellPosition={dragTargetPosition} />
           <AutoFitOnChange nodeCount={nodes.length} />
+          <FocusOnDiffSelection nodeIds={focusNodeIds} />
           <DownloadPngButton
             project={project}
             isTargetActive={isTargetActive}

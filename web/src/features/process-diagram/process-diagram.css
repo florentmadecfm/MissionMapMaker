@@ -255,7 +255,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text);
   cursor: pointer;
-  transition: background-color 0.15s var(--ease);
+  transition: background-color 0.15s var(--ease), opacity 0.2s var(--ease);
 }
 
 .actor-header:hover {
@@ -457,7 +457,7 @@
   padding: 0.55rem 0.7rem;
   box-shadow: var(--shadow-md);
   font-size: 0.85rem;
-  transition: box-shadow 0.15s var(--ease), transform 0.15s var(--ease);
+  transition: box-shadow 0.15s var(--ease), transform 0.15s var(--ease), opacity 0.2s var(--ease);
 }
 
 /* Signale, sans avoir à ouvrir la carte, qu'au moins un point de
@@ -629,6 +629,36 @@
    libellé), hors de portée d'un style inline posé sur le seul tracé. */
 .react-flow__edge.diagram-edge-diff-removed {
   opacity: 0.75;
+}
+
+/* Sélection d'UNE différence précise depuis la liste détaillée
+   (DiffList.tsx -> ProcessDiagram.tsx, data.diffSelection/className
+   "diagram-edge-selection-*", ADR-082) : l'élément désigné ressort par un
+   contour net (couleur neutre, distincte du vert/rouge/orange du statut
+   de comparaison pour ne jamais se confondre avec lui), tout le reste du
+   diagramme s'estompe — le repérer sur un diagramme chargé ne demande
+   alors plus de chercher le bon badge parmi tous les autres. */
+.activity-card.diff-selection-focused {
+  box-shadow: 0 0 0 3px #2563eb, 0 0 0 8px rgba(37, 99, 235, 0.22), var(--shadow-lg);
+  z-index: 5;
+}
+
+.activity-card.diff-selection-dimmed,
+.lane-node.diff-selection-dimmed {
+  opacity: 0.3;
+}
+
+.lane-node.diff-selection-focused {
+  box-shadow: 0 0 0 3px #2563eb, 0 0 0 8px rgba(37, 99, 235, 0.22);
+  z-index: 5;
+}
+
+.react-flow__edge.diagram-edge-selection-dimmed {
+  opacity: 0.15;
+}
+
+.react-flow__edge.diagram-edge-selection-focused {
+  filter: drop-shadow(0 0 5px rgba(37, 99, 235, 0.65));
 }
 
 /* Aperçu de dépose (voir nodes.tsx, DropShadowNode) : une "ombre" à
