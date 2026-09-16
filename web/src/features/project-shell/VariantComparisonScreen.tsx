@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { Project } from '../../api/types'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { fromWorkingProject, toWorkingProject } from './activeVariant'
-import { combinedDiffCounts, computeMissionDiff, summarizeMissionDiff, type MissionDiff } from './missionDiff'
+import { DiffList } from './DiffList'
+import { buildDiffEntries, combinedDiffCounts, computeMissionDiff, summarizeMissionDiff, type MissionDiff } from './missionDiff'
 
 interface Props {
   project: Project
@@ -56,7 +58,15 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
   // rester APPELÉS dans tous les cas (règle des Hooks), seul leur calcul
   // est conditionnel.
   const [showDiff, setShowDiff] = useState(true)
+  // Liste détaillée des différences (DiffList.tsx) — dépliée par défaut,
+  // c'est elle qui répond explicitement à "quelles différences ?" plutôt
+  // que de laisser deviner à partir des seuls badges sur le diagramme.
+  const [showList, setShowList] = useState(true)
   const diff = useMemo(() => (project.target ? computeMissionDiff(project, project.target) : null), [project])
+  const diffEntries = useMemo(
+    () => (project.target && diff ? buildDiffEntries(project, project.target, diff) : []),
+    [project, diff],
+  )
 
   const handlePointerMove = useCallback((e: PointerEvent) => {
     if (!dragging.current || !containerRef.current) return
@@ -122,10 +132,10 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
           <input type="checkbox" checked={showDiff} onChange={(e) => setShowDiff(e.target.checked)} />
           Surligner les différences
         </label>
-        {showDiff &&
-          (totalChanges === 0 ? (
-            <span className="variant-comparison-diff-empty">Aucune différence entre Actuel et Cible.</span>
-          ) : (
+        {totalChanges === 0 ? (
+          <span className="variant-comparison-diff-empty">Aucune différence entre Actuel et Cible.</span>
+        ) : (
+          <>
             <div className="variant-comparison-diff-summary">
               {counts.added > 0 && (
                 <span className="diff-summary-item">
@@ -146,8 +156,18 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
                 </span>
               )}
             </div>
-          ))}
+            <button type="button" className="variant-comparison-diff-list-toggle" onClick={() => setShowList((v) => !v)}>
+              {showList ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+              {showList ? 'Masquer le détail' : 'Voir le détail'}
+            </button>
+          </>
+        )}
       </div>
+      {totalChanges > 0 && showList && (
+        <div className="variant-comparison-diff-list">
+          <DiffList entries={diffEntries} />
+        </div>
+      )}
       <div className="variant-comparison-panels" ref={containerRef}>
         <VariantPanel
           label="Actuel"
