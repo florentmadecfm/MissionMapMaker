@@ -538,10 +538,19 @@
 
 /* ---------- Comparaison côte à côte Actuel/Cible ---------- */
 
+/* Remplit exactement l'espace disponible dans .shell-main (flex: 1 dans
+   .shell, height: 100vh, voir plus haut) plutôt qu'un calc(100vh - Npx)
+   à recalibrer à la main à chaque ajout de chrome au-dessus des deux
+   diagrammes (ADR-079 puis ADR-081/082 ont chacun ajouté de la hauteur
+   fixe ici — barre de légende, liste détaillée — sans jamais toucher à
+   cette valeur, ce qui grignotait d'autant la hauteur réellement laissée
+   aux diagrammes) : height: 100% s'ajuste de lui-même quel que soit ce
+   qui s'empile au-dessus, seul .variant-comparison-panels (flex: 1,
+   voir plus bas) doit grandir/rétrécir en retour. */
 .variant-comparison-screen {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 160px);
+  height: 100%;
 }
 
 .variant-comparison-screen .editor-header {
