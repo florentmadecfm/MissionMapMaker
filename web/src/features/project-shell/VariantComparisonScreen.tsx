@@ -4,7 +4,14 @@ import type { Project } from '../../api/types'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { fromWorkingProject, toWorkingProject } from './activeVariant'
 import { DiffList } from './DiffList'
-import { buildDiffEntries, combinedDiffCounts, computeMissionDiff, summarizeMissionDiff, type MissionDiff } from './missionDiff'
+import {
+  buildDiffEntries,
+  combinedDiffCounts,
+  computeMissionDiff,
+  summarizeMissionDiff,
+  type DiffFocusTarget,
+  type MissionDiff,
+} from './missionDiff'
 
 interface Props {
   project: Project
@@ -62,6 +69,10 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
   // c'est elle qui répond explicitement à "quelles différences ?" plutôt
   // que de laisser deviner à partir des seuls badges sur le diagramme.
   const [showList, setShowList] = useState(true)
+  // Différence sélectionnée depuis la liste détaillée (DiffList.tsx,
+  // ADR-082) — surlignée individuellement (et estompe le reste) sur les
+  // deux diagrammes, voir ProcessDiagram.tsx/Props.focusedDiff.
+  const [selectedFocus, setSelectedFocus] = useState<DiffFocusTarget | null>(null)
   const diff = useMemo(() => (project.target ? computeMissionDiff(project, project.target) : null), [project])
   const diffEntries = useMemo(
     () => (project.target && diff ? buildDiffEntries(project, project.target, diff) : []),
@@ -165,7 +176,7 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
       </div>
       {totalChanges > 0 && showList && (
         <div className="variant-comparison-diff-list">
-          <DiffList entries={diffEntries} />
+          <DiffList entries={diffEntries} selected={selectedFocus} onSelect={setSelectedFocus} />
         </div>
       )}
       <div className="variant-comparison-panels" ref={containerRef}>
@@ -177,6 +188,7 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
           rootProject={project}
           widthPercent={leftPercent}
           diff={activeDiff}
+          focusedDiff={selectedFocus}
         />
         <div
           className="variant-comparison-divider"
@@ -193,6 +205,7 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
           rootProject={project}
           widthPercent={100 - leftPercent}
           diff={activeDiff}
+          focusedDiff={selectedFocus}
         />
       </div>
     </div>
@@ -210,9 +223,10 @@ interface PanelProps {
   rootProject: Project
   widthPercent: number
   diff?: MissionDiff
+  focusedDiff?: DiffFocusTarget | null
 }
 
-function VariantPanel({ label, project, onChange, isTargetActive, rootProject, widthPercent, diff }: PanelProps) {
+function VariantPanel({ label, project, onChange, isTargetActive, rootProject, widthPercent, diff, focusedDiff }: PanelProps) {
   const stats = summarize(project)
   return (
     <section className="variant-comparison-panel" style={{ flexBasis: `${widthPercent}%` }}>
@@ -228,6 +242,7 @@ function VariantPanel({ label, project, onChange, isTargetActive, rootProject, w
           project={project}
           onChange={onChange}
           diff={diff}
+          focusedDiff={focusedDiff}
           isTargetActive={isTargetActive}
           rootProject={rootProject}
         />

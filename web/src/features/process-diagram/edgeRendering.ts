@@ -1,5 +1,5 @@
 import { MarkerType, type Edge } from '@xyflow/react'
-import type { DiffStatus } from '../project-shell/missionDiff'
+import type { DiffSelection, DiffStatus } from '../project-shell/missionDiff'
 import type { LayoutEdge } from './layout'
 
 // Fond du chip de libellé selon le statut de comparaison (voir
@@ -75,7 +75,15 @@ function edgeLabel(e: LayoutEdge): string {
 // que de recolorer la flèche elle-même : le dégradé par persona
 // (sourceColor/targetColor ci-dessous) reste le repère principal, la
 // comparaison ne fait que s'y superposer.
-export function toFlowEdge(e: LayoutEdge, diffStatus?: DiffStatus): Edge {
+//
+// selection (optionnel) : sélection d'UNE différence précise depuis la
+// liste détaillée (DiffList.tsx, ADR-082) — 'focused' sur la flèche
+// désignée (trait renforcé), 'dimmed' sur toutes les autres (opacité
+// réduite, pour qu'elle ressorte sans ambiguïté).
+export function toFlowEdge(e: LayoutEdge, diffStatus?: DiffStatus, selection?: DiffSelection): Edge {
+  const className = [diffStatus && `diagram-edge-diff-${diffStatus}`, selection && `diagram-edge-selection-${selection}`]
+    .filter(Boolean)
+    .join(' ')
   return {
     id: e.id,
     source: e.source,
@@ -84,7 +92,7 @@ export function toFlowEdge(e: LayoutEdge, diffStatus?: DiffStatus): Edge {
     targetHandle: e.targetHandle,
     label: edgeLabel(e),
     type: 'smoothstep',
-    className: diffStatus ? `diagram-edge-diff-${diffStatus}` : undefined,
+    className: className || undefined,
     // Le trait passe de la couleur du persona de départ à celle du
     // persona d'arrivée (voir <defs>, ProcessDiagram.tsx/
     // ReadOnlyProcessDiagram.tsx) : on peut suivre une flèche à l'œil même
@@ -95,8 +103,9 @@ export function toFlowEdge(e: LayoutEdge, diffStatus?: DiffStatus): Edge {
     // titre d'interaction "fantôme".
     style: {
       stroke: `url(#${gradientId(e.id)})`,
-      strokeWidth: diffStatus ? 3 : 2,
+      strokeWidth: selection === 'focused' ? 4 : diffStatus ? 3 : 2,
       strokeDasharray: e.condition ? '6 4' : diffStatus === 'removed' ? '3 3' : undefined,
+      opacity: selection === 'dimmed' ? 0.25 : undefined,
     },
     // Point de départ : petit disque plein dans la couleur du persona
     // source. Pointe d'arrivée : flèche pleine dans la couleur du persona

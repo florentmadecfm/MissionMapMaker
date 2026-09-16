@@ -1,6 +1,6 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { GitBranch, TriangleAlert } from 'lucide-react'
-import type { DiffStatus } from '../project-shell/missionDiff'
+import type { DiffSelection, DiffStatus } from '../project-shell/missionDiff'
 import {
   ADD_LANE_WIDTH,
   HANDLES_PER_SIDE,
@@ -19,6 +19,18 @@ const DIFF_LABELS: Record<DiffStatus, string> = {
   added: 'Ajouté',
   removed: 'Supprimé',
   modified: 'Modifié',
+}
+
+// Sélection d'UNE différence précise depuis la liste détaillée (DiffList.tsx
+// -> VariantComparisonScreen.tsx -> ProcessDiagram.tsx, ADR-082) —
+// data.diffSelection (voir DiffSelection, missionDiff.ts), posé sur CHAQUE
+// nœud une fois qu'un élément de la liste est sélectionné : 'focused' sur
+// l'élément désigné (surlignage renforcé), 'dimmed' sur tous les autres
+// (estompés, pour que l'élément choisi ressorte sans ambiguïté), absent
+// tant qu'aucune entrée n'est sélectionnée (rendu inchangé, comme avant
+// cette fonctionnalité).
+function diffSelectionClass(selection: DiffSelection | undefined): string {
+  return selection ? ` diff-selection-${selection}` : ''
 }
 
 // Points d'ancrage répartis verticalement (25/50/75% par défaut pour 3
@@ -60,9 +72,10 @@ export function PhaseHeaderNode({ data }: NodeProps) {
   // via son élément cible (event.target).
   const icon = data.icon as string
   const diffStatus = data.diffStatus as DiffStatus | undefined
+  const diffSelection = data.diffSelection as DiffSelection | undefined
   return (
     <div
-      className={`lane-node phase-header${diffStatus ? ` lane-node-diff-${diffStatus}` : ''}`}
+      className={`lane-node phase-header${diffStatus ? ` lane-node-diff-${diffStatus}` : ''}${diffSelectionClass(diffSelection)}`}
       style={{ width: (data.width as number) - 8, height: PHASE_HEADER_HEIGHT - 8 }}
     >
       {/* Emoji illustrant concrètement la phase (mode storyboard,
@@ -91,9 +104,10 @@ export function ActorHeaderNode({ data }: NodeProps) {
   // ci-dessous) a un en-tête plus haut, symétrique de PhaseHeaderNode.
   const backstage = data.backstage as boolean
   const diffStatus = data.diffStatus as DiffStatus | undefined
+  const diffSelection = data.diffSelection as DiffSelection | undefined
   return (
     <div
-      className={`lane-node actor-header${diffStatus ? ` lane-node-diff-${diffStatus}` : ''}`}
+      className={`lane-node actor-header${diffStatus ? ` lane-node-diff-${diffStatus}` : ''}${diffSelectionClass(diffSelection)}`}
       style={{ width: LANE_LABEL_WIDTH - 8, height: (data.height as number) - 8, borderLeftColor: data.color as string }}
     >
       {data.label as string}
@@ -221,9 +235,10 @@ export function ActivityNode({ data }: NodeProps) {
   const branchCount = data.branchCount as number
   const color = data.color as string
   const diffStatus = data.diffStatus as DiffStatus | undefined
+  const diffSelection = data.diffSelection as DiffSelection | undefined
   return (
     <div
-      className={`activity-card${diffStatus ? ` activity-card-diff-${diffStatus}` : ''}`}
+      className={`activity-card${diffStatus ? ` activity-card-diff-${diffStatus}` : ''}${diffSelectionClass(diffSelection)}`}
       style={{ borderTopColor: color, borderLeftColor: color, ['--card-color' as string]: color }}
     >
       {/* Étiquette de comparaison (voir DIFF_LABELS ci-dessus) — chevauche

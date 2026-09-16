@@ -170,6 +170,20 @@ export interface DiffEntry {
   changedFields?: string[]
 }
 
+// L'élément qu'une entrée de la liste détaillée (DiffList.tsx) désigne,
+// une fois sélectionnée — ce que ProcessDiagram.tsx a besoin de savoir
+// pour surligner CET élément précis (et estomper le reste) sur l'un ou
+// l'autre des deux diagrammes. Un sous-ensemble de DiffEntry (kind + id)
+// plutôt que l'entrée complète : VariantComparisonScreen.tsx n'a besoin
+// de retenir que ça pour piloter les deux panneaux.
+export type DiffFocusTarget = Pick<DiffEntry, 'kind' | 'id'>
+
+// État d'un élément du diagramme UNE FOIS qu'une entrée de la liste est
+// sélectionnée (voir DiffFocusTarget ci-dessus) — 'focused' sur l'élément
+// désigné, 'dimmed' sur tous les autres. Absent (pas de sélection en
+// cours) : rendu inchangé, uniquement le badge de statut habituel.
+export type DiffSelection = 'focused' | 'dimmed'
+
 const KIND_SORT_ORDER: Record<DiffStatus, number> = { added: 0, modified: 1, removed: 2 }
 
 function sortEntries(entries: DiffEntry[]): DiffEntry[] {
