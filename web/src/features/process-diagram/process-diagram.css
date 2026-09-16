@@ -125,13 +125,55 @@
   background: var(--color-surface);
 }
 
+/* Le libellé d'une flèche (texte "information échangée", voir
+   toFlowEdge/edgeRendering.ts) est rendu par React Flow À L'INTÉRIEUR de
+   .react-flow__edges (un <g class="react-flow__edge-textwrapper"> dans le
+   <svg> des flèches) — PAS dans .react-flow__edgelabel-renderer, un
+   portail div séparé que cette app n'utilise pas (aucun composant de
+   libellé personnalisé). .react-flow__edges est rendu AVANT les cartes
+   dans le DOM (.react-flow__nodes), et ni l'un ni l'autre n'a de z-index
+   explicite dans le CSS par défaut de React Flow — une carte peut donc
+   recouvrir visuellement le libellé d'une flèche qui passe dessous ou
+   juste à côté dans un diagramme dense, le rendant illisible malgré son
+   fond blanc semi-opaque (labelBgStyle, edgeRendering.ts), qui ne sert
+   alors à rien puisque la carte est peinte PAR-DESSUS lui. Élève tout le
+   calque des flèches (traits ET libellés) au-dessus des cartes plutôt que
+   de cibler le seul libellé : un z-index CSS n'a d'effet fiable sur un
+   élément interne à un <svg> que s'il forme lui-même un contexte
+   d'empilement, ce que .react-flow__edges (un simple conteneur <div>, pas
+   le <svg>) permet directement. Le trait d'une flèche reste fin
+   (pointer-events: visibleStroke, style React Flow par défaut) : le
+   passer au-dessus d'une carte ne gêne donc pas le clic/glisser sur la
+   carte elle-même, sauf exactement sur le pixel du trait — cohérent avec
+   le fait de pouvoir cliquer une flèche visible pour l'éditer
+   (InteractionDetailModal). */
+.react-flow__edges {
+  z-index: 5;
+}
+
 /* Quadrillage de repère (LaneGridNode, ADR-077) : posé derrière tout le
    reste (voir computeLayout, layout.ts — premier nœud du tableau), donc
    masqué par le fond opaque des cartes/en-têtes, visible seulement dans
    l'espace encore vide entre deux cartes — juste assez pour repérer une
    frontière de phase/acteur au milieu d'un grand diagramme, sans jamais
    concurrencer visuellement le contenu. Non interactif : un simple
-   repère, jamais cliquable/glissable. */
+   repère, jamais cliquable/glissable — le pointer-events:none posé ICI
+   (sur le contenu) ne suffit PAS à lui seul : React Flow pose
+   inconditionnellement pointer-events:all EN LIGNE sur le conteneur
+   .react-flow__node de CHAQUE nœud (qu'il soit interactif ou non), sans
+   tenir compte de draggable/selectable. Comme ce nœud couvre TOUT le
+   diagramme (sa seule raison d'être : des lignes d'un bout à l'autre du
+   canevas), ce conteneur au pointer-events:all interceptait alors
+   silencieusement tout clic tombant dans une zone encore vide — un
+   libellé de flèche affiché là devenait alors impossible à cliquer pour
+   l'éditer (voir InteractionDetailModal), et un clic sur le canevas vide
+   (désélection) n'atteignait plus le pane en dessous. !important est
+   nécessaire pour l'emporter sur ce style en ligne, qu'aucune règle CSS
+   normale ne peut autrement surclasser. */
+.react-flow__node-laneGrid {
+  pointer-events: none !important;
+}
+
 .lane-grid {
   position: relative;
   pointer-events: none;
