@@ -1,5 +1,15 @@
 import { MarkerType, type Edge } from '@xyflow/react'
+import type { DiffStatus } from '../project-shell/missionDiff'
 import type { LayoutEdge } from './layout'
+
+// Fond du chip de libellé selon le statut de comparaison (voir
+// VariantComparisonScreen.tsx/missionDiff.ts) — absent (undefined) hors
+// de ce contexte, le fond blanc habituel s'applique alors.
+const DIFF_LABEL_BG: Record<DiffStatus, string> = {
+  added: '#dcfce7',
+  removed: '#fee2e2',
+  modified: '#fef3c7',
+}
 
 // Rendu des flèches du diagramme (dégradé de couleur, style pointillé
 // pour un embranchement, libellé) — module indépendant plutôt que défini
@@ -51,7 +61,15 @@ function edgeLabel(e: LayoutEdge): string {
   return truncateEdgeLabel(withEvidence)
 }
 
-export function toFlowEdge(e: LayoutEdge): Edge {
+// diffStatus (optionnel) : uniquement renseigné depuis la vue de
+// comparaison Actuel/Cible (VariantComparisonScreen.tsx, via
+// ProcessDiagram.tsx) — absent partout ailleurs (onglet Diagramme normal,
+// ReadOnlyProcessDiagram.tsx, export PNG hors-écran), qui gardent leur
+// rendu habituel. Épaissit le trait et teinte le fond du libellé plutôt
+// que de recolorer la flèche elle-même : le dégradé par persona
+// (sourceColor/targetColor ci-dessous) reste le repère principal, la
+// comparaison ne fait que s'y superposer.
+export function toFlowEdge(e: LayoutEdge, diffStatus?: DiffStatus): Edge {
   return {
     id: e.id,
     source: e.source,
@@ -60,17 +78,19 @@ export function toFlowEdge(e: LayoutEdge): Edge {
     targetHandle: e.targetHandle,
     label: edgeLabel(e),
     type: 'smoothstep',
+    className: diffStatus ? `diagram-edge-diff-${diffStatus}` : undefined,
     // Le trait passe de la couleur du persona de départ à celle du
     // persona d'arrivée (voir <defs>, ProcessDiagram.tsx/
     // ReadOnlyProcessDiagram.tsx) : on peut suivre une flèche à l'œil même
     // quand elle traverse plusieurs personas. Une interaction
     // conditionnelle (embranchement) est en plus tracée en pointillés,
     // pour la distinguer d'un flux systématique sans avoir à lire le
-    // libellé.
+    // libellé — une interaction supprimée (comparaison) l'est aussi, à
+    // titre d'interaction "fantôme".
     style: {
       stroke: `url(#${gradientId(e.id)})`,
-      strokeWidth: 2,
-      strokeDasharray: e.condition ? '6 4' : undefined,
+      strokeWidth: diffStatus ? 3 : 2,
+      strokeDasharray: e.condition ? '6 4' : diffStatus === 'removed' ? '3 3' : undefined,
     },
     // Point de départ : petit disque plein dans la couleur du persona
     // source. Pointe d'arrivée : flèche pleine dans la couleur du persona
@@ -78,7 +98,7 @@ export function toFlowEdge(e: LayoutEdge): Edge {
     markerStart: dotMarkerId(e.sourceColor),
     markerEnd: { type: MarkerType.ArrowClosed, color: e.targetColor, width: 18, height: 18 },
     labelStyle: { fontSize: 11, fontWeight: 600, fill: 'var(--color-text)' },
-    labelBgStyle: { fill: '#ffffff', fillOpacity: 0.92 },
+    labelBgStyle: { fill: diffStatus ? DIFF_LABEL_BG[diffStatus] : '#ffffff', fillOpacity: 0.92 },
     labelBgPadding: [5, 3],
     labelBgBorderRadius: 4,
   }

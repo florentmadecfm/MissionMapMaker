@@ -548,6 +548,70 @@
   margin-bottom: 1rem;
 }
 
+/* Barre de légende du surlignage des différences (missionDiff.ts,
+   VariantComparisonScreen.tsx, ADR-079) : case à cocher pour
+   masquer/afficher, résumé des compteurs juste à côté — jamais un
+   panneau séparé, pour rester à portée d'œil des deux diagrammes qu'elle
+   décrit. */
+.variant-comparison-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  font-size: 0.8rem;
+}
+
+.variant-comparison-diff-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.variant-comparison-diff-empty {
+  color: var(--color-text-muted);
+}
+
+.variant-comparison-diff-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+
+.diff-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-text-muted);
+}
+
+.diff-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.diff-swatch-added {
+  background: #16a34a;
+}
+
+.diff-swatch-removed {
+  background: #dc2626;
+}
+
+.diff-swatch-modified {
+  background: #d97706;
+}
+
 .variant-comparison-panels {
   flex: 1;
   min-height: 0;

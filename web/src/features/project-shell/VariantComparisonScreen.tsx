@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { Project } from '../../api/types'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { fromWorkingProject, toWorkingProject } from './activeVariant'
+import { combinedDiffCounts, computeMissionDiff, summarizeMissionDiff, type MissionDiff } from './missionDiff'
 
 interface Props {
   project: Project
@@ -35,10 +36,27 @@ const DEFAULT_LEFT_PERCENT = 50
 // jamais l'autre (fromWorkingProject route chaque changement vers la bonne
 // moitié du projet réel), pratique pour ajuster les deux versions sans
 // repasser par le sélecteur Actuel/Cible de l'onglet Diagramme.
+//
+// Différences surlignées directement sur les deux diagrammes (missionDiff.ts,
+// ADR-079) plutôt qu'une liste de changements séparée à côté : ajouté/
+// supprimé/modifié se lit d'un coup d'œil sur l'élément concerné (carte
+// d'activité, en-tête d'acteur/de phase, flèche d'interaction), sans aller-
+// retour entre un panneau de diff et le diagramme lui-même. Un id présent
+// des deux côtés mais réellement identique reste sans surlignage — seul le
+// CONTENU métier compte, jamais le repositionnement d'une carte glissée-
+// déposée sur l'un des deux diagrammes (voir activityEqual, missionDiff.ts).
 export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
   const [leftPercent, setLeftPercent] = useState(DEFAULT_LEFT_PERCENT)
   const containerRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
+  // Affichage/masquage du surlignage des différences (voir missionDiff.ts)
+  // — préférence de session, non persistée, comme .hintOpen dans
+  // ProcessDiagram.tsx. Le diff lui-même reste `null` tant qu'il n'y a pas
+  // de cible à comparer (branche ci-dessous) : ces deux hooks doivent
+  // rester APPELÉS dans tous les cas (règle des Hooks), seul leur calcul
+  // est conditionnel.
+  const [showDiff, setShowDiff] = useState(true)
+  const diff = useMemo(() => (project.target ? computeMissionDiff(project, project.target) : null), [project])
 
   const handlePointerMove = useCallback((e: PointerEvent) => {
     if (!dragging.current || !containerRef.current) return
@@ -60,7 +78,7 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
     window.addEventListener('pointerup', stopDragging)
   }
 
-  if (!project.target) {
+  if (!project.target || !diff) {
     return (
       <div className="variant-comparison-screen">
         <header className="editor-header">
@@ -87,6 +105,10 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
     onChange(fromWorkingProject(project, updated, 'target'))
   }
 
+  const counts = combinedDiffCounts(summarizeMissionDiff(diff))
+  const totalChanges = counts.added + counts.removed + counts.modified
+  const activeDiff: MissionDiff | undefined = showDiff ? diff : undefined
+
   return (
     <div className="variant-comparison-screen">
       <header className="editor-header">
@@ -95,6 +117,37 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
           Fermer la comparaison
         </button>
       </header>
+      <div className="variant-comparison-legend">
+        <label className="variant-comparison-diff-toggle">
+          <input type="checkbox" checked={showDiff} onChange={(e) => setShowDiff(e.target.checked)} />
+          Surligner les différences
+        </label>
+        {showDiff &&
+          (totalChanges === 0 ? (
+            <span className="variant-comparison-diff-empty">Aucune différence entre Actuel et Cible.</span>
+          ) : (
+            <div className="variant-comparison-diff-summary">
+              {counts.added > 0 && (
+                <span className="diff-summary-item">
+                  <span className="diff-swatch diff-swatch-added" />
+                  {counts.added} ajouté{counts.added > 1 ? 's' : ''}
+                </span>
+              )}
+              {counts.removed > 0 && (
+                <span className="diff-summary-item">
+                  <span className="diff-swatch diff-swatch-removed" />
+                  {counts.removed} supprimé{counts.removed > 1 ? 's' : ''}
+                </span>
+              )}
+              {counts.modified > 0 && (
+                <span className="diff-summary-item">
+                  <span className="diff-swatch diff-swatch-modified" />
+                  {counts.modified} modifié{counts.modified > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+          ))}
+      </div>
       <div className="variant-comparison-panels" ref={containerRef}>
         <VariantPanel
           label="Actuel"
@@ -103,6 +156,7 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
           isTargetActive={false}
           rootProject={project}
           widthPercent={leftPercent}
+          diff={activeDiff}
         />
         <div
           className="variant-comparison-divider"
@@ -118,6 +172,7 @@ export function VariantComparisonScreen({ project, onChange, onClose }: Props) {
           isTargetActive
           rootProject={project}
           widthPercent={100 - leftPercent}
+          diff={activeDiff}
         />
       </div>
     </div>
@@ -134,9 +189,10 @@ interface PanelProps {
   // ProcessDiagram.tsx, Props.rootProject.
   rootProject: Project
   widthPercent: number
+  diff?: MissionDiff
 }
 
-function VariantPanel({ label, project, onChange, isTargetActive, rootProject, widthPercent }: PanelProps) {
+function VariantPanel({ label, project, onChange, isTargetActive, rootProject, widthPercent, diff }: PanelProps) {
   const stats = summarize(project)
   return (
     <section className="variant-comparison-panel" style={{ flexBasis: `${widthPercent}%` }}>
@@ -151,6 +207,7 @@ function VariantPanel({ label, project, onChange, isTargetActive, rootProject, w
           key={isTargetActive ? 'target' : 'current'}
           project={project}
           onChange={onChange}
+          diff={diff}
           isTargetActive={isTargetActive}
           rootProject={rootProject}
         />

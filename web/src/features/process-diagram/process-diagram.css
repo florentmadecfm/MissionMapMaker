@@ -518,6 +518,119 @@
   transform: translateY(-1px);
 }
 
+/* Surlignage de comparaison Actuel/Cible (VariantComparisonScreen.tsx,
+   missionDiff.ts) — data.diffStatus, posé uniquement depuis cette vue
+   (voir ProcessDiagram.tsx, diffStatusForNode). --card-color/borderTop-
+   /LeftColor restent posés en style inline par ActivityNode (couleur de
+   l'acteur) : priment sur toute règle de spécificité normale, d'où le
+   !important ici pour les remplacer par la couleur de statut (même
+   patron que .react-flow__node-laneGrid ci-dessous pour la même raison).
+   "Supprimé" (visible uniquement côté Actuel, cet id n'existe pas côté
+   Cible) reste en traits pleins mais estompé et liseré en pointillés —
+   un début de "fantôme" sans aller jusqu'à la barrer complètement, pour
+   rester lisible. */
+.activity-card.activity-card-diff-added {
+  border-top-color: #16a34a !important;
+  border-left-color: #16a34a !important;
+  background: color-mix(in srgb, #16a34a 14%, var(--color-surface));
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.3), var(--shadow-md);
+}
+
+.activity-card.activity-card-diff-removed {
+  border-top-color: #dc2626 !important;
+  border-left-color: #dc2626 !important;
+  border-style: dashed;
+  background: color-mix(in srgb, #dc2626 10%, var(--color-surface));
+  opacity: 0.75;
+}
+
+.activity-card.activity-card-diff-modified {
+  border-top-color: #d97706 !important;
+  border-left-color: #d97706 !important;
+  background: color-mix(in srgb, #d97706 12%, var(--color-surface));
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.3), var(--shadow-md);
+}
+
+/* Étiquette de statut, chevauchant le bord bas de la carte — les deux
+   coins hauts portent déjà les badges point de friction/embranchement
+   (voir .activity-card-warning/-branch ci-dessus), seul le bas est
+   encore libre. */
+.activity-card-diff-badge {
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.05rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #fff;
+  white-space: nowrap;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.activity-card-diff-badge-added {
+  background: #16a34a;
+}
+
+.activity-card-diff-badge-removed {
+  background: #dc2626;
+}
+
+.activity-card-diff-badge-modified {
+  background: #d97706;
+}
+
+/* Même surlignage sur les en-têtes d'acteur/phase concernés — fond
+   teinté (propriété normale ici, pas de style inline à contourner) plus
+   une étiquette compacte, même patron que .actor-header-backstage-tag. */
+.lane-node-diff-added {
+  background: #dcfce7 !important;
+}
+
+.lane-node-diff-removed {
+  background: #fee2e2 !important;
+  opacity: 0.8;
+}
+
+.lane-node-diff-modified {
+  background: #fef3c7 !important;
+}
+
+.lane-node-diff-tag {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.lane-node-diff-tag-added {
+  background: #16a34a;
+}
+
+.lane-node-diff-tag-removed {
+  background: #dc2626;
+}
+
+.lane-node-diff-tag-modified {
+  background: #d97706;
+}
+
+/* Interaction ajoutée/supprimée/modifiée (edgeRendering.ts, toFlowEdge) :
+   l'essentiel du surlignage (trait plus épais, pointillés, fond du
+   libellé) est déjà posé en style inline par edge — ce sélecteur ne
+   couvre que ce qui doit s'appliquer au groupe entier (flèche ET
+   libellé), hors de portée d'un style inline posé sur le seul tracé. */
+.react-flow__edge.diagram-edge-diff-removed {
+  opacity: 0.75;
+}
+
 /* Aperçu de dépose (voir nodes.tsx, DropShadowNode) : une "ombre" à
    contour pointillé à l'emplacement où la carte glissée atterrirait,
    pointer-events désactivés pour ne jamais intercepter le glisser en
