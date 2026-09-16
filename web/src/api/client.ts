@@ -109,4 +109,20 @@ export const api = {
   getPrompts: () => request<PromptSettingsResponse>('/settings/prompts'),
   savePrompts: (prompts: PromptSettings) =>
     request<PromptSettingsResponse>('/settings/prompts', { method: 'PUT', body: JSON.stringify(prompts) }),
+  // Génération d'image (ADR-073) : clé API Mistral dédiée, indépendante de
+  // celle ci-dessus (génération de texte) — voir SettingsModal.tsx.
+  saveImageGenerationApiKey: (apiKey: string) =>
+    request<{ imageGenerationConfigured: boolean }>('/settings/image-generation', {
+      method: 'PUT',
+      body: JSON.stringify({ apiKey }),
+    }),
+  clearImageGenerationApiKey: () => request<void>('/settings/image-generation', { method: 'DELETE' }),
+  generatePersonaPortrait: (context: { name: string; about: string; bio: string; goals: string[]; painPoints: string[] }) =>
+    request<{ imageDataUrl: string }>('/generate-persona-portrait', { method: 'POST', body: JSON.stringify(context) }),
+  generateDiagramSketch: (context: {
+    missionName: string
+    actorNames: string[]
+    phaseNames: string[]
+    activityNames: string[]
+  }) => request<{ imageDataUrl: string }>('/generate-diagram-sketch', { method: 'POST', body: JSON.stringify(context) }),
 }

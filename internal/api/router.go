@@ -21,10 +21,15 @@ import (
 type Handler struct {
 	projects *service.ProjectService
 	generate *service.GenerateService
+	// images (ADR-073) : génération d'image (portrait de persona, sketch
+	// de diagramme) — voir service.ImageService. Nil-safe comme generate :
+	// h.images.Configured() renvoie false, les handlers concernés
+	// répondent alors llm.ErrNotConfigured, jamais de panique.
+	images *service.ImageService
 }
 
-func NewRouter(projects *service.ProjectService, generate *service.GenerateService) http.Handler {
-	h := &Handler{projects: projects, generate: generate}
+func NewRouter(projects *service.ProjectService, generate *service.GenerateService, images *service.ImageService) http.Handler {
+	h := &Handler{projects: projects, generate: generate, images: images}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/projects", h.listProjects)
@@ -41,9 +46,13 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("POST /api/generate-test-scenarios", h.generateTestScenarios)
 	mux.HandleFunc("POST /api/generate-painpoint-solutions", h.generatePainPointSolutions)
 	mux.HandleFunc("POST /api/generate-painpoint-resolution", h.generatePainPointResolution)
+	mux.HandleFunc("POST /api/generate-persona-portrait", h.generatePersonaPortrait)
+	mux.HandleFunc("POST /api/generate-diagram-sketch", h.generateDiagramSketch)
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.saveSettings)
 	mux.HandleFunc("DELETE /api/settings", h.deleteSettings)
+	mux.HandleFunc("PUT /api/settings/image-generation", h.saveImageGenerationSettings)
+	mux.HandleFunc("DELETE /api/settings/image-generation", h.deleteImageGenerationSettings)
 	mux.HandleFunc("GET /api/settings/prompts", h.getPrompts)
 	mux.HandleFunc("PUT /api/settings/prompts", h.savePrompts)
 	mux.HandleFunc("GET /api/health", h.health)
@@ -293,12 +302,70 @@ func (h *Handler) generatePainPointResolution(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, resolution)
 }
 
+// generatePersonaPortrait (ADR-073) génère le portrait d'un persona à
+// partir de sa fiche (About/Bio/Goals/PainPoints) — jamais persisté ici :
+// c'est au frontend d'enregistrer l'image renvoyée sur l'acteur concerné
+// (PUT /api/projects/{id}, comme tout autre champ de la fiche persona).
+func (h *Handler) generatePersonaPortrait(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name       string   `json:"name"`
+		About      string   `json:"about"`
+		Bio        string   `json:"bio"`
+		Goals      []string `json:"goals"`
+		PainPoints []string `json:"painPoints"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	imageDataURL, err := h.images.GeneratePersonaPortrait(r.Context(), body.Name, body.About, body.Bio, body.Goals, body.PainPoints)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"imageDataUrl": imageDataURL})
+}
+
+// generateDiagramSketch (ADR-073) génère une illustration "sketch"
+// résumant le diagramme de processus d'une mission — jamais persisté,
+// simplement renvoyé pour téléchargement immédiat côté frontend (comme
+// l'export PNG technique existant, voir pngExport.ts).
+func (h *Handler) generateDiagramSketch(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		MissionName   string   `json:"missionName"`
+		ActorNames    []string `json:"actorNames"`
+		PhaseNames    []string `json:"phaseNames"`
+		ActivityNames []string `json:"activityNames"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	imageDataURL, err := h.images.GenerateDiagramSketch(r.Context(), body.MissionName, body.ActorNames, body.PhaseNames, body.ActivityNames)
+	if err != nil {
+		if errors.Is(err, llm.ErrNotConfigured) {
+			writeError(w, http.StatusServiceUnavailable, err)
+			return
+		}
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"imageDataUrl": imageDataURL})
+}
+
 func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"configured": h.generate.Configured(),
-		"provider":   string(h.generate.Provider()),
-		"model":      h.generate.Model(),
-		"baseUrl":    h.generate.BaseURL(),
+		"configured":                h.generate.Configured(),
+		"provider":                  string(h.generate.Provider()),
+		"model":                     h.generate.Model(),
+		"baseUrl":                   h.generate.BaseURL(),
+		"imageGenerationConfigured": h.images.Configured(),
 	})
 }
 
@@ -355,10 +422,11 @@ func (h *Handler) saveSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"configured": true,
-		"provider":   string(provider),
-		"model":      h.generate.Model(),
-		"baseUrl":    h.generate.BaseURL(),
+		"configured":                true,
+		"provider":                  string(provider),
+		"model":                     h.generate.Model(),
+		"baseUrl":                   h.generate.BaseURL(),
+		"imageGenerationConfigured": h.images.Configured(),
 	})
 }
 
@@ -379,6 +447,53 @@ func (h *Handler) deleteSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Mistral = config.ProviderSettings{}
 	}
 	cfg.Provider = ""
+	if err := config.Save(cfg); err != nil {
+		log.Printf("suppression de la configuration : %v", err)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// saveImageGenerationSettings (ADR-073) enregistre la clé API Mistral
+// dédiée à la génération d'image — indépendante de la clé Mistral pour la
+// génération de texte (saveSettings ci-dessus) : voir
+// Config.ImageGenerationAPIKey.
+func (h *Handler) saveImageGenerationSettings(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		APIKey string `json:"apiKey"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if strings.TrimSpace(body.APIKey) == "" {
+		writeError(w, http.StatusBadRequest, errors.New("la clé API ne peut pas être vide"))
+		return
+	}
+
+	h.images.SetAPIKey(body.APIKey)
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("lecture de la configuration existante : %v", err)
+		cfg = &config.Config{}
+	}
+	cfg.ImageGenerationAPIKey = body.APIKey
+	if err := config.Save(cfg); err != nil {
+		log.Printf("sauvegarde de la configuration : %v", err)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"imageGenerationConfigured": true})
+}
+
+// deleteImageGenerationSettings retire la clé API de génération d'image.
+func (h *Handler) deleteImageGenerationSettings(w http.ResponseWriter, r *http.Request) {
+	h.images.SetAPIKey("")
+
+	cfg, err := config.Load()
+	if err != nil {
+		cfg = &config.Config{}
+	}
+	cfg.ImageGenerationAPIKey = ""
 	if err := config.Save(cfg); err != nil {
 		log.Printf("suppression de la configuration : %v", err)
 	}

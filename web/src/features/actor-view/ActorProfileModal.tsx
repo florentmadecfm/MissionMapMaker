@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { api } from '../../api/client'
 import type { ActorGoal, ActorPainPoint, Project } from '../../api/types'
 import { ActorDetail } from './ActorDetail'
 
@@ -37,6 +38,8 @@ function newId(prefix: string) {
 export function ActorProfileModal({ project, actorId, onChange, onClose, onSave, saving, saveError, savedAt }: Props) {
   const [newGoal, setNewGoal] = useState('')
   const [newPainPoint, setNewPainPoint] = useState('')
+  const [portraitLoading, setPortraitLoading] = useState(false)
+  const [portraitError, setPortraitError] = useState<string | null>(null)
   const actor = project.actors.find((a) => a.id === actorId)
   if (!actor) return null
 
@@ -74,6 +77,30 @@ export function ActorProfileModal({ project, actorId, onChange, onClose, onSave,
     updateActor({ painPoints: actor.painPoints.filter((p) => p.id !== id) })
   }
 
+  // Génération d'image (ADR-073) : portrait/sketch IA de ce persona à
+  // partir de sa fiche déjà remplie — jamais de génération automatique,
+  // toujours un geste explicite de l'utilisateur (comme le reste de la
+  // génération assistée dans l'app).
+  async function generatePortrait() {
+    if (!actor) return
+    setPortraitLoading(true)
+    setPortraitError(null)
+    try {
+      const { imageDataUrl } = await api.generatePersonaPortrait({
+        name: actor.name,
+        about: actor.about,
+        bio: actor.bio,
+        goals: actor.goals.map((g) => g.text),
+        painPoints: actor.painPoints.map((p) => p.text),
+      })
+      updateActor({ portraitImage: imageDataUrl })
+    } catch (e) {
+      setPortraitError(String(e))
+    } finally {
+      setPortraitLoading(false)
+    }
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal actor-profile-modal" onClick={(e) => e.stopPropagation()}>
@@ -85,6 +112,18 @@ export function ActorProfileModal({ project, actorId, onChange, onClose, onSave,
             ×
           </button>
         </header>
+
+        <div className="actor-portrait">
+          {actor.portraitImage && (
+            <img className="actor-portrait-image" src={actor.portraitImage} alt={`Portrait généré de ${actor.name}`} />
+          )}
+          <div className="actor-portrait-actions">
+            <button type="button" onClick={generatePortrait} disabled={portraitLoading}>
+              {portraitLoading ? 'Génération…' : actor.portraitImage ? 'Régénérer le portrait' : 'Générer un portrait'}
+            </button>
+            {portraitError && <span className="error">{portraitError}</span>}
+          </div>
+        </div>
 
         <label className="field-label" htmlFor="actor-about">
           À propos

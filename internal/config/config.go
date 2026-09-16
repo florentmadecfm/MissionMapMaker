@@ -67,6 +67,16 @@ type Config struct {
 	Mistral   ProviderSettings `json:"mistral,omitempty"`
 
 	Prompts PromptSettings `json:"prompts,omitempty"`
+
+	// ImageGenerationAPIKey (ADR-073) : clé API Mistral dédiée à la
+	// génération d'image (Agents & Conversations API, outil intégré
+	// image_generation, FLUX1.1 Pro Ultra de Black Forest Labs) —
+	// INDÉPENDANTE de Mistral.APIKey ci-dessus, qui sert la génération de
+	// texte/JSON structuré (POST /v1/chat/completions, un tout autre
+	// endpoint). Un utilisateur peut ainsi garder Anthropic comme
+	// fournisseur de texte actif tout en activant la génération d'image
+	// via Mistral, ou l'inverse — les deux réglages ne se recouvrent pas.
+	ImageGenerationAPIKey string `json:"imageGenerationApiKey,omitempty"`
 }
 
 // Active renvoie les réglages du fournisseur actif, ou un ProviderSettings

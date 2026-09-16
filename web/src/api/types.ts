@@ -21,6 +21,10 @@ export interface Actor {
   // back-stage (support interne). Voir layout.ts (computeLayout) pour le
   // regroupement des lignes et la ligne de séparation, ADR-064.
   backstage?: boolean
+  // Portrait/sketch de ce persona généré par IA (ADR-073), en data URL
+  // ("data:image/png;base64,...") — vide tant qu'aucun n'a été généré
+  // depuis la fiche persona (ActorProfileModal.tsx).
+  portraitImage?: string
 }
 
 export interface ActorGoal {
@@ -315,6 +319,10 @@ export interface Settings {
   provider: Provider | ''
   model: string
   baseUrl: string
+  // Génération d'image (ADR-073, portrait de persona / sketch de
+  // diagramme) — clé API Mistral INDÉPENDANTE de celle utilisée ci-dessus
+  // pour la génération de texte, voir SettingsModal.tsx.
+  imageGenerationConfigured: boolean
 }
 
 // Deux couches distinctes par capacité de génération assistée, concaténées

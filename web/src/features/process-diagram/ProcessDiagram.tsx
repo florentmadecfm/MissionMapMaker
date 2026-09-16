@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, CircleHelp, ImageDown } from 'lucide-react'
+import { ChevronDown, CircleHelp, ImageDown, Sparkles } from 'lucide-react'
 import {
   ReactFlow,
   Background,
@@ -12,6 +12,7 @@ import {
   type Node,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
@@ -116,11 +117,14 @@ type ExportVariant = 'current' | 'target'
 // <ReactFlow>, d'où ce composant enfant plutôt qu'un bouton dans l'en-tête
 // (hors de cet arbre).
 function DownloadPngButton({
-  projectName,
+  project,
   isTargetActive,
   rootProject,
 }: {
-  projectName: string
+  // Le diagramme actuellement affiché (variante active) — sert à la fois
+  // à l'export PNG technique (projectName) et au sketch IA ci-dessous
+  // (noms d'acteurs/phases/activités, voir handleGenerateSketch).
+  project: Project
   isTargetActive: boolean
   // Le vrai projet (Actuel + Cible), voir Props.rootProject ci-dessus —
   // null si non fourni (aucun choix de variante proposé, seule celle
@@ -130,7 +134,10 @@ function DownloadPngButton({
   const { fitView } = useReactFlow()
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [sketching, setSketching] = useState(false)
+  const [sketchError, setSketchError] = useState<string | null>(null)
   const hasTarget = Boolean(rootProject?.target)
+  const projectName = project.name
 
   // Capture le canevas INTERACTIF déjà affiché à l'écran. Recadre via
   // fitView() (le même mécanisme, déjà fiable, qu'AutoFitOnChange
@@ -186,6 +193,29 @@ function DownloadPngButton({
     }
   }
 
+  // Génération d'image (ADR-073) : illustration "sketch" résumant le
+  // diagramme actuellement affiché (variante active uniquement — pas de
+  // choix Actuel/Cible/Les deux comme l'export PNG technique ci-dessus,
+  // une illustration d'ensemble a moins besoin de cette granularité).
+  // Jamais persistée : simple téléchargement, comme l'export PNG.
+  async function handleGenerateSketch() {
+    setSketching(true)
+    setSketchError(null)
+    try {
+      const { imageDataUrl } = await api.generateDiagramSketch({
+        missionName: project.name,
+        actorNames: project.actors.map((a) => a.name),
+        phaseNames: [...project.phases].sort((a, b) => a.order - b.order).map((p) => p.name),
+        activityNames: project.activities.map((a) => a.name),
+      })
+      triggerPngDownload(imageDataUrl, `${project.name || 'diagramme'} — sketch.png`)
+    } catch (e) {
+      setSketchError(String(e))
+    } finally {
+      setSketching(false)
+    }
+  }
+
   return (
     <Panel position="top-right" className="diagram-export-panel">
       {hasTarget ? (
@@ -216,7 +246,12 @@ function DownloadPngButton({
           {exporting ? 'Export…' : 'Exporter en PNG'}
         </button>
       )}
+      <button type="button" className="png-export-trigger" onClick={handleGenerateSketch} disabled={sketching}>
+        <Sparkles size={14} aria-hidden="true" />
+        {sketching ? 'Génération…' : 'Générer un sketch'}
+      </button>
       {error && <span className="error">{error}</span>}
+      {sketchError && <span className="error">{sketchError}</span>}
     </Panel>
   )
 }
@@ -597,7 +632,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           <Controls showInteractive={false} />
           <DropTargetPreview cellPosition={dragTargetPosition} />
           <AutoFitOnChange nodeCount={nodes.length} />
-          <DownloadPngButton projectName={project.name} isTargetActive={isTargetActive} rootProject={rootProject} />
+          <DownloadPngButton project={project} isTargetActive={isTargetActive} rootProject={rootProject} />
         </ReactFlow>
       </div>
       {selectedActivityId && (

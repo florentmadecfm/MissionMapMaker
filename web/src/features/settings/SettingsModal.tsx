@@ -47,6 +47,17 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
 
+  // Génération d'image (ADR-073) : bloc indépendant de la section
+  // fournisseur/clé ci-dessus (Provider|apiKey|model|baseUrl) — une clé
+  // Mistral séparée, dédiée à l'Agents API (portrait de persona, sketch de
+  // diagramme), utilisable même quand le fournisseur de texte actif est
+  // Anthropic. Même patron état/handlers, en plus compact (pas de
+  // modèle/URL de base : rien à personnaliser sur ce point d'entrée fixe).
+  const [imageApiKey, setImageApiKey] = useState('')
+  const [imageSaving, setImageSaving] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
+  const [imageInfo, setImageInfo] = useState<string | null>(null)
+
   useEffect(() => {
     api
       .getSettings()
@@ -93,13 +104,51 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
     setInfo(null)
     try {
       await api.clearApiKey()
-      setSettings({ configured: false, provider: '', model: '', baseUrl: '' })
+      setSettings((s) => ({
+        configured: false,
+        provider: '',
+        model: '',
+        baseUrl: '',
+        imageGenerationConfigured: s?.imageGenerationConfigured ?? false,
+      }))
       setInfo('Clé retirée. La génération assistée est désactivée.')
       onSettingsChange?.(false)
     } catch (e) {
       setError(String(e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleImageSave() {
+    if (!imageApiKey.trim()) return
+    setImageSaving(true)
+    setImageError(null)
+    setImageInfo(null)
+    try {
+      const result = await api.saveImageGenerationApiKey(imageApiKey.trim())
+      setSettings((s) => (s ? { ...s, imageGenerationConfigured: result.imageGenerationConfigured } : s))
+      setImageApiKey('')
+      setImageInfo('Clé enregistrée. La génération d’image est activée dès maintenant.')
+    } catch (e) {
+      setImageError(String(e))
+    } finally {
+      setImageSaving(false)
+    }
+  }
+
+  async function handleImageClear() {
+    setImageSaving(true)
+    setImageError(null)
+    setImageInfo(null)
+    try {
+      await api.clearImageGenerationApiKey()
+      setSettings((s) => (s ? { ...s, imageGenerationConfigured: false } : s))
+      setImageInfo('Clé retirée. La génération d’image est désactivée.')
+    } catch (e) {
+      setImageError(String(e))
+    } finally {
+      setImageSaving(false)
     }
   }
 
@@ -240,6 +289,50 @@ export function SettingsModal({ onClose, onSettingsChange }: Props) {
               variable d'environnement <code>ANTHROPIC_API_KEY</code> est définie au démarrage du serveur, elle est
               utilisée en priorité (fournisseur Anthropic) au prochain lancement.
             </p>
+
+            <hr className="settings-divider" />
+
+            <h3>Génération d'image</h3>
+            <div className="settings-status">
+              {settings?.imageGenerationConfigured ? (
+                <span className="status-badge status-ok">Génération d'image activée</span>
+              ) : (
+                <span className="status-badge status-off">Génération d'image désactivée</span>
+              )}
+            </div>
+            <p className="nl-hint">
+              Clé API Mistral dédiée (Agents API, outil image_generation, FLUX1.1 Pro Ultra) — indépendante de la clé
+              ci-dessus, utilisable même si Anthropic est le fournisseur de texte actif. Permet de générer un
+              portrait pour un persona (fiche persona) ou un sketch du diagramme de processus (onglet Diagramme).
+            </p>
+            <label className="field-label" htmlFor="settings-image-api-key">
+              Clé API Mistral (génération d'image)
+            </label>
+            <input
+              id="settings-image-api-key"
+              type="password"
+              placeholder="Clé API Mistral"
+              value={imageApiKey}
+              onChange={(e) => setImageApiKey(e.target.value)}
+              autoComplete="off"
+            />
+            <div className="nl-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleImageSave}
+                disabled={imageSaving || !imageApiKey.trim()}
+              >
+                {imageSaving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+              {settings?.imageGenerationConfigured && (
+                <button type="button" className="danger" onClick={handleImageClear} disabled={imageSaving}>
+                  Retirer la clé
+                </button>
+              )}
+            </div>
+            {imageInfo && <p className="generate-info">{imageInfo}</p>}
+            {imageError && <p className="error">{imageError}</p>}
           </>
         )}
       </div>

@@ -270,6 +270,15 @@ export function ProjectShell() {
     setProject(fromWorkingProject(project, updated, activeVariant))
   }
 
+  // Changement remonté depuis la vue de comparaison (VariantComparisonScreen) :
+  // celle-ci route déjà chaque modification vers la bonne moitié du projet
+  // réel (fromWorkingProject par panneau) avant d'appeler ceci — contrairement
+  // à handleWorkingChange ci-dessus, pas de second passage par activeVariant.
+  function handleComparisonChange(updated: Project) {
+    dirtyRef.current = true
+    setProject(updated)
+  }
+
   return (
     <div className="shell">
       <aside className={`shell-sidebar${sidebarCollapsed ? ' collapsed' : ''}`}>
@@ -361,7 +370,7 @@ export function ProjectShell() {
         {view === 'actors' ? (
           <ActorMissionsScreen actors={actors} error={actorsError} onOpenProject={handleOpenFromActorMissions} />
         ) : view === 'compare' && project ? (
-          <VariantComparisonScreen project={project} onClose={() => setView('project')} />
+          <VariantComparisonScreen project={project} onChange={handleComparisonChange} onClose={() => setView('project')} />
         ) : project && workingProject ? (
           <>
             <div className="tabs-bar">

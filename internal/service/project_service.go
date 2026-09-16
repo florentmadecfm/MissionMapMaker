@@ -40,12 +40,12 @@ func (s *ProjectService) Get(id string) (*domain.Project, error) {
 	return p, nil
 }
 
-// mergeActorProfiles écrase About/Bio/Goals/PainPoints de chaque acteur du
-// projet par la fiche partagée correspondante (voir storage.ActorProfileStore,
-// ADR-056), quand elle existe — un acteur jamais sauvegardé depuis
-// l'introduction de ce mécanisme (ou dont le nom ne correspond à aucune
-// fiche partagée) garde simplement les valeurs déjà présentes dans le
-// fichier du projet.
+// mergeActorProfiles écrase About/Bio/Goals/PainPoints/PortraitImage de
+// chaque acteur du projet par la fiche partagée correspondante (voir
+// storage.ActorProfileStore, ADR-056), quand elle existe — un acteur jamais
+// sauvegardé depuis l'introduction de ce mécanisme (ou dont le nom ne
+// correspond à aucune fiche partagée) garde simplement les valeurs déjà
+// présentes dans le fichier du projet.
 func (s *ProjectService) mergeActorProfiles(p *domain.Project) error {
 	profiles, err := s.profiles.LoadAll()
 	if err != nil {
@@ -58,6 +58,7 @@ func (s *ProjectService) mergeActorProfiles(p *domain.Project) error {
 			p.Actors[i].Bio = profile.Bio
 			p.Actors[i].Goals = profile.Goals
 			p.Actors[i].PainPoints = profile.PainPoints
+			p.Actors[i].PortraitImage = profile.PortraitImage
 		}
 	}
 	return nil
@@ -103,12 +104,14 @@ func (s *ProjectService) syncActorProfiles(p, existing *domain.Project) error {
 				p.Actors[i].Bio = profile.Bio
 				p.Actors[i].Goals = profile.Goals
 				p.Actors[i].PainPoints = profile.PainPoints
+				p.Actors[i].PortraitImage = profile.PortraitImage
 				continue
 			}
 		}
 		updates[key] = domain.ActorProfile{
 			About: p.Actors[i].About, Bio: p.Actors[i].Bio,
 			Goals: p.Actors[i].Goals, PainPoints: p.Actors[i].PainPoints,
+			PortraitImage: p.Actors[i].PortraitImage,
 		}
 	}
 	return s.profiles.Upsert(updates)
