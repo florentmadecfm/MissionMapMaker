@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
 import type { ActorGoal, ActorPainPoint, Project } from '../../api/types'
+import { Spinner } from '../../components/Spinner'
 import { triggerPngDownload } from '../process-diagram/pngExport'
 
 interface Props {
@@ -119,8 +120,21 @@ export function ActorProfileModal({ project, actorId, onChange, onClose, onSave,
             <img className="actor-portrait-image" src={actor.portraitImage} alt={`Portrait généré de ${actor.name}`} />
           )}
           <div className="actor-portrait-actions">
-            <button type="button" onClick={generatePortrait} disabled={portraitLoading}>
-              {portraitLoading ? 'Génération…' : actor.portraitImage ? 'Régénérer le portrait' : 'Générer un portrait'}
+            <button
+              type="button"
+              className={portraitLoading ? 'btn-loading' : ''}
+              onClick={generatePortrait}
+              disabled={portraitLoading}
+            >
+              {portraitLoading ? (
+                <>
+                  <Spinner /> Génération…
+                </>
+              ) : actor.portraitImage ? (
+                'Régénérer le portrait'
+              ) : (
+                'Générer un portrait'
+              )}
             </button>
             {actor.portraitImage && (
               <button

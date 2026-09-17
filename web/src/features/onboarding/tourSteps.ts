@@ -1,4 +1,5 @@
-import { ClipboardCheck, GitCompareArrows, Map, Sparkles, Users, Workflow, type LucideIcon } from 'lucide-react'
+import { ClipboardCheck, Download, FlaskConical, GitCompareArrows, Map, Sparkles, Users, Workflow, type LucideIcon } from 'lucide-react'
+import type { SubTab } from '../specifications/SpecificationsPanel'
 import type { Tab } from '../project-shell/ProjectShell'
 
 export interface TourStep {
@@ -7,12 +8,19 @@ export interface TourStep {
   body: string
   // Sélecteur CSS de l'élément réel à mettre en surbrillance pour cette
   // étape (voir WelcomeTour.tsx) — toujours un élément déjà présent une
-  // fois TOUR_DEMO_PROJECT installé et le bon onglet actif (aucun ne
-  // dépend d'une interaction préalable, comme ouvrir une modale).
+  // fois TOUR_DEMO_PROJECT installé et le bon onglet (et sous-onglet,
+  // specSubTab ci-dessous) actifs (aucun ne dépend d'une interaction
+  // préalable, comme ouvrir une modale).
   target: string
   // Onglet à activer pour cette étape — absent pour l'étape 1, qui pointe
   // un élément de la barre latérale (visible quel que soit l'onglet).
   tab?: Tab
+  // Sous-onglet à activer au sein de l'onglet Spécifications (SSS/V&V/
+  // matrice, SpecificationsPanel.tsx) — sans quoi une étape ciblant les
+  // scénarios de test se retrouverait à chercher .spec-card dans le
+  // sous-onglet Spécifications (SSS) resté actif par défaut. Sans effet
+  // pour un `tab` différent de 'specifications'.
+  specSubTab?: SubTab
 }
 
 export const TOUR_STEPS: TourStep[] = [
@@ -32,7 +40,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     icon: Workflow,
     title: 'Un diagramme qui se manipule',
-    body: 'Glissez-déposez les activités entre personas et phases, reliez-les pour créer des interactions, annulez/rétablissez (Ctrl+Z), exportez en PNG ou générez un sketch illustré.',
+    body: 'Glissez-déposez les activités entre personas et phases, reliez-les pour créer des interactions, annulez/rétablissez (Ctrl+Z), ou générez un sketch illustré.',
     target: '.activity-card',
     tab: 'diagramme',
   },
@@ -52,9 +60,26 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     icon: ClipboardCheck,
-    title: 'Tracez, exportez, personnalisez',
-    body: 'Les spécifications se relient à vos activités pour une traçabilité complète. Exportez en Excel ou PNG, et personnalisez les prompts de génération depuis Paramètres.',
+    title: 'Spécifications, tracées à vos activités',
+    body: 'Chaque activité peut se relier à une ou plusieurs spécifications (SSS) : la traçabilité vers vos exigences reste visible d’un coup d’œil, ici comme sur la matrice dédiée.',
     target: '.spec-card',
     tab: 'specifications',
+    specSubTab: 'specifications',
+  },
+  {
+    icon: FlaskConical,
+    title: 'Scénarios de test (V&V)',
+    body: 'Chaque spécification peut être vérifiée par un ou plusieurs scénarios de test, avec leurs étapes détaillées — la vérification et validation, au même endroit que le reste.',
+    target: '.spec-card',
+    tab: 'specifications',
+    specSubTab: 'tests',
+  },
+  {
+    icon: Download,
+    title: 'Exportez et personnalisez',
+    body: 'Exportez l’ensemble en Excel ou en PNG depuis ce menu, et personnalisez les prompts de génération depuis Paramètres.',
+    target: '.header-menu-trigger',
+    tab: 'specifications',
+    specSubTab: 'specifications',
   },
 ]

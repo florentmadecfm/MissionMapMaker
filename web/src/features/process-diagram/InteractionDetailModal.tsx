@@ -46,7 +46,12 @@ export function InteractionDetailModal({ project, interactionId, onChange, onClo
     onClose()
   }
 
+  // Confirmation requise : même garde-fou que la suppression équivalente
+  // dans l'onglet Édition (ProjectEditor.tsx, removeInteraction) — cette
+  // modale offre un second chemin vers la même action destructrice,
+  // directement depuis le diagramme.
   function handleRemove() {
+    if (!window.confirm(`Supprimer l'interaction « ${text} » ?`)) return
     onChange({ ...project, interactions: project.interactions.filter((i) => i.id !== interactionId) })
     onClose()
   }

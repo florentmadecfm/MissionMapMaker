@@ -39,6 +39,18 @@ function diffById<T extends { id: string }>(before: T[], after: T[], contentEqua
   return result
 }
 
+// Texte des points de friction d'une activité, sans leur éventuel
+// `resolvedBySpecId` (voir activityChangedFields ci-dessous) — un point
+// de friction résolu (une solution choisie via PainPointSolutionsModal.tsx,
+// ADR-066) pointe vers la SSS générée pour cette résolution, côté cible
+// uniquement : comparer les objets entiers ferait ressortir CHAQUE
+// activité dont un point de friction a été résolu comme "modifiée", alors
+// que ce qui a changé est le niveau SSS, pas le contenu du point de
+// friction lui-même.
+function painPointTexts(points: Activity['painPoints']): string {
+  return JSON.stringify(points.map((p) => p.text))
+}
+
 // Compare uniquement le CONTENU métier de chaque type d'élément — jamais
 // sa position sur le diagramme (Activity.column/subRow/offsetX/offsetY,
 // Actor.subLanes, Phase.subColumns) : deux cartes identiques mais
@@ -49,6 +61,13 @@ function diffById<T extends { id: string }>(before: T[], after: T[], contentEqua
 // VariantComparisonScreen.tsx) plutôt qu'un simple booléen — "égal" n'est
 // alors que "cette liste est vide" (voir *_EQUAL ci-dessous), sans dupliquer
 // la comparaison entre le diff et le détail affiché à l'utilisateur.
+//
+// `traceLinks` (spécifications liées) est volontairement absent de cette
+// comparaison, comme `resolvedBySpecId` l'est de painPointTexts ci-dessus :
+// la comparaison Actuel/Cible porte sur le PROCESSUS (qui fait quoi, où,
+// quels points de friction), jamais sur les artefacts d'ingénierie SSS/V&V
+// qui en découlent — générer une SSS pour une activité ne doit jamais, à
+// lui seul, la faire ressortir comme "modifiée" dans la comparaison.
 function activityChangedFields(a: Activity, b: Activity): string[] {
   const fields: string[] = []
   if (a.name !== b.name) fields.push('nom')
@@ -57,8 +76,7 @@ function activityChangedFields(a: Activity, b: Activity): string[] {
   if (a.order !== b.order) fields.push('ordre')
   if (a.description !== b.description) fields.push('description')
   if (JSON.stringify(a.userStories) !== JSON.stringify(b.userStories)) fields.push('user stories')
-  if (JSON.stringify(a.traceLinks) !== JSON.stringify(b.traceLinks)) fields.push('traçabilité')
-  if (JSON.stringify(a.painPoints) !== JSON.stringify(b.painPoints)) fields.push('points de friction')
+  if (painPointTexts(a.painPoints) !== painPointTexts(b.painPoints)) fields.push('points de friction')
   return fields
 }
 

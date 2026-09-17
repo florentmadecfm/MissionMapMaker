@@ -14,6 +14,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
+import { Spinner } from '../../components/Spinner'
 import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
 import { toWorkingProject } from '../project-shell/activeVariant'
@@ -373,8 +374,14 @@ function DownloadPngButton({
               {exporting ? 'Export…' : 'Exporter en PNG'}
             </button>
           )}
-          <button type="button" onClick={handleGenerateSketch} disabled={sketching}>
-            {sketching ? 'Génération…' : 'Générer un sketch'}
+          <button type="button" className={sketching ? 'btn-loading' : ''} onClick={handleGenerateSketch} disabled={sketching}>
+            {sketching ? (
+              <>
+                <Spinner /> Génération…
+              </>
+            ) : (
+              'Générer un sketch'
+            )}
           </button>
         </HeaderMenu>
       </div>
@@ -798,8 +805,19 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           value={updateText}
           onChange={(e) => setUpdateText(e.target.value)}
         />
-        <button type="button" onClick={handleGenerateUpdate} disabled={updating || !updateText.trim()}>
-          {updating ? 'Mise à jour…' : 'Mettre à jour le diagramme'}
+        <button
+          type="button"
+          className={updating ? 'btn-loading' : ''}
+          onClick={handleGenerateUpdate}
+          disabled={updating || !updateText.trim()}
+        >
+          {updating ? (
+            <>
+              <Spinner /> Mise à jour…
+            </>
+          ) : (
+            'Mettre à jour le diagramme'
+          )}
         </button>
       </div>
       {updateNotConfigured && (

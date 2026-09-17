@@ -329,7 +329,12 @@ export function ProjectShell() {
     }
   }
 
-  async function handleDelete(id: string) {
+  // Confirmation requise : suppression irréversible d'une mission entière
+  // (personas, phases, activités, interactions, spécifications, tests,
+  // cible éventuelle) — même garde-fou que handleDeleteTarget ci-dessous,
+  // pour une action à la portée bien plus large.
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`Supprimer définitivement la mission « ${name} » ? Cette action est irréversible.`)) return
     try {
       await api.deleteProject(id)
       if (project?.id === id) setProject(null)
@@ -451,7 +456,7 @@ export function ProjectShell() {
                   <button type="button" onClick={() => handleOpen(s.id)}>
                     <span className="project-name-text">{s.name}</span>
                   </button>
-                  <button type="button" className="danger" onClick={() => handleDelete(s.id)}>
+                  <button type="button" className="danger" onClick={() => handleDelete(s.id, s.name)}>
                     supprimer
                   </button>
                 </li>
@@ -614,7 +619,12 @@ export function ProjectShell() {
               />
             )}
             {tab === 'specifications' && (
-              <SpecificationsPanel key={project.id} project={workingProject} onChange={handleWorkingChange} />
+              <SpecificationsPanel
+                key={project.id}
+                project={workingProject}
+                onChange={handleWorkingChange}
+                forcedSubTab={tourOpen ? TOUR_STEPS[tourStep].specSubTab : undefined}
+              />
             )}
             {tab === 'acteur' && (
               <ActorView key={project.id} project={workingProject} onChange={handleWorkingChange} initialActorId={initialActorId} />

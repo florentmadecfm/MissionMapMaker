@@ -68,7 +68,11 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
-  function removeActor(id: string) {
+  // Confirmation requise : supprime aussi, en cascade, toutes les
+  // activités de ce persona — même garde-fou que removePhase/
+  // removeActivity/removeInteraction ci-dessous.
+  function removeActor(id: string, name: string) {
+    if (!window.confirm(`Supprimer le persona « ${name} » ? Ses activités dans le diagramme seront aussi supprimées.`)) return
     onChange({
       ...project,
       actors: project.actors.filter((a) => a.id !== id),
@@ -96,7 +100,10 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
-  function removePhase(id: string) {
+  // Confirmation requise : supprime aussi, en cascade, toutes les
+  // activités de cette phase.
+  function removePhase(id: string, name: string) {
+    if (!window.confirm(`Supprimer la phase « ${name} » ? Ses activités dans le diagramme seront aussi supprimées.`)) return
     onChange({
       ...project,
       phases: project.phases.filter((p) => p.id !== id),
@@ -157,7 +164,29 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
-  function removeActivity(id: string) {
+  // `column`/`subRow` positionnent une activité au sein d'une seule paire
+  // (acteur, phase) précise — voir resolveColumns, layout.ts, qui élargit
+  // la phase visée au moins jusqu'à `column + 1` sous-colonnes. Changer
+  // seulement actorId/phaseId (via updateActivity) laissait ces valeurs
+  // à leur ancienne position, désormais sans rapport avec la nouvelle
+  // paire : une activité déplacée en sous-colonne 1 dans son ancienne
+  // phase réservait la même sous-colonne fantôme dans la phase cible,
+  // même vide de toute autre activité. Remis à 0 (empilement automatique)
+  // à chaque changement d'acteur ou de phase, comme le fait déjà le
+  // glisser-déposer sur le diagramme (ProcessDiagram.tsx, handleNodeDragStop).
+  function moveActivity(id: string, patch: Partial<Pick<Activity, 'actorId' | 'phaseId'>>) {
+    onChange({
+      ...project,
+      activities: project.activities.map((a) =>
+        a.id === id ? { ...a, ...patch, column: 0, subRow: 0, offsetX: 0, offsetY: 0 } : a,
+      ),
+    })
+  }
+
+  // Confirmation requise : supprime aussi, en cascade, toutes les
+  // interactions qui partent ou arrivent sur cette activité.
+  function removeActivity(id: string, name: string) {
+    if (!window.confirm(`Supprimer l'activité « ${name} » ? Les interactions qui la concernent seront aussi supprimées.`)) return
     onChange({
       ...project,
       activities: project.activities.filter((a) => a.id !== id),
@@ -185,7 +214,8 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
-  function removeInteraction(id: string) {
+  function removeInteraction(id: string, information: string) {
+    if (!window.confirm(`Supprimer l'interaction « ${information} » ?`)) return
     onChange({ ...project, interactions: project.interactions.filter((i) => i.id !== id) })
   }
 
@@ -273,7 +303,7 @@ export function ProjectEditor({ project, onChange }: Props) {
                 />
                 back-stage
               </label>
-              <button type="button" className="danger" onClick={() => removeActor(a.id)}>
+              <button type="button" className="danger" onClick={() => removeActor(a.id, a.name)}>
                 supprimer
               </button>
             </li>
@@ -385,7 +415,7 @@ export function ProjectEditor({ project, onChange }: Props) {
                   <ChevronRight size={14} />
                 </button>
               </span>
-              <button type="button" className="danger" onClick={() => removePhase(p.id)}>
+              <button type="button" className="danger" onClick={() => removePhase(p.id, p.name)}>
                 supprimer
               </button>
             </li>
@@ -424,21 +454,21 @@ export function ProjectEditor({ project, onChange }: Props) {
           {filteredActivities.map((act) => (
             <li key={act.id}>
               <input value={act.name} onChange={(e) => updateActivity(act.id, { name: e.target.value })} />
-              <select value={act.actorId} onChange={(e) => updateActivity(act.id, { actorId: e.target.value })}>
+              <select value={act.actorId} onChange={(e) => moveActivity(act.id, { actorId: e.target.value })}>
                 {project.actors.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
                   </option>
                 ))}
               </select>
-              <select value={act.phaseId} onChange={(e) => updateActivity(act.id, { phaseId: e.target.value })}>
+              <select value={act.phaseId} onChange={(e) => moveActivity(act.id, { phaseId: e.target.value })}>
                 {project.phases.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
               </select>
-              <button type="button" className="danger" onClick={() => removeActivity(act.id)}>
+              <button type="button" className="danger" onClick={() => removeActivity(act.id, act.name)}>
                 supprimer
               </button>
             </li>
@@ -521,7 +551,7 @@ export function ProjectEditor({ project, onChange }: Props) {
                 placeholder="Ex. reçu papier"
                 title={i.physicalEvidence || undefined}
               />
-              <button type="button" className="danger" onClick={() => removeInteraction(i.id)}>
+              <button type="button" className="danger" onClick={() => removeInteraction(i.id, i.information)}>
                 supprimer
               </button>
             </li>
