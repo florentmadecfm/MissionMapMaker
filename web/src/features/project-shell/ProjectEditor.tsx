@@ -164,6 +164,25 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
+  // `column`/`subRow` positionnent une activité au sein d'une seule paire
+  // (acteur, phase) précise — voir resolveColumns, layout.ts, qui élargit
+  // la phase visée au moins jusqu'à `column + 1` sous-colonnes. Changer
+  // seulement actorId/phaseId (via updateActivity) laissait ces valeurs
+  // à leur ancienne position, désormais sans rapport avec la nouvelle
+  // paire : une activité déplacée en sous-colonne 1 dans son ancienne
+  // phase réservait la même sous-colonne fantôme dans la phase cible,
+  // même vide de toute autre activité. Remis à 0 (empilement automatique)
+  // à chaque changement d'acteur ou de phase, comme le fait déjà le
+  // glisser-déposer sur le diagramme (ProcessDiagram.tsx, handleNodeDragStop).
+  function moveActivity(id: string, patch: Partial<Pick<Activity, 'actorId' | 'phaseId'>>) {
+    onChange({
+      ...project,
+      activities: project.activities.map((a) =>
+        a.id === id ? { ...a, ...patch, column: 0, subRow: 0, offsetX: 0, offsetY: 0 } : a,
+      ),
+    })
+  }
+
   // Confirmation requise : supprime aussi, en cascade, toutes les
   // interactions qui partent ou arrivent sur cette activité.
   function removeActivity(id: string, name: string) {
@@ -435,14 +454,14 @@ export function ProjectEditor({ project, onChange }: Props) {
           {filteredActivities.map((act) => (
             <li key={act.id}>
               <input value={act.name} onChange={(e) => updateActivity(act.id, { name: e.target.value })} />
-              <select value={act.actorId} onChange={(e) => updateActivity(act.id, { actorId: e.target.value })}>
+              <select value={act.actorId} onChange={(e) => moveActivity(act.id, { actorId: e.target.value })}>
                 {project.actors.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
                   </option>
                 ))}
               </select>
-              <select value={act.phaseId} onChange={(e) => updateActivity(act.id, { phaseId: e.target.value })}>
+              <select value={act.phaseId} onChange={(e) => moveActivity(act.id, { phaseId: e.target.value })}>
                 {project.phases.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}

@@ -873,13 +873,21 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+/* Texte en couleur normale (pas --color-text-muted) même inactif :
+   repéré à l'usage (rapporté sur une mission tout juste créée, où AUCUN
+   onglet n'est encore actif visuellement autrement que par son style) —
+   un onglet simplement inactif, avec le même gris que du texte
+   secondaire ou désactivé, se lit comme indisponible/grisé alors qu'il
+   reste cliquable. Seul l'onglet actif (couleur + soulignement
+   ci-dessous) doit se distinguer des autres, pas les autres entre eux et
+   du reste du texte de l'écran. */
 .tabs button {
   background: none;
   border: none;
   border-radius: 0;
   border-bottom: 2px solid transparent;
   padding: 0.55rem 0.75rem;
-  color: var(--color-text-muted);
+  color: var(--color-text);
   font-size: 0.88rem;
   font-weight: 500;
   margin-bottom: -1px;

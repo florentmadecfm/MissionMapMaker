@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../../api/client'
 import type { Project, TestScenario, TestStep } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
+import { Spinner } from '../../components/Spinner'
 import { mergeTestScenarioDrafts } from './mergeTestScenarioDrafts'
 
 function newId(prefix: string) {
@@ -138,13 +139,17 @@ export function TestScenariosPanel({ project, onChange }: Props) {
       <div className="nl-actions">
         <button
           type="button"
-          className="btn-primary"
+          className={`btn-primary${generating ? ' btn-loading' : ''}`}
           onClick={handleGenerateTests}
           disabled={generating || specsWithoutTest.length === 0}
         >
-          {generating
-            ? 'Génération…'
-            : `Générer les scénarios de test pour les SSS sans test (IA)${specsWithoutTest.length > 0 ? ` (${specsWithoutTest.length})` : ''}`}
+          {generating ? (
+            <>
+              <Spinner /> Génération…
+            </>
+          ) : (
+            `Générer les scénarios de test pour les SSS sans test (IA)${specsWithoutTest.length > 0 ? ` (${specsWithoutTest.length})` : ''}`
+          )}
         </button>
       </div>
       {generateNotConfigured && (

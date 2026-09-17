@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Activity, DraftPainPointSolution, PainPoint, PainPointChangeType, PainPointContext, Project } from '../../api/types'
+import { Spinner } from '../../components/Spinner'
 import { applyPainPointResolution } from '../specifications/mergePainPointResolution'
 
 interface Props {
@@ -155,7 +156,11 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
           </div>
         )}
         {error && <p className="error">{error}</p>}
-        {status === 'loading' && <p>Génération de 5 solutions…</p>}
+        {status === 'loading' && (
+          <p className="loading-row">
+            <Spinner /> Génération de 5 solutions…
+          </p>
+        )}
         {status === 'ready' && solutions.length === 0 && !error && (
           <p className="actor-warning">Aucune solution proposée.</p>
         )}
@@ -181,7 +186,11 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
           </ul>
         )}
 
-        {status === 'resolving' && <p>Génération de la spécification et du test…</p>}
+        {status === 'resolving' && (
+          <p className="loading-row">
+            <Spinner /> Génération de la spécification et du test…
+          </p>
+        )}
 
         {status === 'done' && addedCodes && (
           <div className="painpoint-solution-done">

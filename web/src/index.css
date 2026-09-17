@@ -270,3 +270,27 @@ code {
 ::selection {
   background: var(--color-primary-border);
 }
+
+/* Indicateur de chargement des appels au LLM (Spinner.tsx) — un seul
+   endroit pour l'animation, réutilisée par tous les boutons/messages
+   "Génération…" de l'app plutôt que redéfinie à chaque écran. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Élément en chargement (bouton ou simple texte de statut) : Spinner +
+   texte côte à côte — un <button> ou un <p> ne met pas ses enfants en
+   ligne proprement dès qu'il y a plus d'un nœud (icône + texte). */
+.btn-loading,
+.loading-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}

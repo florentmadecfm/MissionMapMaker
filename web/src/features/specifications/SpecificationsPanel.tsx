@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../../api/client'
 import type { Project, Specification, SpecificationType } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
+import { Spinner } from '../../components/Spinner'
 import { mergeSpecDrafts } from './mergeSpecDrafts'
 import { mergeTestScenarioDrafts } from './mergeTestScenarioDrafts'
 import { TestScenariosPanel } from './TestScenariosPanel'
@@ -183,13 +184,17 @@ export function SpecificationsPanel({ project, onChange }: Props) {
             <div className="nl-actions">
               <button
                 type="button"
-                className="btn-primary"
+                className={`btn-primary${generating ? ' btn-loading' : ''}`}
                 onClick={handleGenerateSss}
                 disabled={generating || unspecifiedCount === 0}
               >
-                {generating
-                  ? 'Génération…'
-                  : `Proposer les SSS pour les activités sans spécification (IA)${unspecifiedCount > 0 ? ` (${unspecifiedCount})` : ''}`}
+                {generating ? (
+                  <>
+                    <Spinner /> Génération…
+                  </>
+                ) : (
+                  `Proposer les SSS pour les activités sans spécification (IA)${unspecifiedCount > 0 ? ` (${unspecifiedCount})` : ''}`
+                )}
               </button>
             </div>
             {generateNotConfigured && (

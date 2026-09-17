@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { Project } from '../../api/types'
+import { Spinner } from '../../components/Spinner'
 import { generateAndMerge } from './generateUpdate'
 import { extractPdfText } from './pdfText'
 
@@ -116,8 +117,19 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
         <button type="button" onClick={() => setText(EXAMPLE)} disabled={loading}>
           Charger l'exemple restaurant
         </button>
-        <button type="button" className="btn-primary" onClick={handleGenerate} disabled={loading || !text.trim()}>
-          {loading ? 'Génération…' : 'Générer'}
+        <button
+          type="button"
+          className={`btn-primary${loading ? ' btn-loading' : ''}`}
+          onClick={handleGenerate}
+          disabled={loading || !text.trim()}
+        >
+          {loading ? (
+            <>
+              <Spinner /> Génération…
+            </>
+          ) : (
+            'Générer'
+          )}
         </button>
       </div>
 
