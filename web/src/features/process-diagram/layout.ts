@@ -806,10 +806,24 @@ export function computeDropTarget(
   const centerY = dropPosition.y + CARD_HEIGHT_ESTIMATE / 2
 
   const ownHeader = ownActorId ? actorHeaders.find((n) => n.id === `actor-header-${ownActorId}`) : undefined
+  // Même plafond que pour les phases ci-dessous (voir le commentaire sur
+  // staysOwnPhase) : les lignes d'acteurs sont elles aussi dessinées bord à
+  // bord (actorOffsets, computeLayout), donc la marge collante ne doit
+  // jamais empiéter sur la ligne d'acteur SUIVANTE quand il y en a une —
+  // sans ce plafond, un glisser légèrement diagonal (le geste naturel d'un
+  // vrai glisser humain, rarement parfaitement horizontal) pouvait rester
+  // rattaché à l'acteur d'origine avec une sous-ligne fantôme, au lieu de
+  // basculer sur l'acteur visuellement visé.
+  const ownActorIndex = ownHeader ? actorHeaders.indexOf(ownHeader) : -1
+  const nextActorHeader = ownActorIndex >= 0 ? actorHeaders[ownActorIndex + 1] : undefined
   const staysOwnActor =
     ownHeader !== undefined &&
     centerY >= ownHeader.position.y &&
-    centerY < ownHeader.position.y + (ownHeader.data.height as number) + SUBLANE_HEIGHT
+    centerY <
+      Math.min(
+        ownHeader.position.y + (ownHeader.data.height as number) + SUBLANE_HEIGHT,
+        nextActorHeader ? nextActorHeader.position.y : Infinity,
+      )
 
   const actorRow = staysOwnActor
     ? ownHeader
