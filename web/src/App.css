@@ -1977,10 +1977,19 @@
 
 /* ---------- Écran transverse "Personas" (toutes missions) ---------- */
 
+/* Remplit exactement l'espace disponible dans .shell-main (flex: 1 dans
+   .shell, height: 100vh, voir plus haut) plutôt qu'un calc(100vh - Npx) :
+   cet écran est l'unique contenu de .shell-main dans cette vue (pas
+   d'en-tête/onglets au-dessus, contrairement à la vue projet), donc TOUT
+   décalage fixe ne fait que gâcher de la hauteur sans raison. C'est cette
+   hauteur gâchée qui coupait la liste de missions d'une persona à une
+   seule section visible sur un écran bas, sans indice visuel qu'il en
+   restait d'autres à faire défiler (même anti-pattern que
+   .variant-comparison-screen, voir plus bas). */
 .actor-missions-screen {
   display: flex;
   gap: 1.5rem;
-  height: calc(100vh - 160px);
+  height: 100%;
 }
 
 .actor-missions-list {
