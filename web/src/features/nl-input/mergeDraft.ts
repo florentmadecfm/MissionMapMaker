@@ -8,14 +8,29 @@ const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().t
 
 const ACTOR_COLORS = ['#2563eb', '#f97316', '#a855f7', '#dc2626', '#0ea5e9', '#16a34a', '#64748b']
 
+// Résultat de mergeDraft : le projet fusionné, et `changed` qui indique si
+// l'ébauche a réellement eu un effet visible — au moins un ajout ou une
+// modification a été appliqué, distinct d'une ébauche vide ou dont aucun
+// élément n'a pu être résolu (noms d'acteur/phase/activité qui ne
+// correspondent à rien dans le projet). Sans ce signal, une demande de
+// mise à jour qui n'aboutit à rien (LLM qui juge qu'il n'y a rien à
+// ajouter, ou noms non reconnus) se referme silencieusement, indiscernable
+// pour l'utilisateur d'un vrai bug — voir generateUpdate.ts/ProcessDiagram.tsx.
+export interface MergeResult {
+  project: Project
+  changed: boolean
+}
+
 // Fusionne une ébauche générée par LLM dans le projet actuellement ouvert :
 // les acteurs/phases/activités déjà présents (par nom, insensible à la
 // casse) ne sont pas dupliqués, seuls les éléments nouveaux sont ajoutés.
 // Le résultat reste entièrement éditable/supprimable avant sauvegarde.
-export function mergeDraft(project: Project, draft: DraftProcess): Project {
+export function mergeDraft(project: Project, draft: DraftProcess): MergeResult {
+  let changed = false
   const actors: Actor[] = [...project.actors]
   for (const da of draft.actors) {
     if (!actors.some((a) => sameName(a.name, da.name))) {
+      changed = true
       actors.push({
         id: newId('act'),
         name: da.name,
@@ -33,6 +48,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
   const phases: Phase[] = [...project.phases]
   for (const dp of draft.phases) {
     if (!phases.some((p) => sameName(p.name, dp.name))) {
+      changed = true
       phases.push({ id: newId('ph'), name: dp.name, order: dp.order || phases.length + 1, subColumns: 0, icon: dp.icon ?? '' })
     }
   }
@@ -51,6 +67,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
     const phaseId = findPhaseId(da.phaseName)
     if (!actorId || !phaseId) continue // acteur/phase non résolu : activité ignorée, à ajouter manuellement
     if (activities.some((a) => sameName(a.name, da.name) && a.actorId === actorId)) continue
+    changed = true
     activities.push({
       id: newId('a'),
       name: da.name,
@@ -87,10 +104,15 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
     const current = activities[idx]
     const newActorId = change.newActorName ? findActorId(change.newActorName) ?? current.actorId : current.actorId
     const newPhaseId = change.newPhaseName ? findPhaseId(change.newPhaseName) ?? current.phaseId : current.phaseId
+    const newName = change.newName?.trim() || current.name
+    const newDescription = change.newDescription?.trim() || current.description
+    if (newName !== current.name || newDescription !== current.description || newActorId !== current.actorId || newPhaseId !== current.phaseId) {
+      changed = true
+    }
     activities[idx] = {
       ...current,
-      name: change.newName?.trim() || current.name,
-      description: change.newDescription?.trim() || current.description,
+      name: newName,
+      description: newDescription,
       actorId: newActorId,
       phaseId: newPhaseId,
     }
@@ -119,6 +141,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
     if (interactions.some((i) => i.fromActivityId === fromId && i.toActivityId === toId && sameName(i.information, di.information))) {
       continue
     }
+    changed = true
     interactions.push({
       id: newId('int'),
       fromActivityId: fromId,
@@ -129,5 +152,5 @@ export function mergeDraft(project: Project, draft: DraftProcess): Project {
     })
   }
 
-  return { ...project, actors, phases, activities, interactions }
+  return { project: { ...project, actors, phases, activities, interactions }, changed }
 }
