@@ -1,51 +1,88 @@
+/* Jetons de marque repris du design system "La Ruche" ajouté dans
+   design-system/ (palette miel/hive/crème, typo Liberation Sans, rayons,
+   ombres) — voir design-system/styles.css pour la référence complète et
+   design-system/preview/gallery.html pour un aperçu de chaque jeton. Les
+   NOMS de variables existants (--color-primary, --radius-md...) sont
+   conservés tels quels pour ne pas casser les centaines de règles qui les
+   utilisent déjà dans App.css/process-diagram.css ; seules leurs VALEURS
+   changent. Les couleurs sémantiques (danger/success/warning, déjà
+   dupliquées en dur dans plusieurs composants pour les badges de diff/
+   statut) sont alignées sur celles du design system pour rester
+   cohérentes avec les jetons ci-dessous, mais ce n'est pas un renommage :
+   un rouge/vert/ambre reste un rouge/vert/ambre. */
 :root {
-  --color-bg: #f5f6fb;
+  --color-bg: #faf8f2;
   --color-surface: #ffffff;
-  --color-surface-muted: #f8fafc;
-  --color-surface-hover: #f1f3fa;
-  --color-border: #e4e7ec;
-  --color-border-strong: #d0d5dd;
+  --color-surface-muted: #f2f4f6;
+  --color-surface-hover: #e5e9ee;
+  --color-border: #d1d7de;
+  --color-border-strong: #a8b3be;
 
-  --color-text: #101828;
-  --color-text-muted: #667085;
-  --color-text-faint: #98a2b3;
+  --color-text: #1d2a37;
+  --color-text-muted: #556a7e;
+  --color-text-faint: #7a8a9c;
 
-  --color-primary: #4f46e5;
-  --color-primary-hover: #4338ca;
-  --color-primary-bg: #eef2ff;
-  --color-primary-border: #c7d2fe;
-  --color-primary-gradient: linear-gradient(135deg, #6366f1, #4338ca);
+  /* --color-primary reprend le rôle du "hive" (encre de marque : texte
+     actif, liens, focus) ; --color-primary-gradient/--color-on-accent
+     celui du "honey" (CTA vif du bouton primaire, ci-dessous) — le design
+     system sépare les deux usages, alors que l'ancienne palette indigo
+     n'en avait qu'un seul pour les deux. */
+  --color-primary: #283848;
+  --color-primary-hover: #1d2a37;
+  --color-primary-bg: #fdf7c7;
+  --color-primary-border: #f0de5c;
+  --color-primary-gradient: linear-gradient(135deg, #f2de33, #e8d000);
+  --color-on-accent: #1d2a37;
 
-  --color-danger: #dc2626;
-  --color-danger-bg: #fef2f2;
-  --color-danger-border: #fecaca;
+  --color-danger: #b5342b;
+  --color-danger-bg: #fae9e7;
+  --color-danger-border: #f0c4be;
 
-  --color-success: #15803d;
-  --color-success-bg: #f0fdf4;
+  --color-success: #2e7d5b;
+  --color-success-bg: #e3f3ec;
 
-  --color-warning: #b45309;
-  --color-warning-bg: #fffbeb;
-  --color-warning-border: #fde68a;
+  --color-warning: #c78a17;
+  --color-warning-bg: #faf0dc;
+  --color-warning-border: #f0dba6;
 
+  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-xl: 24px;
   --radius-pill: 999px;
+
+  /* Échelle d'espacement (base 4px, design-system/styles.css) — disponible
+     pour tout nouveau composant ; les espacements existants en rem restent
+     inchangés (les convertir un par un n'apporterait rien ici). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+  --space-9: 64px;
+  --space-10: 80px;
 
   /* Ombres diffuses (plus grand flou, plus faible opacité) plutôt que
      des ombres nettes et resserrées — lecture plus douce, plus proche des
      outils SaaS actuels (Linear, Notion...) que du "panneau d'admin"
-     classique à bordures dures. */
-  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-sm: 0 2px 6px rgba(16, 24, 40, 0.05), 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-md: 0 8px 24px rgba(16, 24, 40, 0.08), 0 2px 6px rgba(16, 24, 40, 0.05);
-  --shadow-lg: 0 16px 48px rgba(16, 24, 40, 0.14), 0 4px 12px rgba(16, 24, 40, 0.06);
+     classique à bordures dures. Teinte hive-800 (encre de marque) plutôt
+     que gris neutre, pour une élévation "chaude" cohérente avec le reste
+     de la palette. */
+  --shadow-xs: 0 1px 2px rgba(29, 42, 55, 0.05);
+  --shadow-sm: 0 2px 6px rgba(29, 42, 55, 0.06), 0 1px 2px rgba(29, 42, 55, 0.05);
+  --shadow-md: 0 8px 24px rgba(29, 42, 55, 0.1), 0 2px 6px rgba(29, 42, 55, 0.06);
+  --shadow-lg: 0 16px 48px rgba(29, 42, 55, 0.16), 0 4px 12px rgba(29, 42, 55, 0.08);
   --shadow-focus: 0 0 0 3px var(--color-primary-bg);
 
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif;
+    'Liberation Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica,
+    Arial, sans-serif;
 
   font-family: var(--font-sans);
   color: var(--color-text);
@@ -75,8 +112,8 @@ body {
      primaire à faible opacité) plutôt qu'un aplat uni — donne une
      profondeur discrète à l'arrière-plan sans distraire du contenu. */
   background:
-    radial-gradient(circle at 15% 0%, rgba(99, 102, 241, 0.05), transparent 45%),
-    radial-gradient(circle at 100% 30%, rgba(99, 102, 241, 0.04), transparent 40%),
+    radial-gradient(circle at 15% 0%, rgba(232, 208, 0, 0.06), transparent 45%),
+    radial-gradient(circle at 100% 30%, rgba(40, 56, 72, 0.04), transparent 40%),
     var(--color-bg);
   background-attachment: fixed;
 }
@@ -160,18 +197,21 @@ button:disabled {
 }
 
 /* Léger dégradé plutôt qu'un aplat : donne une texture/profondeur discrète
-   au bouton principal, présent sur chaque écran, sans le rendre criard. */
+   au bouton principal, présent sur chaque écran, sans le rendre criard.
+   Fond honey (jaune vif) : texte foncé (--color-on-accent), pas blanc —
+   un blanc sur ce jaune serait illisible (voir buttons.html/
+   light-vs-dark.html, design-system/preview). */
 button.btn-primary {
   background: var(--color-primary-gradient);
-  border-color: var(--color-primary-hover);
-  color: white;
-  box-shadow: 0 1px 2px rgba(67, 56, 202, 0.15);
+  border-color: #b8a400;
+  color: var(--color-on-accent);
+  box-shadow: 0 1px 2px rgba(29, 42, 55, 0.15);
 }
 
 button.btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
-  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.28);
+  background: #d4bd00;
+  border-color: #b8a400;
+  box-shadow: 0 4px 12px rgba(29, 42, 55, 0.22);
   transform: translateY(-1px);
 }
 

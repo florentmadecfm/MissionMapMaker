@@ -530,24 +530,24 @@
    un début de "fantôme" sans aller jusqu'à la barrer complètement, pour
    rester lisible. */
 .activity-card.activity-card-diff-added {
-  border-top-color: #16a34a !important;
-  border-left-color: #16a34a !important;
-  background: color-mix(in srgb, #16a34a 14%, var(--color-surface));
+  border-top-color: #2e7d5b !important;
+  border-left-color: #2e7d5b !important;
+  background: color-mix(in srgb, #2e7d5b 14%, var(--color-surface));
   box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.3), var(--shadow-md);
 }
 
 .activity-card.activity-card-diff-removed {
-  border-top-color: #dc2626 !important;
-  border-left-color: #dc2626 !important;
+  border-top-color: #b5342b !important;
+  border-left-color: #b5342b !important;
   border-style: dashed;
-  background: color-mix(in srgb, #dc2626 10%, var(--color-surface));
+  background: color-mix(in srgb, #b5342b 10%, var(--color-surface));
   opacity: 0.75;
 }
 
 .activity-card.activity-card-diff-modified {
-  border-top-color: #d97706 !important;
-  border-left-color: #d97706 !important;
-  background: color-mix(in srgb, #d97706 12%, var(--color-surface));
+  border-top-color: #c78a17 !important;
+  border-left-color: #c78a17 !important;
+  background: color-mix(in srgb, #c78a17 12%, var(--color-surface));
   box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.3), var(--shadow-md);
 }
 
@@ -572,31 +572,31 @@
 }
 
 .activity-card-diff-badge-added {
-  background: #16a34a;
+  background: #2e7d5b;
 }
 
 .activity-card-diff-badge-removed {
-  background: #dc2626;
+  background: #b5342b;
 }
 
 .activity-card-diff-badge-modified {
-  background: #d97706;
+  background: #c78a17;
 }
 
 /* Même surlignage sur les en-têtes d'acteur/phase concernés — fond
    teinté (propriété normale ici, pas de style inline à contourner) plus
    une étiquette compacte, même patron que .actor-header-backstage-tag. */
 .lane-node-diff-added {
-  background: #dcfce7 !important;
+  background: #e3f3ec !important;
 }
 
 .lane-node-diff-removed {
-  background: #fee2e2 !important;
+  background: #fae9e7 !important;
   opacity: 0.8;
 }
 
 .lane-node-diff-modified {
-  background: #fef3c7 !important;
+  background: #faf0dc !important;
 }
 
 .lane-node-diff-tag {
@@ -611,15 +611,15 @@
 }
 
 .lane-node-diff-tag-added {
-  background: #16a34a;
+  background: #2e7d5b;
 }
 
 .lane-node-diff-tag-removed {
-  background: #dc2626;
+  background: #b5342b;
 }
 
 .lane-node-diff-tag-modified {
-  background: #d97706;
+  background: #c78a17;
 }
 
 /* Interaction ajoutée/supprimée/modifiée (edgeRendering.ts, toFlowEdge) :

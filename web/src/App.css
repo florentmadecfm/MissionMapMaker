@@ -610,15 +610,15 @@
 }
 
 .diff-swatch-added {
-  background: #16a34a;
+  background: #2e7d5b;
 }
 
 .diff-swatch-removed {
-  background: #dc2626;
+  background: #b5342b;
 }
 
 .diff-swatch-modified {
-  background: #d97706;
+  background: #c78a17;
 }
 
 .variant-comparison-diff-list-toggle {
@@ -703,15 +703,15 @@
 }
 
 .diff-list-entry-added {
-  border-left-color: #16a34a;
+  border-left-color: #2e7d5b;
 }
 
 .diff-list-entry-removed {
-  border-left-color: #dc2626;
+  border-left-color: #b5342b;
 }
 
 .diff-list-entry-modified {
-  border-left-color: #d97706;
+  border-left-color: #c78a17;
 }
 
 /* Chaque entrée est aussi un bouton (DiffList.tsx, ADR-082) : la cliquer
@@ -761,15 +761,15 @@
 }
 
 .diff-list-entry-tag-added {
-  background: #16a34a;
+  background: #2e7d5b;
 }
 
 .diff-list-entry-tag-removed {
-  background: #dc2626;
+  background: #b5342b;
 }
 
 .diff-list-entry-tag-modified {
-  background: #d97706;
+  background: #c78a17;
 }
 
 .diff-list-entry-body {

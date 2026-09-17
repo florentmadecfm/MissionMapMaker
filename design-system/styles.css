@@ -1,0 +1,214 @@
+/* Design system "La Ruche" — jetons partagés + classes utilitaires.
+   Chargé par chaque carte de design-system/preview/ (<link href="../styles.css">)
+   et par gallery.html, qui les affiche toutes dans des <iframe>. Ce fichier
+   ne dépend d'aucune carte : c'est la seule source des jetons, chaque
+   valeur ici est reprise telle quelle dans colors-brand.html,
+   colors-scales.html et colors-semantic.html (le "spécimen" de chaque
+   jeton). */
+
+:root {
+  /* ---------- Couleurs de marque ---------- */
+  --honey: #e8d000;
+  --honey-050: #fefce7;
+  --honey-100: #fdf7c7;
+  --honey-500: #e8d000;
+  --honey-600: #d4bd00;
+  --honey-700: #b8a400;
+
+  --hive: #283848;
+  --hive-800: #1d2a37;
+  --hive-700: #283848;
+  --hive-600: #334658;
+  --hive-500: #556a7e;
+  --hive-400: #7a8a9c;
+  --hive-300: #a8b3be;
+  --hive-200: #d1d7de;
+  --hive-100: #e5e9ee;
+  --hive-050: #f2f4f6;
+
+  --cream: #faf8f2;
+  --paper: #ffffff;
+  /* Couleur de texte lisible posée sur un fond --honey (trop clair pour
+     du blanc) — toujours la même encre --hive-800 que le texte courant. */
+  --on-accent: var(--hive-800);
+
+  /* ---------- Couleurs sémantiques ---------- */
+  --success: #2e7d5b;
+  --success-soft: #e3f3ec;
+  --warning: #c78a17;
+  --warning-soft: #faf0dc;
+  --danger: #b5342b;
+  --danger-soft: #fae9e7;
+  --info: #2a6fb0;
+  --info-soft: #e6f0f9;
+
+  /* ---------- Neutres de surface/texte (dérivés de l'échelle hive) ---------- */
+  --bg-1: var(--cream);
+  --bg-2: var(--paper);
+  --bg-3: var(--hive-050);
+  --fg-1: var(--hive-800);
+  --fg-2: var(--hive-500);
+  --fg-3: var(--hive-400);
+  --border: var(--hive-200);
+  --border-strong: var(--hive-300);
+
+  /* ---------- Typographie ---------- */
+  --font-sans: 'Liberation Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  --font-mono: ui-monospace, 'Liberation Mono', Consolas, monospace;
+
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 30px;
+  --fs-4xl: 38px;
+  --fs-5xl: 48px;
+
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --tracking-tight: -0.02em;
+
+  /* ---------- Espacement (base 4px) ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+  --space-9: 64px;
+  --space-10: 80px;
+
+  /* ---------- Rayons ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* ---------- Ombres (élévation chaude à deux niveaux) ---------- */
+  --shadow-1: 0 1px 2px rgba(29, 42, 55, 0.06), 0 2px 6px rgba(29, 42, 55, 0.05);
+  --shadow-2: 0 8px 24px rgba(29, 42, 55, 0.14), 0 2px 8px rgba(29, 42, 55, 0.08);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---------- Échelle de titres (Display Scale, type-display.html) ---------- */
+
+.h1,
+.h2,
+.h3,
+.h4 {
+  margin: 0;
+  font-weight: var(--fw-semibold);
+  color: var(--fg-1);
+}
+.h1 {
+  font-size: var(--fs-5xl);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-tight);
+}
+.h2 {
+  font-size: var(--fs-4xl);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-tight);
+}
+.h3 {
+  font-size: var(--fs-3xl);
+  line-height: 1.3;
+}
+.h4 {
+  font-size: var(--fs-2xl);
+  line-height: 1.3;
+}
+
+/* ---------- Grille sans point de rupture (responsive.html) ----------
+   repeat(auto-fit, minmax(min(280px, 100%), 1fr)) : le minmax() interroge
+   la largeur du CONTENEUR, jamais celle de la fenêtre — un tableau de bord
+   inséré dans un panneau étroit se réorganise sans qu'aucune media query
+   n'ait besoin de connaître ce panneau à l'avance. */
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: var(--space-4);
+}
+
+/* ---------- Tableau qui interroge son conteneur (responsive.html) ----------
+   Le point de bascule vient d'une container query, pas d'une media query :
+   un tableau .table-cards se transforme en liste de cartes dès que SON
+   PROPRE conteneur (pas la fenêtre) passe sous 720px — utile dès qu'un
+   même tableau peut se retrouver dans un panneau étroit ou plein écran
+   selon l'endroit où il est monté. L'ancêtre le plus proche doit poser
+   `container-type: inline-size` (voir .resizable dans responsive.html). */
+.table-cards {
+  width: 100%;
+  border-collapse: collapse;
+}
+@container (max-width: 720px) {
+  .table-cards thead {
+    display: none;
+  }
+  .table-cards tr {
+    display: block;
+    margin-bottom: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+  .table-cards td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-1) 0;
+    border-top: none;
+  }
+  .table-cards td::before {
+    content: attr(data-label);
+    font-weight: var(--fw-semibold);
+    color: var(--fg-2);
+  }
+}
+
+/* ---------- Impression (print.html) ----------
+   Encre noire sur papier blanc quel que soit le thème à l'écran, chrome
+   d'interface (barre d'outils, boutons...) marqué .no-print retiré du
+   papier, en-tête de tableau répété à chaque page, et une section
+   <details> repliée s'imprime dépliée : un lecteur du papier ne peut pas
+   cliquer pour la déplier, donc l'information ne doit jamais dépendre de
+   cet état. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  a {
+    color: #000 !important;
+    text-decoration: underline;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+  details:not([open]) > *:not(summary) {
+    display: block !important;
+  }
+}

@@ -90,6 +90,17 @@ Ouvrir http://localhost:5173.
   (au-delà d'une poignée d'éléments) affichent un champ de recherche pour
   filtrer par nom/contenu.
 
+## Design system
+
+Le dossier `design-system/` documente les jetons visuels (couleurs,
+typographie, espacement, rayons, ombres) et les patrons de composants
+(boutons, badges, alertes, cartes, formulaires, nav) appliqués à
+l'interface — `design-system/styles.css` en est la seule source, et
+`design-system/preview/gallery.html` en donne un aperçu interactif (ouvrir
+ce fichier directement dans un navigateur, aucun serveur nécessaire). Les
+jetons de `web/src/index.css` (`--color-*`, `--radius-*`, `--shadow-*`)
+reprennent ces valeurs.
+
 ## Empaqueter en binaire autonome
 
 Pour distribuer l'application sans dépendance Node/Go sur le poste

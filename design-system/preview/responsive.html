@@ -14,6 +14,10 @@
   .resizable {
     resize: horizontal;
     overflow: auto;
+    /* Point de bascule du tableau .table-cards (styles.css) : c'est la
+       largeur de CE conteneur, pas celle de la fenêtre, qui doit déclencher
+       la bascule — d'où la containment posée ici plutôt qu'en @media. */
+    container-type: inline-size;
     min-width: 260px;
     max-width: 100%;
     width: 800px;
