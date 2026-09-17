@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- @dsCard group="Components" name="Buttons" subtitle="Primary · Secondary · Ghost · Link · states" viewport="700x140" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); }
+  .card { padding: 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    padding: 12px 20px;
+    border: none;
+    cursor: pointer;
+    transition: all 150ms cubic-bezier(0.22, 1, 0.36, 1);
+    line-height: 1;
+  }
+  .btn.primary { background: var(--honey); color: var(--on-accent); }
+  .btn.primary:hover { background: var(--honey-600); }
+  .btn.secondary { background: var(--hive); color: #fff; }
+  .btn.secondary:hover { background: var(--hive-700); }
+  .btn.ghost { background: transparent; color: var(--hive); border: 1px solid var(--border-strong); }
+  .btn.ghost:hover { background: var(--bg-3); }
+  .btn.link { background: transparent; color: var(--hive); padding: 12px 8px; text-decoration: underline; text-decoration-color: var(--honey); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  .btn.sm { font-size: 13px; padding: 8px 14px; border-radius: var(--radius-sm); }
+  .btn.disabled { opacity: .4; pointer-events: none; }
+</style></head>
+<body><div class="card">
+  <button class="btn primary">Créer un projet</button>
+  <button class="btn secondary">Enregistrer</button>
+  <button class="btn ghost">Annuler</button>
+  <button class="btn link">En savoir plus</button>
+  <button class="btn primary sm">Inviter</button>
+  <button class="btn primary disabled">Indisponible</button>
+</div></body></html>

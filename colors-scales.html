@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- @dsCard group="Colors" name="Color Scales" subtitle="Hive ink scale + Honey accent scale" viewport="700x240" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); }
+  .card { padding: 24px; }
+  .scale { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; margin-bottom: 14px; }
+  .s { height: 60px; border-radius: var(--radius-sm); padding: 8px; display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; font-family: var(--font-mono); border: 1px solid var(--border); }
+  .label { font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--fg-2); margin-bottom: 8px; letter-spacing: .04em; text-transform: uppercase; }
+</style></head>
+<body><div class="card">
+  <div class="label">Hive — ink scale</div>
+  <div class="scale">
+    <div class="s" style="background:#1D2A37; color:#fff;">800<br>#1D2A37</div>
+    <div class="s" style="background:#283848; color:#fff;">700<br>#283848</div>
+    <div class="s" style="background:#334658; color:#fff;">600<br>#334658</div>
+    <div class="s" style="background:#556A7E; color:#fff;">500<br>#556A7E</div>
+    <div class="s" style="background:#7A8A9C; color:#fff;">400<br>#7A8A9C</div>
+    <div class="s" style="background:#A8B3BE; color:var(--hive);">300<br>#A8B3BE</div>
+    <div class="s" style="background:#D1D7DE; color:var(--hive);">200<br>#D1D7DE</div>
+    <div class="s" style="background:#E5E9EE; color:var(--hive);">100<br>#E5E9EE</div>
+    <div class="s" style="background:#F2F4F6; color:var(--hive);">050<br>#F2F4F6</div>
+  </div>
+  <div class="label">Honey — accent scale</div>
+  <div class="scale" style="grid-template-columns: repeat(5, 1fr);">
+    <div class="s" style="background:#B8A400; color:#fff;">700<br>#B8A400</div>
+    <div class="s" style="background:#D4BD00; color:var(--hive);">600<br>#D4BD00</div>
+    <div class="s" style="background:#E8D000; color:var(--hive);">500<br>#E8D000</div>
+    <div class="s" style="background:#FDF7C7; color:var(--hive);">100<br>#FDF7C7</div>
+    <div class="s" style="background:#FEFCE7; color:var(--hive);">050<br>#FEFCE7</div>
+  </div>
+</div></body></html>

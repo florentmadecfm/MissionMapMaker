@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- @dsCard group="Layout" name="Print" subtitle="Encre noire sur papier blanc · en-têtes répétés · sections dépliées" viewport="700x420" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); }
+  .card { padding: var(--space-6); font-family: var(--font-sans); color: var(--fg-1); }
+  h2 { margin: 0 0 var(--space-2); }
+  .note { color: var(--fg-2); font-size: var(--fs-sm); margin: 0 0 var(--space-4); }
+  table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+  th { text-align: left; color: var(--fg-2); padding: var(--space-2); }
+  td { padding: var(--space-2); border-top: 1px solid var(--border); }
+  .toolbar {
+    display: flex; gap: var(--space-2); margin-bottom: var(--space-4);
+    padding: var(--space-3); background: var(--bg-3); border-radius: var(--radius-sm);
+    font-size: var(--fs-sm); color: var(--fg-2);
+  }
+  details { margin-top: var(--space-4); font-size: var(--fs-sm); }
+</style>
+<body>
+  <div class="card">
+    <h2 class="h4">Aperçu avant impression</h2>
+    <p class="note">Imprimez cette page (Ctrl+P) pour voir la différence : la barre d’outils
+      disparaît, l’encre passe au noir sur blanc quel que soit le thème, l’en-tête du tableau
+      se répète à chaque page et la section repliée s’imprime ouverte.</p>
+
+    <div class="toolbar no-print">
+      Barre d’outils — marquée <code>no-print</code>, absente du papier
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>Révision</th><th>Auteur</th><th>Horodatage</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>57</td><td>j.doe</td><td>2026-09-07 14:32</td></tr>
+        <tr><td>56</td><td>a.martin</td><td>2026-09-06 09:14</td></tr>
+      </tbody>
+    </table>
+
+    <details>
+      <summary>Détail de la révision 57</summary>
+      <p>Une section repliée cache une information dont le lecteur ne peut pas
+        soupçonner l’absence. À l’impression, elle est dépliée.</p>
+    </details>
+  </div>
+</body>

@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- @dsCard group="Components" name="Cards" subtitle="Default and honey-accent cards" viewport="700x220" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); }
+  .card { padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tile {
+    background: var(--paper);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    box-shadow: var(--shadow-1);
+    display: flex; flex-direction: column; gap: 6px;
+    border: 1px solid var(--border);
+  }
+  .tile .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-3); }
+  .tile h4 { margin: 0; font-size: 18px; font-weight: 600; color: var(--hive-800); }
+  .tile p { margin: 4px 0 0; font-size: 13px; color: var(--fg-2); line-height: 1.55; }
+  .tile .meta { display: flex; gap: 10px; align-items: center; margin-top: 10px; font-size: 12px; color: var(--fg-3); }
+  .avatar { width: 22px; height: 22px; border-radius: 999px; background: var(--honey); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--hive); }
+  .accent { border-top: 3px solid var(--honey); }
+</style></head>
+<body><div class="card">
+  <div class="tile">
+    <span class="eyebrow">Projet</span>
+    <h4>Radar Falcon — itération 3</h4>
+    <p>Calibration du module de détection longue portée.</p>
+    <div class="meta"><span class="avatar">CM</span><span>12 membres · Modifié hier</span></div>
+  </div>
+  <div class="tile accent">
+    <span class="eyebrow">Document · Épinglé</span>
+    <h4>Procédure d'intégration</h4>
+    <p>Mise à jour des étapes d'onboarding pour les nouvelles recrues.</p>
+    <div class="meta"><span class="avatar">SL</span><span>Mis à jour aujourd'hui</span></div>
+  </div>
+</div></body></html>

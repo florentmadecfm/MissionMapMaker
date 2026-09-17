@@ -1,0 +1,70 @@
+<!doctype html>
+<!-- @dsCard group="Layout" name="Responsive" subtitle="Type fluide · grille auto · tableau qui interroge son conteneur" viewport="900x660" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); }
+  .card { padding: var(--space-6); font-family: var(--font-sans); color: var(--fg-1); }
+  h2 { margin: 0 0 var(--space-2); }
+  .note { color: var(--fg-2); font-size: var(--fs-sm); margin: 0 0 var(--space-4); }
+
+  /* La poignée de redimensionnement : une carte de prévisualisation est un
+     iframe de taille fixe, donc le point de bascule ne peut pas venir de la
+     fenêtre. Ici il vient du conteneur, ce qui est justement la démonstration. */
+  .resizable {
+    resize: horizontal;
+    overflow: auto;
+    min-width: 260px;
+    max-width: 100%;
+    width: 800px;
+    padding: var(--space-4);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg-2);
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+  th { text-align: left; color: var(--fg-2); font-weight: var(--fw-semibold); padding: var(--space-2); }
+  td { padding: var(--space-2); border-top: 1px solid var(--border); }
+
+  .demo-grid > div {
+    padding: var(--space-3);
+    background: var(--bg-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-sm);
+  }
+</style>
+<body>
+  <div class="card">
+    <h2 class="h4">Tableau : le conteneur décide, pas la fenêtre</h2>
+    <p class="note">Faites glisser le coin inférieur droit du cadre vers la gauche. Sous 720 px de largeur
+      <em>du cadre</em>, les lignes deviennent des cartes et chaque valeur garde son intitulé.
+      La fenêtre, elle, n’a pas bougé.</p>
+
+    <div class="resizable">
+      <table class="table-cards">
+        <thead>
+          <tr><th>Poste</th><th>État</th><th>Dernier contact</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td data-label="Poste">poste-014</td>
+            <td data-label="État">Actif</td>
+            <td data-label="Dernier contact">il y a 2 min</td>
+          </tr>
+          <tr>
+            <td data-label="Poste">poste-027</td>
+            <td data-label="État">Silencieux</td>
+            <td data-label="Dernier contact">il y a 31 h</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="h4" style="margin-top: var(--space-6)">Grille sans point de rupture</h2>
+    <p class="note"><code>repeat(auto-fit, minmax(min(280px, 100%), 1fr))</code> — aucune media query.</p>
+    <div class="grid-auto demo-grid">
+      <div>Certificats</div><div>Journaux</div><div>Postes</div><div>Sauvegarde</div>
+    </div>
+  </div>
+</body>

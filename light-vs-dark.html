@@ -1,0 +1,41 @@
+<!doctype html>
+<!-- @dsCard group="Colors" name="Light / Dark" subtitle="Same tokens, both themes side by side" viewport="900x420" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html,body{margin:0;background:var(--bg-1)}
+  .wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:20px}
+  .theme{border-radius:var(--radius-lg);padding:20px;display:flex;flex-direction:column;gap:14px}
+  .light{background:var(--cream)}
+  .dark{background:#171F29}
+  .label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .light .label{color:var(--hive-400)}
+  .dark .label{color:#7A8A9C}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{font-family:'Liberation Sans',sans-serif;font-size:14px;font-weight:500;border-radius:12px;padding:10px 16px;border:none}
+  .light .btn.primary{background:#E8D000;color:#1D2A37}
+  .dark .btn.primary{background:#F2DE33;color:#1D2A37}
+  .light .btn.secondary{background:#283848;color:#fff}
+  .dark .btn.secondary{background:#2A394A;color:#EDF0F3}
+  .tile{border-radius:16px;padding:16px}
+  .light .tile{background:#fff;border:1px solid rgba(40,56,72,.1);box-shadow:0 1px 2px rgba(40,56,72,.06)}
+  .dark .tile{background:#212E3C;border:1px solid rgba(237,240,243,.1);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .tile h4{margin:0 0 6px;font-size:16px}
+  .light .tile h4{color:#1D2A37}
+  .dark .tile h4{color:#EDF0F3}
+  .tile p{margin:0;font-size:13px;line-height:1.5}
+  .light .tile p{color:#556A7E}
+  .dark .tile p{color:#A8B3BE}
+</style></head>
+<body><div class="wrap">
+  <div class="theme light">
+    <span class="label">Light</span>
+    <div class="row"><button class="btn primary">Créer un projet</button><button class="btn secondary">Annuler</button></div>
+    <div class="tile"><h4>Radar Falcon — itération 3</h4><p>Calibration du module de détection longue portée.</p></div>
+  </div>
+  <div class="theme dark">
+    <span class="label">Dark</span>
+    <div class="row"><button class="btn primary">Créer un projet</button><button class="btn secondary">Annuler</button></div>
+    <div class="tile"><h4>Radar Falcon — itération 3</h4><p>Calibration du module de détection longue portée.</p></div>
+  </div>
+</div></body></html>

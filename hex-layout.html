@@ -1,0 +1,81 @@
+<!doctype html>
+<!-- @dsCard group="Layout" name="Hexagone — division 6 zones" subtitle="Moyeu hexagonal · 4 subdivisions latérales horizontales · glisser pour redimensionner les 6 fenêtres en une action" viewport="900x600" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+html,body{margin:0;background:var(--bg-1);font-family:var(--font-sans)}
+.wrap{padding:16px;box-sizing:border-box;height:600px;display:flex;flex-direction:column;gap:10px}
+.hint{display:flex;gap:14px;align-items:center;font-size:12px;color:var(--fg-2)}
+.hint b{color:var(--fg-1);font-weight:600}
+.hint .k{background:var(--bg-3);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:11px;color:var(--fg-1)}
+.stage{position:relative;flex:1;overflow:hidden;border-radius:var(--radius-lg);background:var(--hive-100);border:1px solid var(--border);user-select:none;touch-action:none}
+.pane{position:absolute;inset:0;background:var(--paper);transition:clip-path 60ms linear}
+.pane::after{content:"";position:absolute;inset:0;background:var(--honey);opacity:0;transition:opacity 150ms var(--ease-out);pointer-events:none}
+.pane.hot::after{opacity:.09}
+.lbl{position:absolute;transform:translate(-50%,-50%);text-align:center;pointer-events:none;white-space:nowrap}
+.lbl .n{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);display:block;margin-bottom:2px}
+.lbl .t{font-size:14px;font-weight:600;color:var(--fg-1)}
+.lbl .m{font-size:11px;color:var(--fg-2);display:block;margin-top:2px}
+.hex{position:absolute;background:var(--honey);cursor:grab;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px}
+.hex:active{cursor:grabbing}
+.hex .brand{white-space:nowrap;font-size:13px;font-weight:700;color:var(--on-accent);letter-spacing:-.01em}
+.hex .sub{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--on-accent);opacity:.65}
+.grip{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--paper);border:2px solid var(--hive);transform:translate(-50%,-50%);cursor:nwse-resize;box-shadow:var(--shadow-1)}
+</style></head>
+<body><div class="wrap">
+<div class="hint"><span><b>Glisser l'hexagone</b> → redimensionne les 6 zones en une seule action</span><span class="k">poignée = taille du moyeu</span></div>
+<div class="stage" id="stage">
+  <div class="pane" data-n="01" data-t="Capteurs" data-m="12 actifs"></div>
+  <div class="pane" data-n="02" data-t="Alertes" data-m="3 en cours"></div>
+  <div class="pane" data-n="03" data-t="Journal" data-m="Flux temps réel"></div>
+  <div class="pane" data-n="04" data-t="Équipe" data-m="8 connectés"></div>
+  <div class="pane" data-n="05" data-t="Statut" data-m="Nominal"></div>
+  <div class="pane" data-n="06" data-t="Carte" data-m="Vue tactique"></div>
+  <div class="hex" id="hex"><span class="brand">La Ruche</span><span class="sub">Moyeu</span></div>
+  <div class="grip" id="grip"></div>
+</div>
+</div>
+<script>
+const stage=document.getElementById('stage'),hex=document.getElementById('hex'),grip=document.getElementById('grip');
+const panes=[...stage.querySelectorAll('.pane')];
+panes.forEach(p=>{const l=document.createElement('div');l.className='lbl';l.innerHTML='<span class="n">'+p.dataset.n+'</span><span class="t">'+p.dataset.t+'</span><span class="m">'+p.dataset.m+'</span>';p.appendChild(l)});
+let cx=0,cy=0,R=96,W=0,H=0,init=false;
+const K=Math.sqrt(3)/2;
+const DIR=[{ux:0,uy:-1},{ux:-1,uy:0},{ux:-1,uy:0},{ux:0,uy:1},{ux:1,uy:0},{ux:1,uy:0}];
+function verts(){return [0,1,2,3,4,5].map(k=>{const a=(90+60*k)*Math.PI/180;return{x:cx+R*Math.cos(a),y:cy-R*Math.sin(a),ux:DIR[k].ux,uy:DIR[k].uy}})}
+function perp(a,b){const c=[{x:-a.uy,y:a.ux},{x:a.uy,y:-a.ux}];return c[0].x*(b.x-a.x)+c[0].y*(b.y-a.y)>0?c[0]:c[1]}
+const ORDER=[5,4,3,2,1,0],G=5,HG=G/2;
+function ix(p,d,q,e){const den=d.x*e.y-d.y*e.x;if(Math.abs(den)<1e-9)return{x:q.x,y:q.y};const t=((q.x-p.x)*e.y-(q.y-p.y)*e.x)/den;return{x:p.x+d.x*t,y:p.y+d.y*t}}
+function draw(){
+  const v=verts(),D=3*Math.hypot(W,H);
+  for(let i=0;i<6;i++){
+    const k=ORDER[i],a=v[k],b=v[(k+1)%6];
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,d=Math.hypot(mx-cx,my-cy)||1;
+    const nx=(mx-cx)/d,ny=(my-cy)/d;
+    const el=Math.hypot(b.x-a.x,b.y-a.y)||1,ex=(b.x-a.x)/el,ey=(b.y-a.y)/el;
+    const P1={x:mx+nx*G,y:my+ny*G},D1={x:ex,y:ey};
+    const pa=perp(a,b),pb=perp(b,a);
+    const A=ix(P1,D1,{x:a.x+pa.x*HG,y:a.y+pa.y*HG},{x:a.ux,y:a.uy});
+    const B=ix(P1,D1,{x:b.x+pb.x*HG,y:b.y+pb.y*HG},{x:b.ux,y:b.uy});
+    const pts=[[A.x,A.y],[A.x+a.ux*D,A.y+a.uy*D],[B.x+b.ux*D,B.y+b.uy*D],[B.x,B.y]];
+    panes[i].style.clipPath='polygon('+pts.map(p=>p[0].toFixed(1)+'px '+p[1].toFixed(1)+'px').join(',')+')';
+    let lx=mx+nx*72,ly=my+ny*72;
+    lx=Math.max(58,Math.min(W-58,lx));ly=Math.max(30,Math.min(H-30,ly));
+    const l=panes[i].querySelector('.lbl');l.style.left=lx+'px';l.style.top=ly+'px';
+  }
+  hex.style.width=(2*K*R)+'px';hex.style.height=(2*R)+'px';
+  hex.style.left=(cx-K*R)+'px';hex.style.top=(cy-R)+'px';
+  grip.style.left=(cx+K*R)+'px';grip.style.top=(cy-R/2)+'px';
+}
+function clamp(){const m=14;R=Math.max(52,Math.min(Math.min(W,H)/2-m*2,R));cx=Math.max(K*R+m,Math.min(W-K*R-m,cx));cy=Math.max(R+m,Math.min(H-R-m,cy))}
+function measure(){const r=stage.getBoundingClientRect();W=r.width;H=r.height;if(!init){cx=W/2;cy=H/2;init=true}clamp();draw()}
+new ResizeObserver(measure).observe(stage);measure();
+function drag(el,move){el.addEventListener('pointerdown',e=>{e.preventDefault();el.setPointerCapture(e.pointerId);const r=stage.getBoundingClientRect();const s={mx:e.clientX-r.left,my:e.clientY-r.top,cx,cy,R};
+  const mv=ev=>{const rr=stage.getBoundingClientRect();move(ev.clientX-rr.left,ev.clientY-rr.top,s);clamp();draw()};
+  const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);panes.forEach(p=>p.classList.remove('hot'))};
+  panes.forEach(p=>p.classList.add('hot'));
+  el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up)})}
+drag(hex,(x,y,s)=>{cx=s.cx+(x-s.mx);cy=s.cy+(y-s.my)});
+drag(grip,(x,y)=>{R=Math.hypot(x-cx,y-cy)});
+</script>
+</body></html>

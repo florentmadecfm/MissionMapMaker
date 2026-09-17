@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- @dsCard group="Spacing" name="Radii" subtitle="xs · sm · md · lg · xl · pill" viewport="700x160" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); }
+  .card { padding: 24px; }
+  .row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .r { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .box { width: 64px; height: 64px; background: var(--hive); }
+  .tok { font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); }
+  .val { font-size: 11px; color: var(--fg-2); }
+</style></head>
+<body><div class="card">
+  <div class="row">
+    <div class="r"><div class="box" style="border-radius:4px;"></div><span class="tok">--radius-xs</span><span class="val">4 px</span></div>
+    <div class="r"><div class="box" style="border-radius:8px;"></div><span class="tok">--radius-sm</span><span class="val">8 px</span></div>
+    <div class="r"><div class="box" style="border-radius:12px;"></div><span class="tok">--radius-md</span><span class="val">12 px</span></div>
+    <div class="r"><div class="box" style="border-radius:16px;"></div><span class="tok">--radius-lg</span><span class="val">16 px</span></div>
+    <div class="r"><div class="box" style="border-radius:24px;"></div><span class="tok">--radius-xl</span><span class="val">24 px</span></div>
+    <div class="r"><div class="box" style="border-radius:999px; width:96px; height:40px;"></div><span class="tok">--pill</span><span class="val">999</span></div>
+  </div>
+</div></body></html>

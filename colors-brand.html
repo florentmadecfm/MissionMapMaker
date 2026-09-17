@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- @dsCard group="Colors" name="Brand Colors" subtitle="Honey · Hive · Cream — the three brand colors" viewport="700x160" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); }
+  .card { padding: 24px; }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .sw {
+    border-radius: var(--radius-md);
+    padding: 16px;
+    height: 90px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    border: 1px solid var(--border);
+  }
+  .sw .name { font-weight: 600; font-size: 14px; }
+  .sw .hex { font-family: var(--font-mono); font-size: 12px; opacity: .7; }
+  .honey { background: var(--honey); color: var(--on-accent); }
+  .hive  { background: var(--hive);  color: #fff; }
+  .cream { background: var(--cream); color: var(--hive); }
+  .paper { background: var(--paper); color: var(--hive); }
+  .hive .hex, .honey .hex, .cream .hex, .paper .hex { opacity: .8; }
+</style></head>
+<body><div class="card">
+  <div class="row">
+    <div class="sw honey"><div class="name">Honey</div><div class="hex">#E8D000</div></div>
+    <div class="sw hive"><div class="name">Hive</div><div class="hex">#283848</div></div>
+    <div class="sw cream"><div class="name">Cream</div><div class="hex">#FAF8F2</div></div>
+  </div>
+</div></body></html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- @dsCard group="Components" name="Badges" subtitle="Status, category, and semantic badges" viewport="700x140" -->
+<html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); }
+  .card { padding: 24px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 999px;
+    line-height: 1;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .b-hive { background: var(--hive); color: #fff; }
+  .b-honey { background: var(--honey); color: var(--on-accent); }
+  .b-soft { background: var(--bg-3); color: var(--fg-1); }
+  .b-success { background: var(--success-soft); color: var(--success); }
+  .b-warning { background: var(--warning-soft); color: var(--warning); }
+  .b-danger { background: var(--danger-soft); color: var(--danger); }
+  .b-info { background: var(--info-soft); color: var(--info); }
+  .b-outline { background: transparent; color: var(--fg-1); border: 1px solid var(--border-strong); }
+</style></head>
+<body><div class="card">
+  <span class="badge b-hive">Nouveau</span>
+  <span class="badge b-honey">Recommandé</span>
+  <span class="badge b-soft">Brouillon</span>
+  <span class="badge b-success"><span class="dot"></span>Enregistré</span>
+  <span class="badge b-warning"><span class="dot"></span>Non enregistré</span>
+  <span class="badge b-danger"><span class="dot"></span>Erreur</span>
+  <span class="badge b-info"><span class="dot"></span>Astuce</span>
+  <span class="badge b-outline">v 2.4</span>
+</div></body></html>

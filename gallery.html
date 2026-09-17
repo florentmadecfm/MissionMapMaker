@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La Ruche — Preview Gallery</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  html, body { margin: 0; background: var(--bg-1); color: var(--fg-1); font-family: var(--font-sans); }
+  a { color: var(--hive); }
+  a:hover { color: var(--honey-700); }
+
+  header {
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    padding: var(--space-6) var(--space-6) var(--space-5);
+  }
+  header h1 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--fs-3xl);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tracking-tight);
+  }
+  header p {
+    margin: 0 0 var(--space-4);
+    color: var(--fg-2);
+    font-size: var(--fs-md);
+    max-width: 60ch;
+  }
+  nav.groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  nav.groups a {
+    display: inline-block;
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-pill);
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    font-size: var(--fs-sm);
+    text-decoration: none;
+    color: var(--fg-1);
+  }
+  nav.groups a:hover { border-color: var(--border-strong); }
+
+  main { padding: var(--space-6); max-width: 1400px; margin: 0 auto; }
+
+  section.group {
+    margin-bottom: var(--space-9);
+    scroll-margin-top: var(--space-4);
+  }
+  section.group h2 {
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-semibold);
+    margin: 0 0 var(--space-5);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+  }
+  .card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-1);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .card h3 {
+    margin: 0;
+    font-size: var(--fs-md);
+    font-weight: var(--fw-semibold);
+  }
+  .card .subtitle {
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--fg-2);
+    max-width: 46ch;
+  }
+  .frame-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius-sm);
+  }
+  .card iframe {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-1);
+  }
+  .card .open-link {
+    font-size: var(--fs-xs);
+    font-family: var(--font-mono);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>La Ruche — preview gallery</h1>
+  <p>The 23 cards from <code>preview/</code>, grouped by category. Each card runs in its own <code>&lt;iframe&gt;</code> — open this file locally (<code>file://</code>, or any static server) for a live, interactive render.</p>
+  <nav class="groups">
+    <a href="#colors">Colors</a>
+    <a href="#type">Type</a>
+    <a href="#spacing">Spacing</a>
+    <a href="#layout">Layout</a>
+    <a href="#components">Components</a>
+    <a href="#brand">Brand</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="group" id="colors">
+    <h2>Colors</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Brand Colors</h3>
+        <p class="subtitle">Honey · Hive · Cream — the three brand colors</p>
+        <div class="frame-wrap"><iframe src="colors-brand.html" width="700" height="160" loading="lazy" title="Brand Colors"></iframe></div>
+        <a class="open-link" href="colors-brand.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Color Scales</h3>
+        <p class="subtitle">Hive ink scale + Honey accent scale</p>
+        <div class="frame-wrap"><iframe src="colors-scales.html" width="700" height="240" loading="lazy" title="Color Scales"></iframe></div>
+        <a class="open-link" href="colors-scales.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Semantic Colors</h3>
+        <p class="subtitle">Success · Warning · Danger · Info</p>
+        <div class="frame-wrap"><iframe src="colors-semantic.html" width="700" height="170" loading="lazy" title="Semantic Colors"></iframe></div>
+        <a class="open-link" href="colors-semantic.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Light / Dark</h3>
+        <p class="subtitle">Same tokens, both themes side by side</p>
+        <div class="frame-wrap"><iframe src="light-vs-dark.html" width="900" height="420" loading="lazy" title="Light / Dark"></iframe></div>
+        <a class="open-link" href="light-vs-dark.html">↗ open standalone</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="group" id="type">
+    <h2>Type</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Type Family</h3>
+        <p class="subtitle">Liberation Sans — spécimen display</p>
+        <div class="frame-wrap"><iframe src="type-family.html" width="700" height="180" loading="lazy" title="Type Family"></iframe></div>
+        <a class="open-link" href="type-family.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Display Scale</h3>
+        <p class="subtitle">h1 · h2 · h3 · h4 · lead</p>
+        <div class="frame-wrap"><iframe src="type-display.html" width="700" height="280" loading="lazy" title="Display Scale"></iframe></div>
+        <a class="open-link" href="type-display.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Body &amp; Utility Type</h3>
+        <p class="subtitle">body · small · caption · eyebrow · mono</p>
+        <div class="frame-wrap"><iframe src="type-body.html" width="700" height="260" loading="lazy" title="Body &amp; Utility Type"></iframe></div>
+        <a class="open-link" href="type-body.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Accents &amp; Weights</h3>
+        <p class="subtitle">French accents + full weight range</p>
+        <div class="frame-wrap"><iframe src="type-accents.html" width="700" height="220" loading="lazy" title="Accents &amp; Weights"></iframe></div>
+        <a class="open-link" href="type-accents.html">↗ open standalone</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="group" id="spacing">
+    <h2>Spacing</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Spacing Scale</h3>
+        <p class="subtitle">4px base — 10 tokens</p>
+        <div class="frame-wrap"><iframe src="spacing-scale.html" width="700" height="360" loading="lazy" title="Spacing Scale"></iframe></div>
+        <a class="open-link" href="spacing-scale.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Radii</h3>
+        <p class="subtitle">xs · sm · md · lg · xl · pill</p>
+        <div class="frame-wrap"><iframe src="radii.html" width="700" height="160" loading="lazy" title="Radii"></iframe></div>
+        <a class="open-link" href="radii.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Shadows</h3>
+        <p class="subtitle">Two-level warm elevation</p>
+        <div class="frame-wrap"><iframe src="shadows.html" width="700" height="180" loading="lazy" title="Shadows"></iframe></div>
+        <a class="open-link" href="shadows.html">↗ open standalone</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="group" id="layout">
+    <h2>Layout</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Hexagone — division 6 zones</h3>
+        <p class="subtitle">Hexagonal hub · 4 horizontal lateral subdivisions · drag to resize all six windows in one action</p>
+        <div class="frame-wrap"><iframe src="hex-layout.html" width="900" height="600" loading="lazy" title="Hexagone — division 6 zones"></iframe></div>
+        <a class="open-link" href="hex-layout.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Print</h3>
+        <p class="subtitle">Black ink on white paper · repeated table headers · collapsed sections unfold</p>
+        <div class="frame-wrap"><iframe src="print.html" width="700" height="420" loading="lazy" title="Print"></iframe></div>
+        <a class="open-link" href="print.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Responsive</h3>
+        <p class="subtitle">Fluid display type · auto grid · a table that asks its own width</p>
+        <div class="frame-wrap"><iframe src="responsive.html" width="900" height="660" loading="lazy" title="Responsive"></iframe></div>
+        <a class="open-link" href="responsive.html">↗ open standalone</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="group" id="components">
+    <h2>Components</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Buttons</h3>
+        <p class="subtitle">Primary · Secondary · Ghost · Link · states</p>
+        <div class="frame-wrap"><iframe src="buttons.html" width="700" height="140" loading="lazy" title="Buttons"></iframe></div>
+        <a class="open-link" href="buttons.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Badges</h3>
+        <p class="subtitle">Status, category, and semantic badges</p>
+        <div class="frame-wrap"><iframe src="badges.html" width="700" height="140" loading="lazy" title="Badges"></iframe></div>
+        <a class="open-link" href="badges.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Alerts</h3>
+        <p class="subtitle">Success · Warning · Danger · Info</p>
+        <div class="frame-wrap"><iframe src="alerts.html" width="700" height="280" loading="lazy" title="Alerts"></iframe></div>
+        <a class="open-link" href="alerts.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Cards</h3>
+        <p class="subtitle">Default and honey-accent cards</p>
+        <div class="frame-wrap"><iframe src="cards.html" width="700" height="220" loading="lazy" title="Cards"></iframe></div>
+        <a class="open-link" href="cards.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Form Inputs</h3>
+        <p class="subtitle">Text fields + checkbox with honey focus ring</p>
+        <div class="frame-wrap"><iframe src="forms.html" width="700" height="200" loading="lazy" title="Form Inputs"></iframe></div>
+        <a class="open-link" href="forms.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Nav &amp; Tabs</h3>
+        <p class="subtitle">Top nav, underlined tabs</p>
+        <div class="frame-wrap"><iframe src="nav.html" width="700" height="180" loading="lazy" title="Nav &amp; Tabs"></iframe></div>
+        <a class="open-link" href="nav.html">↗ open standalone</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="group" id="brand">
+    <h2>Brand</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Logos</h3>
+        <p class="subtitle">Logo on cream, honey, and hive backgrounds</p>
+        <div class="frame-wrap"><iframe src="logos.html" width="700" height="220" loading="lazy" title="Logos"></iframe></div>
+        <a class="open-link" href="logos.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Iconography</h3>
+        <p class="subtitle">Lucide stroke set — thin, 1.5px, rounded</p>
+        <div class="frame-wrap"><iframe src="iconography.html" width="700" height="260" loading="lazy" title="Iconography"></iframe></div>
+        <a class="open-link" href="iconography.html">↗ open standalone</a>
+      </div>
+      <div class="card">
+        <h3>Tone of Voice</h3>
+        <p class="subtitle">Oui / Non — micro-copy examples</p>
+        <div class="frame-wrap"><iframe src="tone.html" width="700" height="260" loading="lazy" title="Tone of Voice"></iframe></div>
+        <a class="open-link" href="tone.html">↗ open standalone</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>
