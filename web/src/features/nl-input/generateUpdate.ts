@@ -1,6 +1,6 @@
 import { api } from '../../api/client'
 import type { Project } from '../../api/types'
-import { mergeDraft } from './mergeDraft'
+import { mergeDraft, type MergeResult } from './mergeDraft'
 
 // Doit rester cohérent avec maxTextLength côté serveur
 // (internal/service/generate_service.go) : au-delà, la génération est de
@@ -57,7 +57,7 @@ export function buildProjectContext(project: Project): string {
 // exprimer une modification (ex. "améliore la description de X") autrement
 // qu'en la laissant sans effet, faute d'avoir connaissance de ce qui existe
 // déjà (voir ADR-040).
-export async function generateAndMerge(project: Project, text: string): Promise<Project> {
+export async function generateAndMerge(project: Project, text: string): Promise<MergeResult> {
   const context = buildProjectContext(project)
   let composite = context ? `${context}\n\n### Demande de mise à jour\n${text}` : text
   if (composite.length > MAX_TEXT_LENGTH) {

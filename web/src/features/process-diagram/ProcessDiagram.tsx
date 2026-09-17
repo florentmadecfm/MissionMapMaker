@@ -455,6 +455,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
   const [updateNotConfigured, setUpdateNotConfigured] = useState(false)
+  const [updateNoEffect, setUpdateNoEffect] = useState(false)
 
   // Annuler/rétablir une action du diagramme — pile locale d'états
   // précédents, indépendante de la sauvegarde automatique (ProjectShell.tsx) :
@@ -544,8 +545,19 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
     setUpdating(true)
     setUpdateError(null)
     setUpdateNotConfigured(false)
+    setUpdateNoEffect(false)
     try {
-      commitChange(await generateAndMerge(project, updateText))
+      const { project: updated, changed } = await generateAndMerge(project, updateText)
+      if (!changed) {
+        // Ébauche vide ou noms d'acteur/phase/activité non reconnus : ne
+        // rien changer en silence, sans quoi la demande semble n'avoir
+        // simplement pas été prise en compte — voir mergeDraft.ts. Le
+        // texte reste dans le champ pour permettre de le reformuler sans
+        // tout retaper.
+        setUpdateNoEffect(true)
+        return
+      }
+      commitChange(updated)
       setUpdateText('')
     } catch (e) {
       const message = String(e)
@@ -824,6 +836,13 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
         <div className="nl-warning">
           Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
           la barre latérale pour en saisir une, ou utilisez l'édition manuelle.
+        </div>
+      )}
+      {updateNoEffect && (
+        <div className="nl-warning">
+          Cette demande n'a entraîné aucun ajout ni modification détectable — reformulez-la en étant plus explicite
+          (par ex. en reprenant les noms exacts des personas/phases/activités déjà présents), ou apportez le
+          changement manuellement dans l'onglet Édition.
         </div>
       )}
       {updateError && <p className="error">{updateError}</p>}

@@ -40,6 +40,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [pdfInfo, setPdfInfo] = useState<string | null>(null)
+  const [noEffect, setNoEffect] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleGenerate() {
@@ -47,8 +48,19 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
     setLoading(true)
     setError(null)
     setNotConfigured(false)
+    setNoEffect(false)
     try {
-      onChange(await generateAndMerge(project, text))
+      const { project: updated, changed } = await generateAndMerge(project, text)
+      if (!changed) {
+        // Rien n'a pu être ajouté/modifié (ébauche vide, ou noms d'acteur/
+        // phase/activité non reconnus) : le laisser passer pour un succès
+        // silencieux donnerait l'impression d'un bug plutôt que d'inviter
+        // à reformuler — voir mergeDraft.ts/MergeResult. Le texte est
+        // conservé pour permettre un ajustement sans tout retaper.
+        setNoEffect(true)
+        return
+      }
+      onChange(updated)
       onGenerated()
     } catch (e) {
       const message = String(e)
@@ -140,6 +152,13 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
         <div className="nl-warning">
           Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
           la barre latérale pour en saisir une, ou utilisez la saisie manuelle dans l'onglet Édition.
+        </div>
+      )}
+      {noEffect && (
+        <div className="nl-warning">
+          Cette demande n'a entraîné aucun ajout ni modification détectable — reformulez-la en étant plus explicite
+          (par ex. en reprenant les noms exacts des personas/phases/activités déjà présents), ou apportez le
+          changement manuellement dans l'onglet Édition.
         </div>
       )}
       {error && <p className="error">{error}</p>}
