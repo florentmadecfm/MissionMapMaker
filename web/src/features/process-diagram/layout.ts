@@ -817,10 +817,26 @@ export function computeDropTarget(
       (centerY < actorHeaders[0].position.y ? actorHeaders[0] : actorHeaders[actorHeaders.length - 1]))
 
   const ownPhaseHeader = ownPhaseId ? phaseHeaders.find((n) => n.id === `phase-header-${ownPhaseId}`) : undefined
+  // La marge collante ci-dessous (jusqu'à une SUBCOLUMN_WIDTH au-delà du
+  // bord propre de la phase) ne doit jamais empiéter sur la phase
+  // SUIVANTE quand il y en a une : les phases sont dessinées bord à bord,
+  // sans espace entre elles (phaseOffsets, plus haut), donc au-delà de son
+  // propre bord droit, l'ombre de dépose se retrouve visuellement DANS la
+  // phase suivante — sans ce plafond, un dépôt qui semblait viser cette
+  // phase suivante restait pourtant rattaché à la phase d'origine (une
+  // sous-colonne fantôme s'y ajoutait) au lieu d'y déplacer réellement la
+  // carte. Une phase sans voisine (la dernière) garde la marge complète :
+  // rien n'y est rendu au-delà, aucune ambiguïté possible.
+  const ownPhaseIndex = ownPhaseHeader ? phaseHeaders.indexOf(ownPhaseHeader) : -1
+  const nextPhaseHeader = ownPhaseIndex >= 0 ? phaseHeaders[ownPhaseIndex + 1] : undefined
   const staysOwnPhase =
     ownPhaseHeader !== undefined &&
     centerX >= ownPhaseHeader.position.x &&
-    centerX < ownPhaseHeader.position.x + (ownPhaseHeader.data.width as number) + SUBCOLUMN_WIDTH
+    centerX <
+      Math.min(
+        ownPhaseHeader.position.x + (ownPhaseHeader.data.width as number) + SUBCOLUMN_WIDTH,
+        nextPhaseHeader ? nextPhaseHeader.position.x : Infinity,
+      )
 
   const phaseColumn = staysOwnPhase
     ? ownPhaseHeader
