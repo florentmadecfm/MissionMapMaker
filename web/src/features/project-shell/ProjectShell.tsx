@@ -619,7 +619,12 @@ export function ProjectShell() {
               />
             )}
             {tab === 'specifications' && (
-              <SpecificationsPanel key={project.id} project={workingProject} onChange={handleWorkingChange} />
+              <SpecificationsPanel
+                key={project.id}
+                project={workingProject}
+                onChange={handleWorkingChange}
+                forcedSubTab={tourOpen ? TOUR_STEPS[tourStep].specSubTab : undefined}
+              />
             )}
             {tab === 'acteur' && (
               <ActorView key={project.id} project={workingProject} onChange={handleWorkingChange} initialActorId={initialActorId} />

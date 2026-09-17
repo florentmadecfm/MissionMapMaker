@@ -2235,6 +2235,12 @@
   text-align: center;
   padding-top: 2.5rem;
   animation: modal-in 0.18s var(--ease);
+  /* max-height posé dynamiquement (WelcomeTour.tsx, cardPos.maxHeight) à
+     l'espace réellement disponible du côté choisi de l'élément en
+     surbrillance — jamais dépassé, quelle que soit la longueur du texte
+     de l'étape, pour ne jamais chevaucher cet élément. Défilement interne
+     plutôt que débordement si le texte ne tient malgré tout pas. */
+  overflow-y: auto;
 }
 
 .welcome-tour-centered {

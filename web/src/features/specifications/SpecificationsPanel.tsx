@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Project, Specification, SpecificationType } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
@@ -45,14 +45,24 @@ const SPEC_TYPES: { value: SpecificationType; label: string }[] = [
 interface Props {
   project: Project
   onChange: (project: Project) => void
+  // Sous-onglet imposé par la visite guidée (WelcomeTour.tsx, via
+  // ProjectShell.tsx) — undefined en usage normal, où subTab reste piloté
+  // uniquement par les clics ci-dessous. Une étape de la visite qui vise
+  // les tests V&V doit d'abord y amener l'utilisateur, exactement comme
+  // TOUR_STEPS[i].tab bascule déjà l'onglet principal (tourSteps.ts).
+  forcedSubTab?: SubTab
 }
 
-type SubTab = 'specifications' | 'tests' | 'matrix'
+export type SubTab = 'specifications' | 'tests' | 'matrix'
 
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function SpecificationsPanel({ project, onChange }: Props) {
+export function SpecificationsPanel({ project, onChange, forcedSubTab }: Props) {
   const [subTab, setSubTab] = useState<SubTab>('specifications')
+
+  useEffect(() => {
+    if (forcedSubTab) setSubTab(forcedSubTab)
+  }, [forcedSubTab])
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateNotConfigured, setGenerateNotConfigured] = useState(false)

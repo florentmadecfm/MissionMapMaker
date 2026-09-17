@@ -42,7 +42,7 @@ export function WelcomeTour({ step, onNext, onPrev, onClose }: Props) {
 
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
-  const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null)
+  const [cardPos, setCardPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null)
 
   // Mesure (et re-mesure à intervalle) l'élément ciblé par cette étape —
   // absent tant que l'onglet/écran visé n'a pas fini de se rendre (voir
@@ -68,20 +68,34 @@ export function WelcomeTour({ step, onNext, onPrev, onClose }: Props) {
   // dessous s'il y a la place, sinon au-dessus), recalculé à chaque
   // déplacement de la cible ou changement de taille de la carte
   // elle-même (le texte d'une étape à l'autre n'a pas la même longueur).
+  //
+  // Choisit le côté qui offre le plus de place plutôt que de toujours
+  // préférer "en dessous" puis se rabattre sur un unique `Math.max(top,
+  // CARD_MARGIN)` : cette dernière étape pouvait, pour une cible proche du
+  // haut de l'écran avec une carte trop haute pour l'espace disponible
+  // au-dessus, repousser la carte jusqu'à chevaucher la zone en
+  // surbrillance elle-même. `maxHeight` borne désormais la carte à
+  // l'espace réellement disponible du côté choisi (avec défilement
+  // interne, voir .welcome-tour en CSS) : elle ne peut alors plus jamais
+  // déborder sur la cible, quelle que soit la longueur de son texte.
   useLayoutEffect(() => {
     if (!targetRect || !cardRef.current) {
       setCardPos(null)
       return
     }
     const cardRect = cardRef.current.getBoundingClientRect()
-    let top = targetRect.bottom + SPOTLIGHT_PADDING + CARD_MARGIN
-    if (top + cardRect.height > window.innerHeight - CARD_MARGIN) {
-      top = targetRect.top - SPOTLIGHT_PADDING - CARD_MARGIN - cardRect.height
-    }
-    top = Math.max(top, CARD_MARGIN)
+    const spotlightTop = targetRect.top - SPOTLIGHT_PADDING
+    const spotlightBottom = targetRect.bottom + SPOTLIGHT_PADDING
+    const spaceAbove = spotlightTop - CARD_MARGIN * 2
+    const spaceBelow = window.innerHeight - CARD_MARGIN * 2 - spotlightBottom
+    const placeBelow = spaceBelow >= cardRect.height || spaceBelow >= spaceAbove
+    const maxHeight = Math.max(placeBelow ? spaceBelow : spaceAbove, 120)
+    const top = placeBelow
+      ? spotlightBottom + CARD_MARGIN
+      : Math.max(CARD_MARGIN, spotlightTop - CARD_MARGIN - Math.min(cardRect.height, maxHeight))
     let left = targetRect.left + targetRect.width / 2 - cardRect.width / 2
     left = Math.min(Math.max(left, CARD_MARGIN), window.innerWidth - cardRect.width - CARD_MARGIN)
-    setCardPos({ top, left })
+    setCardPos({ top, left, maxHeight })
   }, [targetRect])
 
   return (
@@ -102,7 +116,7 @@ export function WelcomeTour({ step, onNext, onPrev, onClose }: Props) {
       <div
         ref={cardRef}
         className={`welcome-tour${cardPos ? '' : ' welcome-tour-centered'}`}
-        style={cardPos ? { top: cardPos.top, left: cardPos.left } : undefined}
+        style={cardPos ? { top: cardPos.top, left: cardPos.left, maxHeight: cardPos.maxHeight } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         <button type="button" className="welcome-tour-skip" onClick={onClose}>
