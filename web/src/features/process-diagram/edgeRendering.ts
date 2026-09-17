@@ -6,9 +6,9 @@ import type { LayoutEdge } from './layout'
 // VariantComparisonScreen.tsx/missionDiff.ts) — absent (undefined) hors
 // de ce contexte, le fond blanc habituel s'applique alors.
 const DIFF_LABEL_BG: Record<DiffStatus, string> = {
-  added: '#dcfce7',
-  removed: '#fee2e2',
-  modified: '#fef3c7',
+  added: '#e3f3ec',
+  removed: '#fae9e7',
+  modified: '#faf0dc',
 }
 
 // Rendu des flèches du diagramme (dégradé de couleur, style pointillé

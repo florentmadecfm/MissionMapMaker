@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
   <defs>
     <linearGradient id="mmm-logo-gradient" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6366f1" />
-      <stop offset="1" stop-color="#4338ca" />
+      <stop stop-color="#283848" />
+      <stop offset="1" stop-color="#1d2a37" />
     </linearGradient>
   </defs>
   <rect width="24" height="24" rx="6" fill="url(#mmm-logo-gradient)" />
-  <path d="M7 17 L12 12 L17 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-  <circle cx="7" cy="17" r="1.8" fill="#fff" />
-  <circle cx="12" cy="12" r="1.8" fill="#fff" />
-  <circle cx="17" cy="7" r="1.8" fill="#fff" />
+  <path d="M7 17 L12 12 L17 7" stroke="#e8d000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <circle cx="7" cy="17" r="1.8" fill="#e8d000" />
+  <circle cx="12" cy="12" r="1.8" fill="#e8d000" />
+  <circle cx="17" cy="7" r="1.8" fill="#e8d000" />
 </svg>
