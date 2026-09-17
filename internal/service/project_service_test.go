@@ -187,6 +187,73 @@ func TestGet_NewActorAdoptsExistingSharedProfileInstead(t *testing.T) {
 	}
 }
 
+// La fiche persona partagée (ADR-056) doit aussi être fusionnée côté
+// Cible (Project.Target), pas seulement côté Actuel — sinon un persona du
+// même nom des deux côtés (le cas courant : la cible copie l'Actuel au
+// départ, activeVariant.ts) ressort à tort comme "modifié" dans la
+// comparaison Actuel/Cible dès que ce nom a une fiche partagée non vide
+// (missionDiff.ts, actorChangedFields), sans qu'aucun changement réel
+// n'ait été fait sur ce persona.
+func TestGet_SharesActorProfileWithTargetVariantToo(t *testing.T) {
+	dir := t.TempDir()
+	repo := storage.NewRepository(dir)
+	svc := NewProjectService(repo, storage.NewActorProfileStore(dir))
+
+	restaurant, err := svc.Create("Restaurant")
+	if err != nil {
+		t.Fatalf("Create restaurant: %v", err)
+	}
+	restaurant.Actors = []domain.Actor{{
+		ID: "act1", Name: "Serveur", Color: "#111",
+		About: "Gère le service en salle",
+		Goals: []domain.ActorGoal{{ID: "g1", Text: "Satisfaire les clients"}},
+	}}
+	if _, err := svc.Update(restaurant.ID, restaurant); err != nil {
+		t.Fatalf("Update restaurant: %v", err)
+	}
+
+	hotel, err := svc.Create("Hôtel de luxe")
+	if err != nil {
+		t.Fatalf("Create hotel: %v", err)
+	}
+	// Actuel et Cible ont chacun un "Serveur" fraîchement créé (jamais
+	// fusionné via Get), fiche locale vide par construction des deux
+	// côtés — comme le ferait createTargetFromCurrent en copiant l'Actuel
+	// tel quel à la création de la cible (activeVariant.ts).
+	hotel.Actors = []domain.Actor{{ID: "act2", Name: "Serveur", Color: "#222"}}
+	hotel.Target = &domain.ProjectVariant{
+		Label:  "Cible",
+		Actors: []domain.Actor{{ID: "act2", Name: "Serveur", Color: "#222"}},
+	}
+	saved, err := svc.Update(hotel.ID, hotel)
+	if err != nil {
+		t.Fatalf("Update hotel: %v", err)
+	}
+
+	if saved.Actors[0].About != "Gère le service en salle" {
+		t.Errorf("expected the current-side actor to adopt the shared profile, got About=%q", saved.Actors[0].About)
+	}
+	if saved.Target == nil || len(saved.Target.Actors) != 1 {
+		t.Fatalf("expected target to be preserved with 1 actor, got %+v", saved.Target)
+	}
+	if saved.Target.Actors[0].About != "Gère le service en salle" {
+		t.Errorf("expected the target-side actor to ALSO adopt the shared profile, got About=%q", saved.Target.Actors[0].About)
+	}
+	if len(saved.Target.Actors[0].Goals) != 1 || saved.Target.Actors[0].Goals[0].Text != "Satisfaire les clients" {
+		t.Errorf("expected the target-side actor to adopt the shared Goals too, got %+v", saved.Target.Actors[0].Goals)
+	}
+
+	// Un Get ultérieur doit rester cohérent des deux côtés (pas seulement
+	// juste après ce Update).
+	got, err := svc.Get(hotel.ID)
+	if err != nil {
+		t.Fatalf("Get hotel: %v", err)
+	}
+	if got.Target.Actors[0].About != "Gère le service en salle" {
+		t.Errorf("expected shared profile to still apply to target after a fresh Get, got About=%q", got.Target.Actors[0].About)
+	}
+}
+
 // Un acteur sans nom (ligne vide/espaces) après nettoyage ne doit pas
 // produire un ActorSummary fantôme.
 func TestListActors_IgnoresBlankActorNames(t *testing.T) {

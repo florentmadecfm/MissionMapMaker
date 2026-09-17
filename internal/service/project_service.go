@@ -41,80 +41,120 @@ func (s *ProjectService) Get(id string) (*domain.Project, error) {
 }
 
 // mergeActorProfiles écrase About/Bio/Goals/PainPoints/PortraitImage de
-// chaque acteur du projet par la fiche partagée correspondante (voir
-// storage.ActorProfileStore, ADR-056), quand elle existe — un acteur jamais
-// sauvegardé depuis l'introduction de ce mécanisme (ou dont le nom ne
-// correspond à aucune fiche partagée) garde simplement les valeurs déjà
-// présentes dans le fichier du projet.
+// chaque acteur du projet — Actuel ET Cible (Target), quand elle en a une —
+// par la fiche partagée correspondante (voir storage.ActorProfileStore,
+// ADR-056), quand elle existe. Un acteur jamais sauvegardé depuis
+// l'introduction de ce mécanisme (ou dont le nom ne correspond à aucune
+// fiche partagée) garde simplement les valeurs déjà présentes dans le
+// fichier du projet.
 func (s *ProjectService) mergeActorProfiles(p *domain.Project) error {
 	profiles, err := s.profiles.LoadAll()
 	if err != nil {
 		return err
 	}
-	for i := range p.Actors {
-		key := storage.ProfileKey(p.Actors[i].Name)
-		if profile, ok := profiles[key]; ok {
-			p.Actors[i].About = profile.About
-			p.Actors[i].Bio = profile.Bio
-			p.Actors[i].Goals = profile.Goals
-			p.Actors[i].PainPoints = profile.PainPoints
-			p.Actors[i].PortraitImage = profile.PortraitImage
-		}
+	applyActorProfiles(p.Actors, profiles)
+	if p.Target != nil {
+		applyActorProfiles(p.Target.Actors, profiles)
 	}
 	return nil
 }
 
-// syncActorProfiles republie la fiche de chaque acteur du projet dans le
-// store partagé — appelé avant Repository.Save, pour que la fiche
-// modifiée soit immédiatement visible depuis les autres missions au
-// prochain Get (voir ADR-056). Un nom vide (acteur en cours de saisie,
-// pas encore nommé) est ignoré plutôt que de polluer le store d'une clé
-// vide.
+func applyActorProfiles(actors []domain.Actor, profiles map[string]domain.ActorProfile) {
+	for i := range actors {
+		key := storage.ProfileKey(actors[i].Name)
+		if profile, ok := profiles[key]; ok {
+			actors[i].About = profile.About
+			actors[i].Bio = profile.Bio
+			actors[i].Goals = profile.Goals
+			actors[i].PainPoints = profile.PainPoints
+			actors[i].PortraitImage = profile.PortraitImage
+		}
+	}
+}
+
+// syncActorProfiles republie la fiche de chaque acteur du projet — Actuel
+// ET Cible (Target), quand elle en a une — dans le store partagé, appelé
+// avant Repository.Save, pour que la fiche modifiée soit immédiatement
+// visible depuis les autres missions au prochain Get (voir ADR-056). Un
+// nom vide (acteur en cours de saisie, pas encore nommé) est ignoré plutôt
+// que de polluer le store d'une clé vide.
 //
-// Pour un acteur dont l'ID n'existait PAS déjà dans `existing` (donc
+// Pour un acteur dont l'ID n'existait PAS déjà côté `existing` (donc
 // nouvellement apparu dans cette requête), la fiche est au contraire
 // ADOPTÉE depuis le store plutôt qu'écrasée : le client qui vient de
 // créer cet acteur localement n'est jamais passé par Get pour ce nom, sa
 // fiche locale est donc vide par construction — la publier telle quelle
-// effacerait la fiche déjà partagée sous ce nom par une autre mission.
-// Un acteur déjà connu (même ID côté `existing`), lui, est toujours
-// republié tel quel : soit c'est une vraie modification à propager, soit
-// c'est la copie déjà fusionnée reçue au dernier Get, republier ne
-// change alors rien.
+// effacerait la fiche déjà partagée sous ce nom par une autre mission. Un
+// acteur déjà connu (même ID côté `existing`), lui, est toujours republié
+// tel quel : soit c'est une vraie modification à propager, soit c'est la
+// copie déjà fusionnée reçue au dernier Get, republier ne change alors
+// rien. Le Cible est comparé à la Cible EXISTANTE (jamais à l'Actuel
+// existant) : un acteur de la cible qui partage l'id d'un acteur actuel
+// (copié tel quel par createTargetFromCurrent, activeVariant.ts) est
+// "déjà connu" dès la création de la cible, pas seulement après un
+// premier aller-retour Get propre à la cible.
+//
+// Avant ce correctif, seul p.Actors était traité ici et dans
+// mergeActorProfiles ci-dessus : les 4 champs de fiche d'un acteur de la
+// cible restaient ceux, souvent vides, écrits tels quels dans le fichier
+// du projet, jamais fusionnés avec le store partagé — un persona du même
+// nom des deux côtés (le cas courant : la cible copie l'Actuel) ressortait
+// alors à tort comme "modifié" dans la comparaison Actuel/Cible dès que ce
+// nom avait une fiche partagée non vide (missionDiff.ts, actorChangedFields).
 func (s *ProjectService) syncActorProfiles(p, existing *domain.Project) error {
-	existingIDs := make(map[string]struct{}, len(existing.Actors))
-	for _, a := range existing.Actors {
-		existingIDs[a.ID] = struct{}{}
-	}
-
 	profiles, err := s.profiles.LoadAll()
 	if err != nil {
 		return err
 	}
 
-	updates := make(map[string]domain.ActorProfile, len(p.Actors))
-	for i := range p.Actors {
-		key := storage.ProfileKey(p.Actors[i].Name)
+	updates := make(map[string]domain.ActorProfile)
+	syncActorProfilesInto(p.Actors, existingActorIDs(existing.Actors), profiles, updates)
+	if p.Target != nil {
+		var existingTargetActors []domain.Actor
+		if existing.Target != nil {
+			existingTargetActors = existing.Target.Actors
+		}
+		syncActorProfilesInto(p.Target.Actors, existingActorIDs(existingTargetActors), profiles, updates)
+	}
+	return s.profiles.Upsert(updates)
+}
+
+func existingActorIDs(actors []domain.Actor) map[string]struct{} {
+	ids := make(map[string]struct{}, len(actors))
+	for _, a := range actors {
+		ids[a.ID] = struct{}{}
+	}
+	return ids
+}
+
+// syncActorProfilesInto traite une seule collection d'acteurs (Actuel ou
+// Cible) : adopte la fiche partagée pour un acteur nouvellement apparu
+// (voir syncActorProfiles ci-dessus), sinon programme la republication de
+// sa fiche locale dans `updates` — partagé entre les deux appels
+// (Actuel/Cible) pour qu'un même nom présent des deux côtés ne s'écrive
+// qu'une fois, avec la valeur du dernier traité.
+func syncActorProfilesInto(actors []domain.Actor, existingIDs map[string]struct{}, profiles, updates map[string]domain.ActorProfile) {
+	for i := range actors {
+		key := storage.ProfileKey(actors[i].Name)
 		if key == "" {
 			continue
 		}
-		if _, known := existingIDs[p.Actors[i].ID]; !known {
+		if _, known := existingIDs[actors[i].ID]; !known {
 			if profile, ok := profiles[key]; ok {
-				p.Actors[i].About = profile.About
-				p.Actors[i].Bio = profile.Bio
-				p.Actors[i].Goals = profile.Goals
-				p.Actors[i].PainPoints = profile.PainPoints
-				p.Actors[i].PortraitImage = profile.PortraitImage
+				actors[i].About = profile.About
+				actors[i].Bio = profile.Bio
+				actors[i].Goals = profile.Goals
+				actors[i].PainPoints = profile.PainPoints
+				actors[i].PortraitImage = profile.PortraitImage
 				continue
 			}
 		}
 		updates[key] = domain.ActorProfile{
-			About: p.Actors[i].About, Bio: p.Actors[i].Bio,
-			Goals: p.Actors[i].Goals, PainPoints: p.Actors[i].PainPoints,
-			PortraitImage: p.Actors[i].PortraitImage,
+			About: actors[i].About, Bio: actors[i].Bio,
+			Goals: actors[i].Goals, PainPoints: actors[i].PainPoints,
+			PortraitImage: actors[i].PortraitImage,
 		}
 	}
-	return s.profiles.Upsert(updates)
 }
 
 func (s *ProjectService) Create(name string) (*domain.Project, error) {
