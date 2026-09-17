@@ -68,7 +68,11 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
-  function removeActor(id: string) {
+  // Confirmation requise : supprime aussi, en cascade, toutes les
+  // activités de ce persona — même garde-fou que removePhase/
+  // removeActivity/removeInteraction ci-dessous.
+  function removeActor(id: string, name: string) {
+    if (!window.confirm(`Supprimer le persona « ${name} » ? Ses activités dans le diagramme seront aussi supprimées.`)) return
     onChange({
       ...project,
       actors: project.actors.filter((a) => a.id !== id),
@@ -96,7 +100,10 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
-  function removePhase(id: string) {
+  // Confirmation requise : supprime aussi, en cascade, toutes les
+  // activités de cette phase.
+  function removePhase(id: string, name: string) {
+    if (!window.confirm(`Supprimer la phase « ${name} » ? Ses activités dans le diagramme seront aussi supprimées.`)) return
     onChange({
       ...project,
       phases: project.phases.filter((p) => p.id !== id),
@@ -157,7 +164,10 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
-  function removeActivity(id: string) {
+  // Confirmation requise : supprime aussi, en cascade, toutes les
+  // interactions qui partent ou arrivent sur cette activité.
+  function removeActivity(id: string, name: string) {
+    if (!window.confirm(`Supprimer l'activité « ${name} » ? Les interactions qui la concernent seront aussi supprimées.`)) return
     onChange({
       ...project,
       activities: project.activities.filter((a) => a.id !== id),
@@ -185,7 +195,8 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
-  function removeInteraction(id: string) {
+  function removeInteraction(id: string, information: string) {
+    if (!window.confirm(`Supprimer l'interaction « ${information} » ?`)) return
     onChange({ ...project, interactions: project.interactions.filter((i) => i.id !== id) })
   }
 
@@ -273,7 +284,7 @@ export function ProjectEditor({ project, onChange }: Props) {
                 />
                 back-stage
               </label>
-              <button type="button" className="danger" onClick={() => removeActor(a.id)}>
+              <button type="button" className="danger" onClick={() => removeActor(a.id, a.name)}>
                 supprimer
               </button>
             </li>
@@ -385,7 +396,7 @@ export function ProjectEditor({ project, onChange }: Props) {
                   <ChevronRight size={14} />
                 </button>
               </span>
-              <button type="button" className="danger" onClick={() => removePhase(p.id)}>
+              <button type="button" className="danger" onClick={() => removePhase(p.id, p.name)}>
                 supprimer
               </button>
             </li>
@@ -438,7 +449,7 @@ export function ProjectEditor({ project, onChange }: Props) {
                   </option>
                 ))}
               </select>
-              <button type="button" className="danger" onClick={() => removeActivity(act.id)}>
+              <button type="button" className="danger" onClick={() => removeActivity(act.id, act.name)}>
                 supprimer
               </button>
             </li>
@@ -521,7 +532,7 @@ export function ProjectEditor({ project, onChange }: Props) {
                 placeholder="Ex. reçu papier"
                 title={i.physicalEvidence || undefined}
               />
-              <button type="button" className="danger" onClick={() => removeInteraction(i.id)}>
+              <button type="button" className="danger" onClick={() => removeInteraction(i.id, i.information)}>
                 supprimer
               </button>
             </li>
