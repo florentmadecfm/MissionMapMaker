@@ -58,12 +58,24 @@ export function DiffList({ entries, selected, onSelect }: Props) {
             <ul>
               {kindEntries.map((entry) => {
                 const isSelected = selected?.kind === entry.kind && selected.id === entry.id
+                // Ligne(s) tronquées avec ellipse (grille resserrée sur
+                // plusieurs colonnes, ADR-083) : l'infobulle native reste
+                // le seul moyen de lire le texte complet sans avoir à le
+                // sélectionner sur le diagramme lui-même.
+                const tooltip = [
+                  entry.label,
+                  entry.subtitle,
+                  entry.changedFields && entry.changedFields.length > 0 ? `Modifié : ${entry.changedFields.join(', ')}` : undefined,
+                ]
+                  .filter(Boolean)
+                  .join('\n')
                 return (
                   <li key={entry.id} className={`diff-list-entry diff-list-entry-${entry.status}${isSelected ? ' diff-list-entry-selected' : ''}`}>
                     <button
                       type="button"
                       className="diff-list-entry-button"
                       aria-pressed={isSelected}
+                      title={tooltip}
                       onClick={() => onSelect(isSelected ? null : { kind: entry.kind, id: entry.id })}
                     >
                       <span className={`diff-list-entry-tag diff-list-entry-tag-${entry.status}`}>{STATUS_LABELS[entry.status]}</span>
