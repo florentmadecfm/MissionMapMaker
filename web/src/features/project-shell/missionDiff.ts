@@ -71,9 +71,16 @@ function painPointTexts(points: Activity['painPoints']): string {
 function activityChangedFields(a: Activity, b: Activity): string[] {
   const fields: string[] = []
   if (a.name !== b.name) fields.push('nom')
+  const samePersonaAndPhase = a.actorId === b.actorId && a.phaseId === b.phaseId
   if (a.actorId !== b.actorId) fields.push('persona')
   if (a.phaseId !== b.phaseId) fields.push('phase')
-  if (a.order !== b.order) fields.push('ordre')
+  // Un simple réordonnancement au sein du MÊME persona/de la MÊME phase
+  // (glisser-déposer dans la pile, ou la simple conséquence d'un autre
+  // ajout/suppression d'activité voisine décalant les `order`) ne
+  // constitue pas un changement de contenu du processus — seul un
+  // changement de persona/phase rend un écart d'`order` significatif
+  // (l'activité a réellement changé de place dans le récit).
+  if (a.order !== b.order && !samePersonaAndPhase) fields.push('ordre')
   if (a.description !== b.description) fields.push('description')
   if (JSON.stringify(a.userStories) !== JSON.stringify(b.userStories)) fields.push('user stories')
   if (painPointTexts(a.painPoints) !== painPointTexts(b.painPoints)) fields.push('points de friction')
