@@ -929,6 +929,19 @@
   border-color: var(--color-border);
 }
 
+.editor-product-select {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.editor-product-select select {
+  font-size: 0.85rem;
+}
+
 .project-name:focus {
   border-color: var(--color-primary);
   box-shadow: var(--shadow-focus);
@@ -2087,6 +2100,53 @@
   margin: -0.4rem 0 0;
   color: var(--color-text-muted);
   font-size: 0.85rem;
+}
+
+/* ---------- Écran Produits (vision, différenciateurs, piliers, KPI) ---------- */
+
+.products-screen textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.add-item-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.add-item-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-kpi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.product-kpi-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  padding: 0.3rem 0.4rem;
+  font-size: 0.76rem;
+}
+
+.product-kpi-table td {
+  padding: 0.25rem 0.4rem;
+}
+
+.product-kpi-table input,
+.product-kpi-table select {
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.products-save-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 /* ---------- Modale Paramètres ---------- */

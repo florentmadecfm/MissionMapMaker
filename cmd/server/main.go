@@ -21,11 +21,12 @@ func main() {
 	repo := storage.NewRepository(dataDir)
 	profiles := storage.NewActorProfileStore(dataDir)
 	projects := service.NewProjectService(repo, profiles)
+	products := service.NewProductService(storage.NewProductStore(dataDir))
 
 	generate := setupGenerateService()
 	images := setupImageService()
 
-	router := api.NewRouter(projects, generate, images)
+	router := api.NewRouter(projects, generate, images, products)
 
 	log.Printf("Pulse.MissionMap API sur %s (données : %s)", addr, dataDir)
 	if err := http.ListenAndServe(addr, router); err != nil {

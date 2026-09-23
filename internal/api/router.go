@@ -26,15 +26,23 @@ type Handler struct {
 	// h.images.Configured() renvoie false, les handlers concernés
 	// répondent alors llm.ErrNotConfigured, jamais de panique.
 	images *service.ImageService
+	// products : produits (vision, différenciateurs, piliers, KPI) —
+	// entité indépendante des missions, voir service.ProductService.
+	products *service.ProductService
 }
 
-func NewRouter(projects *service.ProjectService, generate *service.GenerateService, images *service.ImageService) http.Handler {
-	h := &Handler{projects: projects, generate: generate, images: images}
+func NewRouter(projects *service.ProjectService, generate *service.GenerateService, images *service.ImageService, products *service.ProductService) http.Handler {
+	h := &Handler{projects: projects, generate: generate, images: images, products: products}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/projects", h.listProjects)
 	mux.HandleFunc("GET /api/actors", h.listActors)
 	mux.HandleFunc("POST /api/projects", h.createProject)
+	mux.HandleFunc("GET /api/products", h.listProducts)
+	mux.HandleFunc("POST /api/products", h.createProduct)
+	mux.HandleFunc("GET /api/products/{id}", h.getProduct)
+	mux.HandleFunc("PUT /api/products/{id}", h.updateProduct)
+	mux.HandleFunc("DELETE /api/products/{id}", h.deleteProduct)
 	mux.HandleFunc("GET /api/projects/{id}", h.getProject)
 	mux.HandleFunc("PUT /api/projects/{id}", h.updateProject)
 	mux.HandleFunc("DELETE /api/projects/{id}", h.deleteProject)
@@ -145,6 +153,79 @@ func (h *Handler) updateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, updated)
+}
+
+// listProducts renvoie tous les produits (vision, différenciateurs,
+// piliers, KPI), consommé par l'écran Produits (indépendant de tout
+// projet ouvert).
+func (h *Handler) listProducts(w http.ResponseWriter, r *http.Request) {
+	products, err := h.products.List()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, products)
+}
+
+func (h *Handler) createProduct(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	p, err := h.products.Create(body.Name)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, p)
+}
+
+func (h *Handler) getProduct(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	p, err := h.products.Get(id)
+	if err != nil {
+		if errors.Is(err, storage.ErrProductNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+func (h *Handler) updateProduct(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var p domain.Product
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	updated, err := h.products.Update(id, p)
+	if err != nil {
+		if errors.Is(err, storage.ErrProductNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h *Handler) deleteProduct(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := h.products.Delete(id); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // listVersions expose l'historique consultable des sauvegardes passées

@@ -44,7 +44,7 @@ func (r *Repository) List() ([]ProjectSummary, error) {
 
 	summaries := make([]ProjectSummary, 0, len(projects))
 	for _, p := range projects {
-		summaries = append(summaries, ProjectSummary{ID: p.ID, Name: p.Name, UpdatedAt: p.UpdatedAt})
+		summaries = append(summaries, ProjectSummary{ID: p.ID, Name: p.Name, UpdatedAt: p.UpdatedAt, ProductID: p.ProductID})
 	}
 
 	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
@@ -83,6 +83,7 @@ type ProjectSummary struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	UpdatedAt time.Time `json:"updatedAt"`
+	ProductID *string   `json:"productId,omitempty"`
 }
 
 func (r *Repository) Load(id string) (*domain.Project, error) {

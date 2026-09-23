@@ -29,6 +29,16 @@ type Project struct {
 	// automatiquement à la première résolution de point de friction, voir
 	// mergePainPointResolution.ts).
 	Target *ProjectVariant `json:"target,omitempty"`
+
+	// ProductID référence le Produit (storage.ProductStore, ID de
+	// domain.Product) auquel cette mission est rattachée — nil tant
+	// qu'aucun produit n'a été choisi (sélecteur "Produit associé",
+	// onglet Édition), entièrement rétrocompatible. Contrairement à la
+	// fiche persona partagée (Actor.About/Bio/..., ADR-056, fusionnée par
+	// nom à chaque chargement), un Produit est une entité de première
+	// classe choisie explicitement par id : aucune fusion automatique,
+	// aucune donnée dupliquée depuis storage.ProductStore dans ce champ.
+	ProductID *string `json:"productId,omitempty"`
 }
 
 // ProjectVariant est le contenu d'un second état ("cible") du diagramme
