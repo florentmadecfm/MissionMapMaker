@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { classifyGenerationError } from '../../api/generationErrors'
 import type { Project } from '../../api/types'
 import { Spinner } from '../../components/Spinner'
 import { generateAndMerge } from './generateUpdate'
@@ -37,6 +38,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notConfigured, setNotConfigured] = useState(false)
+  const [rateLimited, setRateLimited] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [pdfInfo, setPdfInfo] = useState<string | null>(null)
@@ -48,6 +50,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
     setLoading(true)
     setError(null)
     setNotConfigured(false)
+    setRateLimited(false)
     setNoEffect(false)
     try {
       const { project: updated, changed } = await generateAndMerge(project, text)
@@ -63,11 +66,15 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
       onChange(updated)
       onGenerated()
     } catch (e) {
-      const message = String(e)
-      if (message.includes('clé API non configurée')) {
-        setNotConfigured(true)
-      } else {
-        setError(message)
+      switch (classifyGenerationError(e)) {
+        case 'not-configured':
+          setNotConfigured(true)
+          break
+        case 'rate-limited':
+          setRateLimited(true)
+          break
+        default:
+          setError(String(e))
       }
     } finally {
       setLoading(false)
@@ -152,6 +159,12 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
         <div className="nl-warning">
           Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
           la barre latérale pour en saisir une, ou utilisez la saisie manuelle dans l'onglet Édition.
+        </div>
+      )}
+      {rateLimited && (
+        <div className="nl-warning">
+          Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants, ou
+          changez de fournisseur depuis <strong>Paramètres</strong> si cela persiste.
         </div>
       )}
       {noEffect && (

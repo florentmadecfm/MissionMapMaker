@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -148,6 +149,14 @@ func TestMistralCall_GivesUpAfterMaxAttempts(t *testing.T) {
 	}
 	if got := atomic.LoadInt32(&attempts); got != mistralMaxAttempts {
 		t.Fatalf("expected %d attempts, got %d", mistralMaxAttempts, got)
+	}
+	// Bug rapporté en usage réel : l'erreur finale doit être identifiable
+	// comme ErrRateLimited (traduite en HTTP 429 par writeGenerateError,
+	// internal/api/router.go) plutôt qu'une erreur générique — sans quoi le
+	// frontend ne peut pas afficher un message explicite ("réessayez dans
+	// quelques instants") au lieu du texte brut "429 Too Many Requests".
+	if !errors.Is(err, ErrRateLimited) {
+		t.Fatalf("expected errors.Is(err, ErrRateLimited), got %v", err)
 	}
 }
 

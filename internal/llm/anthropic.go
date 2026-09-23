@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 
@@ -60,6 +61,22 @@ func toAnthropicTool(spec ToolSpec) anthropic.ToolUnionParam {
 	return anthropic.ToolUnionParam{OfTool: &tool}
 }
 
+// wrapAnthropicErr enveloppe une erreur d'appel à l'API Claude — le SDK
+// Anthropic retente déjà automatiquement 429/5xx en interne (contrairement
+// à Mistral, sans SDK Go officiel, voir mistral.go), donc une erreur reçue
+// ici a déjà survécu à ces tentatives : si c'est encore un 429 à ce stade,
+// l'envelopper avec ErrRateLimited (même sentinelle que Mistral) permet au
+// routeur HTTP (router.go) de répondre un statut 429 dédié plutôt que 502,
+// pour que le frontend affiche un message explicite plutôt que le texte
+// brut renvoyé par le fournisseur.
+func wrapAnthropicErr(err error) error {
+	var apiErr *anthropic.Error
+	if errors.As(err, &apiErr) && apiErr.StatusCode == 429 {
+		return fmt.Errorf("appel API Claude : %w : %v", ErrRateLimited, err)
+	}
+	return fmt.Errorf("appel API Claude : %w", err)
+}
+
 func (c *anthropicClient) GenerateProcess(ctx context.Context, text, systemPrompt string) (*DraftProcess, error) {
 	spec := extractProcessToolSpec()
 	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
@@ -74,7 +91,7 @@ func (c *anthropicClient) GenerateProcess(ctx context.Context, text, systemPromp
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("appel API Claude : %w", err)
+		return nil, wrapAnthropicErr(err)
 	}
 
 	for _, block := range resp.Content {
@@ -110,7 +127,7 @@ func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("appel API Claude : %w", err)
+		return nil, wrapAnthropicErr(err)
 	}
 
 	for _, block := range resp.Content {
@@ -150,7 +167,7 @@ func (c *anthropicClient) GeneratePainPointSolutions(ctx context.Context, painPo
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("appel API Claude : %w", err)
+		return nil, wrapAnthropicErr(err)
 	}
 
 	for _, block := range resp.Content {
@@ -193,7 +210,7 @@ func (c *anthropicClient) GeneratePainPointResolution(ctx context.Context, painP
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("appel API Claude : %w", err)
+		return nil, wrapAnthropicErr(err)
 	}
 
 	for _, block := range resp.Content {
@@ -231,7 +248,7 @@ func (c *anthropicClient) GenerateTestScenarios(ctx context.Context, specificati
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("appel API Claude : %w", err)
+		return nil, wrapAnthropicErr(err)
 	}
 
 	for _, block := range resp.Content {

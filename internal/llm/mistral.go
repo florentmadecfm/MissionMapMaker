@@ -21,7 +21,13 @@ const mistralEndpoint = "https://api.mistral.ai/v1/chat/completions"
 // au SDK Anthropic qui retente automatiquement ces mêmes statuts.
 const (
 	mistralMaxAttempts = 4 // tentative initiale + 3 nouvelles tentatives
-	mistralBaseBackoff = time.Second
+	// Base doublée (1s -> 2s) suite à un 429 persistant rencontré en usage
+	// réel malgré les 3 tentatives déjà en place : sur un compte dont la
+	// limite se mesure à la minute (pas juste à la seconde), l'ancien total
+	// de ~7s de patience (1s+2s+4s) laissait trop peu de temps à la fenêtre
+	// de quota pour se libérer avant la dernière tentative. Progression
+	// désormais 2s/4s/8s (~14s de patience totale) avant d'abandonner.
+	mistralBaseBackoff = 2 * time.Second
 )
 
 // mistralClient appelle l'API Mistral en HTTP brut (pas de SDK Go officiel
@@ -197,7 +203,16 @@ func (c *mistralClient) doRequest(ctx context.Context, body []byte, spec ToolSpe
 			}
 		}
 		retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
-		return nil, parseRetryAfter(resp.Header.Get("Retry-After")), retryable, fmt.Errorf("appel API Mistral : %s %s", resp.Status, msg)
+		callErr := fmt.Errorf("appel API Mistral : %s %s", resp.Status, msg)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			// Enveloppe ErrRateLimited dès CETTE tentative (pas seulement à
+			// l'abandon final) : call() propage lastErr tel quel une fois
+			// les tentatives épuisées, donc l'envelopper ici suffit à ce
+			// que errors.Is(finalErr, ErrRateLimited) fonctionne côté
+			// appelant (router.go), sans dupliquer cette détection dans call().
+			callErr = fmt.Errorf("%w : %s %s", ErrRateLimited, resp.Status, msg)
+		}
+		return nil, parseRetryAfter(resp.Header.Get("Retry-After")), retryable, callErr
 	}
 
 	var parsed mistralResponse

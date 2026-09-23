@@ -286,11 +286,7 @@ func (h *Handler) generateProcess(w http.ResponseWriter, r *http.Request) {
 
 	draft, err := h.generate.Generate(r.Context(), body.Text)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, draft)
@@ -307,11 +303,7 @@ func (h *Handler) generateSpecifications(w http.ResponseWriter, r *http.Request)
 
 	drafts, err := h.generate.GenerateSpecifications(r.Context(), body.Activities)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, drafts)
@@ -328,11 +320,7 @@ func (h *Handler) generateTestScenarios(w http.ResponseWriter, r *http.Request) 
 
 	drafts, err := h.generate.GenerateTestScenarios(r.Context(), body.Specifications)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, drafts)
@@ -349,11 +337,7 @@ func (h *Handler) generatePainPointSolutions(w http.ResponseWriter, r *http.Requ
 
 	solutions, err := h.generate.GeneratePainPointSolutions(r.Context(), body)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, solutions)
@@ -373,11 +357,7 @@ func (h *Handler) generatePainPointResolution(w http.ResponseWriter, r *http.Req
 
 	resolution, err := h.generate.GeneratePainPointResolution(r.Context(), body.PainPointContext, body.ChosenSolution)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, resolution)
@@ -402,11 +382,7 @@ func (h *Handler) generatePersonaPortrait(w http.ResponseWriter, r *http.Request
 
 	imageDataURL, err := h.images.GeneratePersonaPortrait(r.Context(), body.Name, body.About, body.Bio, body.Goals, body.PainPoints)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"imageDataUrl": imageDataURL})
@@ -430,11 +406,7 @@ func (h *Handler) generateDiagramSketch(w http.ResponseWriter, r *http.Request) 
 
 	imageDataURL, err := h.images.GenerateDiagramSketch(r.Context(), body.MissionName, body.ActorNames, body.PhaseNames, body.ActivityNames)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"imageDataUrl": imageDataURL})
@@ -746,6 +718,25 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+// writeGenerateError traduit une erreur renvoyée par GenerateService (tous
+// les handlers "generate*") en statut HTTP — factorisé ici plutôt que
+// répété dans chacun des 7 handlers : llm.ErrNotConfigured (aucune clé
+// API) -> 503, llm.ErrRateLimited (429 persistant chez le fournisseur,
+// Mistral ou Claude, après épuisement des nouvelles tentatives internes,
+// voir internal/llm) -> 429, pour que le frontend puisse distinguer ce cas
+// et afficher un message explicite plutôt que le texte brut du
+// fournisseur ; toute autre erreur d'appel -> 502 (échec en amont).
+func writeGenerateError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, llm.ErrNotConfigured):
+		writeError(w, http.StatusServiceUnavailable, err)
+	case errors.Is(err, llm.ErrRateLimited):
+		writeError(w, http.StatusTooManyRequests, err)
+	default:
+		writeError(w, http.StatusBadGateway, err)
+	}
 }
 
 // withCORS autorise le frontend Vite (localhost:5173) à appeler l'API en

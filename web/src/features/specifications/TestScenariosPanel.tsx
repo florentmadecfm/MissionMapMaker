@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
+import { classifyGenerationError } from '../../api/generationErrors'
 import type { Project, TestScenario, TestStep } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
 import { Spinner } from '../../components/Spinner'
@@ -46,6 +47,7 @@ export function TestScenariosPanel({ project, onChange }: Props) {
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
+  const [generateRateLimited, setGenerateRateLimited] = useState(false)
   const [generateInfo, setGenerateInfo] = useState<string | null>(null)
   const [testFilter, setTestFilter] = useState('')
 
@@ -68,6 +70,7 @@ export function TestScenariosPanel({ project, onChange }: Props) {
     setGenerating(true)
     setGenerateError(null)
     setGenerateNotConfigured(false)
+    setGenerateRateLimited(false)
     setGenerateInfo(null)
     try {
       const specRefs = specsWithoutTest.map((s) => ({ code: s.code, text: s.text }))
@@ -80,11 +83,15 @@ export function TestScenariosPanel({ project, onChange }: Props) {
       }
       setGenerateInfo(parts.join(' — '))
     } catch (e) {
-      const message = String(e)
-      if (message.includes('clé API non configurée')) {
-        setGenerateNotConfigured(true)
-      } else {
-        setGenerateError(message)
+      switch (classifyGenerationError(e)) {
+        case 'not-configured':
+          setGenerateNotConfigured(true)
+          break
+        case 'rate-limited':
+          setGenerateRateLimited(true)
+          break
+        default:
+          setGenerateError(String(e))
       }
     } finally {
       setGenerating(false)
@@ -156,6 +163,12 @@ export function TestScenariosPanel({ project, onChange }: Props) {
         <div className="nl-warning">
           Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
           la barre latérale pour en saisir une, ou ajoutez les scénarios manuellement ci-dessous.
+        </div>
+      )}
+      {generateRateLimited && (
+        <div className="nl-warning">
+          Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants, ou
+          changez de fournisseur depuis <strong>Paramètres</strong> si cela persiste.
         </div>
       )}
       {!generateNotConfigured && !generateInfo && specsWithoutTest.length === 0 && sssSpecs.length > 0 && (
