@@ -1896,6 +1896,15 @@
   overflow-y: auto;
 }
 
+/* Phase 2 du plan Produit/Vision/KPI : même gabarit que la modale de
+   solutions point de friction, contenu potentiellement long dans les deux
+   modes (vision + différenciateurs + piliers, ou liste de KPI suggérés). */
+.vision-refinement-modal {
+  width: 560px;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
 .painpoint-solutions-list {
   list-style: none;
   margin: 0;

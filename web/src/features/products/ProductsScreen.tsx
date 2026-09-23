@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import type { Product, ProductKpi, ProjectSummary } from '../../api/types'
+import { VisionRefinementModal } from './VisionRefinementModal'
 
 interface Props {
   // Tenu à jour par ProjectShell.tsx (rafraîchi après chaque création/
@@ -44,6 +45,10 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [newDifferentiator, setNewDifferentiator] = useState('')
   const [newPillar, setNewPillar] = useState('')
+  // Phase 2 du plan Produit/Vision/KPI : mode de la modale de génération
+  // assistée actuellement ouverte, ou null si fermée — voir
+  // VisionRefinementModal.tsx (2 modes dans le même composant).
+  const [aiModalMode, setAiModalMode] = useState<'vision' | 'kpis' | null>(null)
 
   useEffect(() => {
     if (!products) return
@@ -209,6 +214,11 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                 value={draft.visionStatement ?? ''}
                 onChange={(e) => setDraft({ ...draft, visionStatement: e.target.value })}
               />
+              <div className="nl-actions">
+                <button type="button" onClick={() => setAiModalMode('vision')}>
+                  Affiner avec l'IA
+                </button>
+              </div>
             </section>
 
             <section className="actor-mission-section">
@@ -330,9 +340,14 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                   </tbody>
                 </table>
               )}
-              <button type="button" onClick={addKpi}>
-                + Ajouter un KPI
-              </button>
+              <div className="nl-actions">
+                <button type="button" onClick={addKpi}>
+                  + Ajouter un KPI
+                </button>
+                <button type="button" onClick={() => setAiModalMode('kpis')}>
+                  Suggérer des KPI (IA)
+                </button>
+              </div>
             </section>
 
             <section className="actor-mission-section">
@@ -363,6 +378,16 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           </>
         )}
       </div>
+
+      {aiModalMode && draft && (
+        <VisionRefinementModal
+          key={aiModalMode}
+          product={draft}
+          mode={aiModalMode}
+          onChange={setDraft}
+          onClose={() => setAiModalMode(null)}
+        />
+      )}
     </div>
   )
 }

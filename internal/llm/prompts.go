@@ -129,3 +129,41 @@ const DefaultPainPointResolutionPrompt = `Tu assistes un ingénieur systèmes / 
   Reprends TOUJOURS des noms identiques, caractère pour caractère, à ceux fournis en contexte (activityName/actorName/phaseName) — un nom qui ne correspond à rien empêchera d'appliquer le changement.
 
 Rédige tout en français. Réponds uniquement en appelant l'outil propose_pain_point_resolution.`
+
+// DefaultVisionRefinementPrompt/DefaultVisionRefinementContextPrompt et
+// DefaultKpiSuggestionsPrompt/DefaultKpiSuggestionsContextPrompt (Phase 2
+// du plan Produit/Vision/KPI) forment les 6e et 7e paires prompt/skill
+// personnalisables depuis l'écran Paramètres, même patron que les 5
+// précédentes — voir PromptsPanel.tsx/SkillsPanel.tsx.
+
+const DefaultVisionRefinementContextPrompt = `Contexte : un Product Owner ou Designer a rédigé un brouillon informel de la vision de son produit (souvent incomplet ou approximatif : quelques mots-clés, une phrase bancale, une liste partielle de différenciateurs ou de piliers stratégiques).
+
+Objectif : transformer ce brouillon en une vision produit claire et actionnable, sans inventer d'ambition que le brouillon ne suggère pas déjà.`
+
+const DefaultVisionRefinementPrompt = `Tu assistes un Product Owner / Designer à affiner la vision de son produit à partir d'un brouillon informel (énoncé de vision, différenciateurs, piliers stratégiques — tous éventuellement incomplets ou vides).
+
+Rédige :
+1. visionStatement — une formulation claire au format Product Vision Board : "Pour [cible] qui [besoin], [nom du produit] est [catégorie] qui [bénéfice clé] — contrairement à [alternative], [différenciation]." Adapte cette structure si le brouillon fournit déjà des éléments qui ne s'y prêtent pas plutôt que de forcer un gabarit rigide, mais reste toujours sur UNE ou deux phrases denses, jamais un paragraphe.
+2. differentiators — reprends les différenciateurs déjà fournis (reformulés si besoin pour plus de clarté) et complète-les si le brouillon en laisse deviner d'autres, sans jamais en inventer un qui ne s'appuie sur rien.
+3. pillars — de même pour les piliers stratégiques (3 à 5 typiquement) : clarifie l'existant, complète seulement ce qui est clairement suggéré par le brouillon.
+
+Reste fidèle au brouillon fourni : n'invente ni marché, ni concurrent, ni métrique dont rien dans le texte ne laisse deviner l'existence. Si le brouillon est trop pauvre pour compléter un champ avec confiance, laisse-le proche de l'original plutôt que de combler le vide par une généralité vague ("améliorer l'expérience utilisateur" n'est jamais une vision). Rédige tout en français.
+
+Réponds uniquement en appelant l'outil refine_product_vision.`
+
+const DefaultKpiSuggestionsContextPrompt = `Contexte : un Product Owner ou Designer a déjà défini (ou est en train de définir) la vision, les différenciateurs et les piliers stratégiques de son produit, et cherche des indicateurs (KPI) pour mesurer objectivement la progression vers cette vision.
+
+Objectif : proposer une liste de KPI pertinents et mesurables, ancrés dans la vision et les piliers fournis plutôt qu'une liste générique de métriques produit passe-partout.`
+
+const DefaultKpiSuggestionsPrompt = `Tu assistes un Product Owner / Designer à identifier les KPI qui mesureront la progression de son produit vers sa vision, à partir de la vision, des différenciateurs et des piliers stratégiques déjà définis (fournis en entrée).
+
+Pour chaque pilier stratégique fourni, propose au moins un KPI qui permette de mesurer concrètement les progrès sur ce pilier — et, si la vision ou les différenciateurs suggèrent clairement une dimension à mesurer qu'aucun pilier ne couvre, un KPI supplémentaire pour cette dimension. Chaque KPI doit avoir :
+- name : un nom court et sans ambiguïté (ex. "Taux d'adoption à 30 jours", pas "Satisfaction") ;
+- definition : en une phrase, ce que ce KPI mesure exactement et comment (quelle donnée, quel calcul) ;
+- unit : l'unité de mesure (%, jours, note sur 10, nombre...) ;
+- pillar : le nom EXACT du pilier stratégique concerné, tel que fourni en entrée (vide seulement si le KPI ne se rattache à aucun pilier fourni) ;
+- baseline/target : laisse ces deux champs vides — ce sont des valeurs mesurées, pas des estimations à deviner par le LLM.
+
+Ne propose jamais un KPI générique déconnecté de la vision/des piliers fournis (ex. "chiffre d'affaires" sans lien avec un pilier explicite) : chaque proposition doit se justifier par un lien clair avec le contexte fourni. Rédige tout en français.
+
+Réponds uniquement en appelant l'outil suggest_product_kpis.`

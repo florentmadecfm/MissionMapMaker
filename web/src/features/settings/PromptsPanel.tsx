@@ -32,6 +32,16 @@ const PROMPT_FIELDS: PromptFieldDef[] = [
     description:
       "Situe la tâche de génération d'illustration (portrait de persona ou sketch de diagramme) auprès du modèle d'image.",
   },
+  {
+    key: 'visionRefinementContext',
+    title: 'Vision produit — contexte & objectif',
+    description: "Situe la tâche d'affinage d'un brouillon informel de vision produit.",
+  },
+  {
+    key: 'kpiSuggestionsContext',
+    title: 'Suggestions de KPI — contexte & objectif',
+    description: 'Situe la tâche de suggestion de KPI à partir de la vision et des piliers du produit.',
+  },
 ]
 
 export function PromptsPanel() {

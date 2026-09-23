@@ -1,8 +1,9 @@
 import { PromptEditor, type PromptFieldDef } from './PromptEditor'
 
-// Les 5 skills correspondent exactement aux 5 capacités de génération
+// Les 7 skills correspondent exactement aux 7 capacités de génération
 // assistée exposées par le backend (internal/llm/prompts.go +
-// image_prompts.go, ADR-073/ADR-074) : ce sont des emplacements fixes —
+// image_prompts.go, ADR-073/ADR-074 ; Phase 2 du plan Produit/Vision/KPI
+// pour visionRefinement/kpiSuggestions) : ce sont des emplacements fixes —
 // éditer et réinitialiser leur texte est ce que permet le mode CRUD
 // demandé ici (Read : texte actuel : Update : édition + Enregistrer ;
 // Delete : Réinitialiser retire la personnalisation, revient au texte par
@@ -39,6 +40,16 @@ const SKILL_FIELDS: PromptFieldDef[] = [
     title: 'Génération d’image',
     description:
       "Règles de style de l'illustration générée (portrait de persona ou sketch de diagramme) — les données propres à chaque usage (nom/fiche du persona, contenu du diagramme) restent fixes, pas personnalisables.",
+  },
+  {
+    key: 'visionRefinement',
+    title: 'Affiner la vision produit',
+    description: "Affine un brouillon informel de vision produit (énoncé, différenciateurs, piliers stratégiques).",
+  },
+  {
+    key: 'kpiSuggestions',
+    title: 'Suggérer des KPI',
+    description: 'Propose des KPI pertinents à partir de la vision et des piliers stratégiques déjà définis.',
   },
 ]
 

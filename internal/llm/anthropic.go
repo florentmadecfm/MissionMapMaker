@@ -229,6 +229,82 @@ func (c *anthropicClient) GeneratePainPointResolution(ctx context.Context, painP
 	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
 }
 
+func (c *anthropicClient) GenerateVisionRefinement(ctx context.Context, productContext ProductVisionContext, systemPrompt string) (*DraftVisionRefinement, error) {
+	input, err := json.Marshal(productContext)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation du contexte produit : %w", err)
+	}
+
+	spec := refineProductVisionToolSpec()
+	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.Model(c.model),
+		MaxTokens: 4000,
+		System: []anthropic.TextBlockParam{
+			{Text: systemPrompt},
+		},
+		Tools: []anthropic.ToolUnionParam{toAnthropicTool(spec)},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(string(input))),
+		},
+	})
+	if err != nil {
+		return nil, wrapAnthropicErr(err)
+	}
+
+	for _, block := range resp.Content {
+		if toolUse, ok := block.AsAny().(anthropic.ToolUseBlock); ok && toolUse.Name == spec.Name {
+			var draft DraftVisionRefinement
+			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &draft); err != nil {
+				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
+			}
+			draft.normalize()
+			return &draft, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
+}
+
+func (c *anthropicClient) GenerateKpiSuggestions(ctx context.Context, productContext ProductVisionContext, systemPrompt string) ([]DraftKpiSuggestion, error) {
+	input, err := json.Marshal(productContext)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation du contexte produit : %w", err)
+	}
+
+	spec := suggestProductKpisToolSpec()
+	resp, err := c.api.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.Model(c.model),
+		MaxTokens: 4000,
+		System: []anthropic.TextBlockParam{
+			{Text: systemPrompt},
+		},
+		Tools: []anthropic.ToolUnionParam{toAnthropicTool(spec)},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(string(input))),
+		},
+	})
+	if err != nil {
+		return nil, wrapAnthropicErr(err)
+	}
+
+	for _, block := range resp.Content {
+		if toolUse, ok := block.AsAny().(anthropic.ToolUseBlock); ok && toolUse.Name == spec.Name {
+			var result struct {
+				Kpis []DraftKpiSuggestion `json:"kpis"`
+			}
+			if err := json.Unmarshal([]byte(toolUse.JSON.Input.Raw()), &result); err != nil {
+				return nil, fmt.Errorf("parsing de la réponse Claude : %w", err)
+			}
+			if result.Kpis == nil {
+				result.Kpis = []DraftKpiSuggestion{}
+			}
+			return result.Kpis, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
+}
+
 func (c *anthropicClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error) {
 	input, err := json.Marshal(specifications)
 	if err != nil {

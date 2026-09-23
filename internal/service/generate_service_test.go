@@ -32,6 +32,14 @@ func (stubGenerator) GeneratePainPointResolution(ctx context.Context, painPoint 
 	return &llm.PainPointResolution{}, nil
 }
 
+func (stubGenerator) GenerateVisionRefinement(ctx context.Context, productContext llm.ProductVisionContext, systemPrompt string) (*llm.DraftVisionRefinement, error) {
+	return &llm.DraftVisionRefinement{}, nil
+}
+
+func (stubGenerator) GenerateKpiSuggestions(ctx context.Context, productContext llm.ProductVisionContext, systemPrompt string) ([]llm.DraftKpiSuggestion, error) {
+	return nil, nil
+}
+
 func TestGenerate_RejectsTextTooLong(t *testing.T) {
 	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
 	_, err := s.Generate(context.Background(), strings.Repeat("a", maxTextLength+1))
@@ -132,6 +140,14 @@ func (g *recordingGenerator) GeneratePainPointResolution(ctx context.Context, pa
 	return &llm.PainPointResolution{}, nil
 }
 
+func (g *recordingGenerator) GenerateVisionRefinement(ctx context.Context, productContext llm.ProductVisionContext, systemPrompt string) (*llm.DraftVisionRefinement, error) {
+	return &llm.DraftVisionRefinement{}, nil
+}
+
+func (g *recordingGenerator) GenerateKpiSuggestions(ctx context.Context, productContext llm.ProductVisionContext, systemPrompt string) ([]llm.DraftKpiSuggestion, error) {
+	return nil, nil
+}
+
 // Le système envoyé au LLM doit être le prompt (contexte/objectif) suivi du
 // skill (méthode), même quand seul l'un des deux est personnalisé — les deux
 // couches restent indépendantes l'une de l'autre (ADR-045).
@@ -163,5 +179,37 @@ func TestGenerate_ComposesContextAndSkillPrompts(t *testing.T) {
 	want = llm.DefaultTestScenarioContextPrompt + "\n\n" + llm.DefaultTestScenarioPrompt
 	if gen.lastTestScenarioPrompt != want {
 		t.Fatalf("expected default composed prompt %q, got %q", want, gen.lastTestScenarioPrompt)
+	}
+}
+
+func TestGenerateVisionRefinement_RejectsEmptyContext(t *testing.T) {
+	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
+	_, err := s.GenerateVisionRefinement(context.Background(), llm.ProductVisionContext{ProductName: "Pulse"})
+	if err != errEmptyProductContext {
+		t.Fatalf("expected errEmptyProductContext, got %v", err)
+	}
+}
+
+func TestGenerateVisionRefinement_AcceptsPillarsOnly(t *testing.T) {
+	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
+	_, err := s.GenerateVisionRefinement(context.Background(), llm.ProductVisionContext{Pillars: []string{"Croissance"}})
+	if err != nil {
+		t.Fatalf("expected no error with pillars only, got %v", err)
+	}
+}
+
+func TestGenerateKpiSuggestions_RejectsEmptyContext(t *testing.T) {
+	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
+	_, err := s.GenerateKpiSuggestions(context.Background(), llm.ProductVisionContext{})
+	if err != errEmptyProductContext {
+		t.Fatalf("expected errEmptyProductContext, got %v", err)
+	}
+}
+
+func TestGenerateVisionRefinement_NotConfiguredWithoutGenerator(t *testing.T) {
+	s := NewGenerateService(nil, "", "", "")
+	_, err := s.GenerateVisionRefinement(context.Background(), llm.ProductVisionContext{VisionStatement: "brouillon"})
+	if err != llm.ErrNotConfigured {
+		t.Fatalf("expected llm.ErrNotConfigured, got %v", err)
 	}
 }
