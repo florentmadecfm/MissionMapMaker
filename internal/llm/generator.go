@@ -64,6 +64,16 @@ var ErrUnknownProvider = errors.New("fournisseur LLM inconnu")
 // reste de l'application fonctionne sans elle (mode manuel de secours).
 var ErrNotConfigured = errors.New("clé API non configurée")
 
+// ErrRateLimited signale que le fournisseur actif a refusé la requête pour
+// cause de limite de débit (HTTP 429) — après épuisement des nouvelles
+// tentatives internes du client (mistralClient.call, ou le SDK Anthropic
+// lui-même). Distinct des autres erreurs d'appel : le routeur HTTP
+// (internal/api/router.go) le traduit en un statut HTTP dédié (429) plutôt
+// que 502, pour que le frontend puisse afficher un message explicite
+// ("réessayez dans quelques instants") au lieu du texte brut renvoyé par le
+// fournisseur.
+var ErrRateLimited = errors.New("limite de débit atteinte auprès du fournisseur LLM")
+
 // GeneratorOptions regroupe les paramètres de construction d'un
 // Generator. Model et BaseURL vides utilisent les valeurs par défaut du
 // fournisseur.

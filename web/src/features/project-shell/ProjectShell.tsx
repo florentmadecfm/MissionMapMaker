@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { CircleHelp, Map, Settings, Users } from 'lucide-react'
+import { CircleHelp, Map, Package, Settings, Users } from 'lucide-react'
 import { api } from '../../api/client'
-import type { ActorSummary, Project, ProjectSummary } from '../../api/types'
+import type { ActorSummary, Product, Project, ProjectSummary } from '../../api/types'
 import { Logo } from '../../components/Logo'
 import { ActorView } from '../actor-view/ActorView'
 import { ActorMissionsScreen } from '../actor-missions/ActorMissionsScreen'
@@ -10,6 +10,7 @@ import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { WelcomeTour } from '../onboarding/WelcomeTour'
 import { TOUR_DEMO_PROJECT } from '../onboarding/tourDemoProject'
 import { TOUR_STEPS } from '../onboarding/tourSteps'
+import { ProductsScreen } from '../products/ProductsScreen'
 import { SettingsModal } from '../settings/SettingsModal'
 import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
 import {
@@ -32,7 +33,10 @@ export type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acte
 // pas d'avoir ouvert un projet précis (voir ADR-041) ; 'compare' est la
 // vue de comparaison côte à côte entre variantes du projet ouvert
 // (VariantComparisonScreen, ADR-063).
-type View = 'project' | 'actors' | 'compare'
+// 'products' est l'écran transverse "Produits" (ProductsScreen), pour
+// définir vision/différenciateurs/piliers/KPI — indépendant de tout
+// projet ouvert, même principe que 'actors'.
+type View = 'project' | 'actors' | 'compare' | 'products'
 
 const SIDEBAR_COLLAPSED_KEY = 'mmm-sidebar-collapsed'
 // Visite guidée (ADR-078, WelcomeTour.tsx) : affichée automatiquement tant
@@ -65,6 +69,8 @@ export function ProjectShell() {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([])
   const [actors, setActors] = useState<ActorSummary[] | null>(null)
   const [actorsError, setActorsError] = useState<string | null>(null)
+  const [products, setProducts] = useState<Product[] | null>(null)
+  const [productsError, setProductsError] = useState<string | null>(null)
   const [project, setProject] = useState<Project | null>(null)
   const [newName, setNewName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -203,9 +209,24 @@ export function ProjectShell() {
         setActorsError(null)
       })
       .catch((e) => setActorsError(String(e)))
+  // Index des produits (écran Produits), rafraîchi au montage ET après
+  // toute création/sauvegarde/suppression de produit — même patron que
+  // refreshActors ci-dessus.
+  const refreshProducts = () =>
+    api
+      .listProducts()
+      .then((list) => {
+        setProducts(list)
+        setProductsError(null)
+      })
+      .catch((e) => setProductsError(String(e)))
   // Après toute sauvegarde d'un projet (Édition, Diagramme,
   // Spécifications) : la liste de projets ET l'index d'acteurs peuvent
-  // tous deux avoir changé (nom de projet, acteurs ajoutés/renommés...).
+  // tous deux avoir changé (nom de projet, acteurs ajoutés/renommés...) —
+  // un projet peut aussi avoir changé de productId (sélecteur "Produit
+  // associé"), d'où le rafraîchissement de la liste de projets ici, dont
+  // ProductsScreen se sert pour lister les missions rattachées à un
+  // produit.
   const handleSaved = () => {
     refreshList()
     refreshActors()
@@ -264,6 +285,7 @@ export function ProjectShell() {
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
     refreshActors()
+    refreshProducts()
   }, [])
 
   useEffect(() => {
@@ -478,6 +500,15 @@ export function ProjectShell() {
           </button>
           <button
             type="button"
+            className={`sidebar-products${view === 'products' ? ' active' : ''}`}
+            onClick={() => setView('products')}
+            title="Produits — vision, différenciateurs, piliers stratégiques, KPI"
+          >
+            <Package size={16} aria-hidden="true" />
+            {!sidebarCollapsed && 'Produits'}
+          </button>
+          <button
+            type="button"
             className="sidebar-settings"
             onClick={() => setSettingsOpen(true)}
             title={llmConfigured === false ? 'Paramètres — aucun fournisseur LLM configuré' : 'Paramètres'}
@@ -523,6 +554,14 @@ export function ProjectShell() {
       <main className="shell-main">
         {view === 'actors' ? (
           <ActorMissionsScreen actors={actors} error={actorsError} onOpenProject={handleOpenFromActorMissions} />
+        ) : view === 'products' ? (
+          <ProductsScreen
+            products={products}
+            error={productsError}
+            onProductsChanged={refreshProducts}
+            missions={summaries}
+            onOpenMission={handleOpen}
+          />
         ) : view === 'compare' && project ? (
           <VariantComparisonScreen project={project} onChange={handleComparisonChange} onClose={() => setView('project')} />
         ) : project && workingProject ? (
@@ -607,7 +646,7 @@ export function ProjectShell() {
               <NlInput key={project.id} project={workingProject} onChange={handleWorkingChange} onGenerated={() => setTab('edition')} />
             )}
             {tab === 'edition' && (
-              <ProjectEditor key={project.id} project={workingProject} onChange={handleWorkingChange} />
+              <ProjectEditor key={project.id} project={workingProject} onChange={handleWorkingChange} products={products} />
             )}
             {tab === 'diagramme' && (
               <ProcessDiagram

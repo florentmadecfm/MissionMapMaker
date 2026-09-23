@@ -7,6 +7,7 @@ import type {
   DraftTestScenario,
   PainPointContext,
   PainPointResolution,
+  Product,
   Project,
   ProjectSummary,
   ProjectVersion,
@@ -63,6 +64,16 @@ function normalizeProject(project: Project): Project {
   }
 }
 
+// Même filet de sécurité que normalizeProject ci-dessus, pour un produit.
+function normalizeProduct(product: Product): Product {
+  return {
+    ...product,
+    differentiators: product.differentiators ?? [],
+    pillars: product.pillars ?? [],
+    kpis: product.kpis ?? [],
+  }
+}
+
 export const api = {
   listProjects: () => request<ProjectSummary[]>('/projects'),
   listActors: () => request<ActorSummary[]>('/actors'),
@@ -72,6 +83,13 @@ export const api = {
   saveProject: (project: Project) =>
     request<Project>(`/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) }).then(normalizeProject),
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: 'DELETE' }),
+  listProducts: () => request<Product[]>('/products').then((list) => list.map(normalizeProduct)),
+  createProduct: (name: string) =>
+    request<Product>('/products', { method: 'POST', body: JSON.stringify({ name }) }).then(normalizeProduct),
+  getProduct: (id: string) => request<Product>(`/products/${id}`).then(normalizeProduct),
+  saveProduct: (product: Product) =>
+    request<Product>(`/products/${product.id}`, { method: 'PUT', body: JSON.stringify(product) }).then(normalizeProduct),
+  deleteProduct: (id: string) => request<void>(`/products/${id}`, { method: 'DELETE' }),
   listVersions: (id: string) => request<ProjectVersion[]>(`/projects/${id}/versions`),
   getVersion: (id: string, versionId: string) =>
     request<Project>(`/projects/${id}/versions/${versionId}`).then(normalizeProject),

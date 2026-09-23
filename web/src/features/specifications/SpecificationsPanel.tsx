@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
+import { classifyGenerationError } from '../../api/generationErrors'
 import type { Project, Specification, SpecificationType } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
 import { Spinner } from '../../components/Spinner'
@@ -66,6 +67,7 @@ export function SpecificationsPanel({ project, onChange, forcedSubTab }: Props) 
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
+  const [generateRateLimited, setGenerateRateLimited] = useState(false)
   const [generateInfo, setGenerateInfo] = useState<string | null>(null)
   const [specFilter, setSpecFilter] = useState('')
   const unspecifiedCount = project.activities.filter((a) => a.traceLinks.length === 0).length
@@ -88,6 +90,7 @@ export function SpecificationsPanel({ project, onChange, forcedSubTab }: Props) 
     setGenerating(true)
     setGenerateError(null)
     setGenerateNotConfigured(false)
+    setGenerateRateLimited(false)
     setGenerateInfo(null)
     try {
       // On ne redemande une proposition IA que pour les activités qui n'ont
@@ -125,11 +128,15 @@ export function SpecificationsPanel({ project, onChange, forcedSubTab }: Props) 
       onChange(nextProject)
       setGenerateInfo(parts.join(' — '))
     } catch (e) {
-      const message = String(e)
-      if (message.includes('clé API non configurée')) {
-        setGenerateNotConfigured(true)
-      } else {
-        setGenerateError(message)
+      switch (classifyGenerationError(e)) {
+        case 'not-configured':
+          setGenerateNotConfigured(true)
+          break
+        case 'rate-limited':
+          setGenerateRateLimited(true)
+          break
+        default:
+          setGenerateError(String(e))
       }
     } finally {
       setGenerating(false)
@@ -211,6 +218,12 @@ export function SpecificationsPanel({ project, onChange, forcedSubTab }: Props) 
               <div className="nl-warning">
                 Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas
                 de la barre latérale pour en saisir une, ou ajoutez les spécifications manuellement ci-dessous.
+              </div>
+            )}
+            {generateRateLimited && (
+              <div className="nl-warning">
+                Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants,
+                ou changez de fournisseur depuis <strong>Paramètres</strong> si cela persiste.
               </div>
             )}
             {!generateNotConfigured && !generateInfo && unspecifiedCount === 0 && project.activities.length > 0 && (

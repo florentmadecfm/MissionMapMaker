@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
+import { classifyGenerationError } from '../../api/generationErrors'
 import type { Activity, DraftPainPointSolution, PainPoint, PainPointChangeType, PainPointContext, Project } from '../../api/types'
 import { Spinner } from '../../components/Spinner'
 import { applyPainPointResolution } from '../specifications/mergePainPointResolution'
@@ -24,7 +25,7 @@ const CHANGE_TYPE_LABELS: Record<PainPointChangeType, string> = {
   merge_activities: 'Fusion d’activités',
 }
 
-type Status = 'loading' | 'ready' | 'resolving' | 'done' | 'not-configured'
+type Status = 'loading' | 'ready' | 'resolving' | 'done' | 'not-configured' | 'rate-limited'
 
 // Ouverte depuis ActivityDetailModal.tsx sur un point de friction pas
 // encore résolu : flux en 2 temps (ADR-066). D'abord 5 propositions de
@@ -85,12 +86,16 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
         setStatus('ready')
       })
       .catch((e) => {
-        const message = String(e)
-        if (message.includes('clé API non configurée')) {
-          setStatus('not-configured')
-        } else {
-          setError(message)
-          setStatus('ready')
+        switch (classifyGenerationError(e)) {
+          case 'not-configured':
+            setStatus('not-configured')
+            break
+          case 'rate-limited':
+            setStatus('rate-limited')
+            break
+          default:
+            setError(String(e))
+            setStatus('ready')
         }
       })
   }
@@ -123,7 +128,11 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
       setChosenDescription(solution.description)
       setStatus('done')
     } catch (e) {
-      setError(String(e))
+      if (classifyGenerationError(e) === 'rate-limited') {
+        setError("Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants.")
+      } else {
+        setError(String(e))
+      }
       setStatus('ready')
     }
   }
@@ -153,6 +162,12 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
           <div className="nl-warning">
             Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
             la barre latérale pour en saisir une.
+          </div>
+        )}
+        {status === 'rate-limited' && (
+          <div className="nl-warning">
+            Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants, ou
+            changez de fournisseur depuis <strong>Paramètres</strong> si cela persiste.
           </div>
         )}
         {error && <p className="error">{error}</p>}

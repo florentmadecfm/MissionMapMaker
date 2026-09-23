@@ -232,6 +232,11 @@ export interface Project {
   // cible n'a été créée (bouton Actuel/Cible, ou automatiquement à la
   // première résolution de point de friction, voir mergePainPointResolution.ts).
   target?: ProjectVariant
+  // Produit (vision, différenciateurs, piliers, KPI) auquel cette mission
+  // est rattachée — absent tant qu'aucun produit n'a été choisi
+  // (sélecteur "Produit associé", onglet Édition). Référence par id vers
+  // un Product (voir api/client.ts, listProducts) — jamais dupliqué ici.
+  productId?: string
 }
 
 // ProjectVariant est le contenu de la cible d'un projet — mêmes 6
@@ -251,6 +256,7 @@ export interface ProjectSummary {
   id: string
   name: string
   updatedAt: string
+  productId?: string
 }
 
 // Une sauvegarde horodatée passée du projet (voir Repository.backupExisting
@@ -282,6 +288,44 @@ export interface ActorProjectRef {
 export interface ActorSummary {
   name: string
   projects: ActorProjectRef[]
+}
+
+// Product représente le produit lui-même (vision, différenciateurs,
+// piliers stratégiques, KPI) — distinct d'une mission (Project, un
+// parcours/story map précis) : un même Produit peut justifier plusieurs
+// missions dans le temps. Une mission s'y rattache via Project.productId
+// (référence par id, jamais fusionné/dupliqué dans le projet).
+export interface Product {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+  // Formulation de la vision produit (ex. format Product Vision Board :
+  // cible/besoin/catégorie/bénéfice clé) — texte libre, rédigée à la main
+  // ou affinée depuis un brouillon informel par l'IA (voir
+  // VisionRefinementModal.tsx), toujours relue/éditée avant enregistrement.
+  visionStatement?: string
+  differentiators: string[]
+  // Piliers stratégiques (3-5 typiquement) — texte libre, pas d'entité
+  // séparée avec son propre id : référencés PAR NOM depuis
+  // ProductKpi.pillar ci-dessous.
+  pillars: string[]
+  kpis: ProductKpi[]
+}
+
+export interface ProductKpi {
+  id: string
+  name: string
+  definition?: string
+  unit?: string
+  // Texte libre plutôt qu'un type numérique imposé (même philosophie que
+  // Phase.duration) : un KPI peut être qualitatif.
+  baseline?: string
+  target?: string
+  // Référence Product.pillars PAR NOM (pas un id) — un nom qui ne
+  // correspond plus à aucun pilier reste un simple libellé orphelin sans
+  // conséquence (pas de lookup cassé).
+  pillar?: string
 }
 
 export interface DraftActor {

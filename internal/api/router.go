@@ -26,15 +26,23 @@ type Handler struct {
 	// h.images.Configured() renvoie false, les handlers concernés
 	// répondent alors llm.ErrNotConfigured, jamais de panique.
 	images *service.ImageService
+	// products : produits (vision, différenciateurs, piliers, KPI) —
+	// entité indépendante des missions, voir service.ProductService.
+	products *service.ProductService
 }
 
-func NewRouter(projects *service.ProjectService, generate *service.GenerateService, images *service.ImageService) http.Handler {
-	h := &Handler{projects: projects, generate: generate, images: images}
+func NewRouter(projects *service.ProjectService, generate *service.GenerateService, images *service.ImageService, products *service.ProductService) http.Handler {
+	h := &Handler{projects: projects, generate: generate, images: images, products: products}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/projects", h.listProjects)
 	mux.HandleFunc("GET /api/actors", h.listActors)
 	mux.HandleFunc("POST /api/projects", h.createProject)
+	mux.HandleFunc("GET /api/products", h.listProducts)
+	mux.HandleFunc("POST /api/products", h.createProduct)
+	mux.HandleFunc("GET /api/products/{id}", h.getProduct)
+	mux.HandleFunc("PUT /api/products/{id}", h.updateProduct)
+	mux.HandleFunc("DELETE /api/products/{id}", h.deleteProduct)
 	mux.HandleFunc("GET /api/projects/{id}", h.getProject)
 	mux.HandleFunc("PUT /api/projects/{id}", h.updateProject)
 	mux.HandleFunc("DELETE /api/projects/{id}", h.deleteProject)
@@ -147,6 +155,79 @@ func (h *Handler) updateProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
+// listProducts renvoie tous les produits (vision, différenciateurs,
+// piliers, KPI), consommé par l'écran Produits (indépendant de tout
+// projet ouvert).
+func (h *Handler) listProducts(w http.ResponseWriter, r *http.Request) {
+	products, err := h.products.List()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, products)
+}
+
+func (h *Handler) createProduct(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	p, err := h.products.Create(body.Name)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, p)
+}
+
+func (h *Handler) getProduct(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	p, err := h.products.Get(id)
+	if err != nil {
+		if errors.Is(err, storage.ErrProductNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
+}
+
+func (h *Handler) updateProduct(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+
+	var p domain.Product
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	updated, err := h.products.Update(id, p)
+	if err != nil {
+		if errors.Is(err, storage.ErrProductNotFound) {
+			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (h *Handler) deleteProduct(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := h.products.Delete(id); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // listVersions expose l'historique consultable des sauvegardes passées
 // d'un projet (backlog blueprint #7, ADR-070), consommé par
 // VersionHistoryModal.tsx.
@@ -205,11 +286,7 @@ func (h *Handler) generateProcess(w http.ResponseWriter, r *http.Request) {
 
 	draft, err := h.generate.Generate(r.Context(), body.Text)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, draft)
@@ -226,11 +303,7 @@ func (h *Handler) generateSpecifications(w http.ResponseWriter, r *http.Request)
 
 	drafts, err := h.generate.GenerateSpecifications(r.Context(), body.Activities)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, drafts)
@@ -247,11 +320,7 @@ func (h *Handler) generateTestScenarios(w http.ResponseWriter, r *http.Request) 
 
 	drafts, err := h.generate.GenerateTestScenarios(r.Context(), body.Specifications)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, drafts)
@@ -268,11 +337,7 @@ func (h *Handler) generatePainPointSolutions(w http.ResponseWriter, r *http.Requ
 
 	solutions, err := h.generate.GeneratePainPointSolutions(r.Context(), body)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, solutions)
@@ -292,11 +357,7 @@ func (h *Handler) generatePainPointResolution(w http.ResponseWriter, r *http.Req
 
 	resolution, err := h.generate.GeneratePainPointResolution(r.Context(), body.PainPointContext, body.ChosenSolution)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, resolution)
@@ -321,11 +382,7 @@ func (h *Handler) generatePersonaPortrait(w http.ResponseWriter, r *http.Request
 
 	imageDataURL, err := h.images.GeneratePersonaPortrait(r.Context(), body.Name, body.About, body.Bio, body.Goals, body.PainPoints)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"imageDataUrl": imageDataURL})
@@ -349,11 +406,7 @@ func (h *Handler) generateDiagramSketch(w http.ResponseWriter, r *http.Request) 
 
 	imageDataURL, err := h.images.GenerateDiagramSketch(r.Context(), body.MissionName, body.ActorNames, body.PhaseNames, body.ActivityNames)
 	if err != nil {
-		if errors.Is(err, llm.ErrNotConfigured) {
-			writeError(w, http.StatusServiceUnavailable, err)
-			return
-		}
-		writeError(w, http.StatusBadGateway, err)
+		writeGenerateError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"imageDataUrl": imageDataURL})
@@ -665,6 +718,25 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+// writeGenerateError traduit une erreur renvoyée par GenerateService (tous
+// les handlers "generate*") en statut HTTP — factorisé ici plutôt que
+// répété dans chacun des 7 handlers : llm.ErrNotConfigured (aucune clé
+// API) -> 503, llm.ErrRateLimited (429 persistant chez le fournisseur,
+// Mistral ou Claude, après épuisement des nouvelles tentatives internes,
+// voir internal/llm) -> 429, pour que le frontend puisse distinguer ce cas
+// et afficher un message explicite plutôt que le texte brut du
+// fournisseur ; toute autre erreur d'appel -> 502 (échec en amont).
+func writeGenerateError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, llm.ErrNotConfigured):
+		writeError(w, http.StatusServiceUnavailable, err)
+	case errors.Is(err, llm.ErrRateLimited):
+		writeError(w, http.StatusTooManyRequests, err)
+	default:
+		writeError(w, http.StatusBadGateway, err)
+	}
 }
 
 // withCORS autorise le frontend Vite (localhost:5173) à appeler l'API en

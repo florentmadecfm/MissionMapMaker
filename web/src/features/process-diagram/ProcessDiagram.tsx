@@ -13,6 +13,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
+import { classifyGenerationError } from '../../api/generationErrors'
 import type { Activity, Interaction, Phase, Project } from '../../api/types'
 import { Spinner } from '../../components/Spinner'
 import { generateAndMerge } from '../nl-input/generateUpdate'
@@ -455,6 +456,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
   const [updateNotConfigured, setUpdateNotConfigured] = useState(false)
+  const [updateRateLimited, setUpdateRateLimited] = useState(false)
   const [updateNoEffect, setUpdateNoEffect] = useState(false)
 
   // Annuler/rétablir une action du diagramme — pile locale d'états
@@ -545,6 +547,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
     setUpdating(true)
     setUpdateError(null)
     setUpdateNotConfigured(false)
+    setUpdateRateLimited(false)
     setUpdateNoEffect(false)
     try {
       const { project: updated, changed } = await generateAndMerge(project, updateText)
@@ -560,11 +563,15 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
       commitChange(updated)
       setUpdateText('')
     } catch (e) {
-      const message = String(e)
-      if (message.includes('clé API non configurée')) {
-        setUpdateNotConfigured(true)
-      } else {
-        setUpdateError(message)
+      switch (classifyGenerationError(e)) {
+        case 'not-configured':
+          setUpdateNotConfigured(true)
+          break
+        case 'rate-limited':
+          setUpdateRateLimited(true)
+          break
+        default:
+          setUpdateError(String(e))
       }
     } finally {
       setUpdating(false)
@@ -836,6 +843,12 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
         <div className="nl-warning">
           Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
           la barre latérale pour en saisir une, ou utilisez l'édition manuelle.
+        </div>
+      )}
+      {updateRateLimited && (
+        <div className="nl-warning">
+          Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants, ou
+          changez de fournisseur depuis <strong>Paramètres</strong> si cela persiste.
         </div>
       )}
       {updateNoEffect && (

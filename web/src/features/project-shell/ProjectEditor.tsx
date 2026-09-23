@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { Activity, Actor, Interaction, Phase, Project } from '../../api/types'
+import type { Activity, Actor, Interaction, Phase, Product, Project } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
 
 function newId(prefix: string) {
@@ -35,11 +35,16 @@ function suggestionsFor<T>(items: T[], fields: (item: T) => string[]): string[] 
 interface Props {
   project: Project
   onChange: (project: Project) => void
+  // Produits disponibles (écran Produits, ProjectShell.tsx) — pour le
+  // sélecteur "Produit associé" ci-dessous. null tant que le premier
+  // chargement n'a pas répondu : le sélecteur reste alors désactivé
+  // plutôt que de proposer une liste vide trompeuse.
+  products: Product[] | null
 }
 
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function ProjectEditor({ project, onChange }: Props) {
+export function ProjectEditor({ project, onChange, products }: Props) {
   const [actorFilter, setActorFilter] = useState('')
   const [phaseFilter, setPhaseFilter] = useState('')
   const [activityFilter, setActivityFilter] = useState('')
@@ -265,6 +270,21 @@ export function ProjectEditor({ project, onChange }: Props) {
           value={project.name}
           onChange={(e) => onChange({ ...project, name: e.target.value })}
         />
+        <label className="editor-product-select">
+          Produit associé
+          <select
+            value={project.productId ?? ''}
+            onChange={(e) => onChange({ ...project, productId: e.target.value || undefined })}
+            disabled={!products}
+          >
+            <option value="">— aucun —</option>
+            {products?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </header>
 
       <section>
