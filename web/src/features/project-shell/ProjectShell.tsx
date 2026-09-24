@@ -571,15 +571,15 @@ export function ProjectShell() {
                 <button type="button" className={tab === 'generer' ? 'active' : ''} onClick={() => setTab('generer')}>
                   Générer (langage naturel)
                 </button>
-                <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
-                  Édition
-                </button>
                 <button
                   type="button"
                   className={tab === 'diagramme' ? 'active' : ''}
                   onClick={() => setTab('diagramme')}
                 >
                   Diagramme de processus
+                </button>
+                <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
+                  Édition
                 </button>
                 <button
                   type="button"
