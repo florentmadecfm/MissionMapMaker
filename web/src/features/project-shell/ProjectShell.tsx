@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CircleHelp, Map, Package, Settings, Users } from 'lucide-react'
+import { CircleHelp, Map, Menu, Package, Settings, Users } from 'lucide-react'
 import { api } from '../../api/client'
 import type { ActorSummary, Product, Project, ProjectSummary } from '../../api/types'
 import { Logo } from '../../components/Logo'
@@ -574,31 +574,46 @@ export function ProjectShell() {
             )}
           </button>
         </div>
-      </aside>
 
-      {/* Menu burger fixe en haut à droite (Paramètres + visite guidée) —
-          retour utilisateur : ces deux actions n'ont rien à voir avec la
-          navigation entre missions/écrans qui occupe le reste de la
-          sidebar, et sont désormais accessibles depuis n'importe quelle
-          vue (pas seulement un projet ouvert). triggerClassName distinct
-          de la valeur par défaut de HeaderMenu ('header-menu-trigger') :
-          la toute dernière étape de la visite guidée (tourSteps.ts)
-          cible spécifiquement le burger export/import de
-          ExportImportMenu.tsx via ce même sélecteur par défaut —
-          document.querySelector prend le premier match du DOM, un nom de
-          classe partagé ferait pointer cette étape sur CE menu-ci à la
-          place. */}
-      <div className="app-menu">
-        <HeaderMenu triggerClassName="app-menu-trigger" triggerLabel="Menu">
-          <button type="button" onClick={() => setSettingsOpen(true)}>
-            <Settings size={14} aria-hidden="true" /> Paramètres
-            {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
-          </button>
-          <button type="button" onClick={() => setTourOpen(true)}>
-            <CircleHelp size={14} aria-hidden="true" /> Revoir la visite guidée
-          </button>
-        </HeaderMenu>
-      </div>
+        {/* Menu Paramètres/visite guidée, sous Produits — retour utilisateur :
+            un menu burger fixe en haut à droite (ancienne implémentation,
+            .app-menu) se superposait au burger export/import de la barre
+            d'onglets (ExportImportMenu.tsx) dès qu'une mission était ouverte,
+            les deux se retrouvant côte à côte dans le même coin de l'écran.
+            Rapatrié dans la sidebar : bien différencié du bloc Personas/
+            Produits juste au-dessus (pas de fond/coins arrondis, police plus
+            petite, simple séparateur — un menu utilitaire secondaire, pas une
+            destination de navigation principale). triggerClassName distinct
+            de la valeur par défaut de HeaderMenu ('header-menu-trigger') : la
+            toute dernière étape de la visite guidée (tourSteps.ts) cible
+            spécifiquement le burger export/import via ce même sélecteur par
+            défaut — document.querySelector prend le premier match du DOM, un
+            nom de classe partagé ferait pointer cette étape ici à la place.
+            dropdownClassName distinct aussi : ce déclencheur est tout en bas
+            de la colonne, le panneau s'ouvre donc vers le HAUT (voir
+            HeaderMenu.tsx) plutôt que de déborder sous le bas de l'écran. */}
+        <div className="sidebar-menu">
+          <HeaderMenu
+            trigger={
+              <>
+                <Menu size={16} aria-hidden="true" />
+                {!sidebarCollapsed && <span className="sidebar-nav-label">Menu</span>}
+              </>
+            }
+            triggerClassName="sidebar-menu-trigger"
+            dropdownClassName="sidebar-menu-dropdown"
+            triggerLabel="Menu"
+          >
+            <button type="button" onClick={() => setSettingsOpen(true)}>
+              <Settings size={14} aria-hidden="true" /> Paramètres
+              {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
+            </button>
+            <button type="button" onClick={() => setTourOpen(true)}>
+              <CircleHelp size={14} aria-hidden="true" /> Revoir la visite guidée
+            </button>
+          </HeaderMenu>
+        </div>
+      </aside>
 
       {tourOpen && (
         <WelcomeTour

@@ -10,6 +10,13 @@ interface Props {
   trigger?: React.ReactNode
   triggerClassName?: string
   triggerLabel?: string
+  // Classe du panneau déroulant — 'header-menu-dropdown' par défaut,
+  // ancré sous le déclencheur (voir App.css). Distincte pour le menu
+  // Paramètres/visite guidée de la sidebar (ProjectShell.tsx,
+  // 'sidebar-menu-dropdown') : ce déclencheur vit tout en bas de la
+  // colonne, un panneau qui s'ouvrirait vers le bas déborderait hors de
+  // l'écran — la classe alternative s'ancre au-dessus à la place.
+  dropdownClassName?: string
 }
 
 // Menu déroulant générique : un bouton déclencheur et un menu qui se
@@ -18,7 +25,7 @@ interface Props {
 // d'en-tête, et avec un déclencheur personnalisé pour tout autre menu
 // déroulant simple de l'app plutôt que de dupliquer cette logique
 // d'ouverture/fermeture.
-export function HeaderMenu({ children, trigger, triggerClassName, triggerLabel }: Props) {
+export function HeaderMenu({ children, trigger, triggerClassName, triggerLabel, dropdownClassName }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -43,7 +50,7 @@ export function HeaderMenu({ children, trigger, triggerClassName, triggerLabel }
         {trigger ?? <Menu size={18} aria-hidden="true" />}
       </button>
       {open && (
-        <div className="header-menu-dropdown" onClick={() => setOpen(false)}>
+        <div className={dropdownClassName ?? 'header-menu-dropdown'} onClick={() => setOpen(false)}>
           {children}
         </div>
       )}
