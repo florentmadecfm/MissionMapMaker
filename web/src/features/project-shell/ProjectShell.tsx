@@ -545,6 +545,28 @@ export function ProjectShell() {
         )}
 
         <div className="sidebar-bottom">
+          {/* Retour utilisateur : repliée, la sidebar ne montrait plus que
+              les icônes Personas/Produits — aucun moyen de revenir à une
+              mission sans la redéplier. Navigue vers `project` (déjà tenu
+              à jour quelle que soit la vue affichée, jamais réinitialisé
+              en changeant d'écran — seule sa suppression le vide) plutôt
+              que de mémoriser un id séparé : rouvre donc toujours la
+              DERNIÈRE mission consultée, y compris si l'utilisateur est
+              passé par Personas/Produits entre-temps. */}
+          <button
+            type="button"
+            className={`sidebar-missions-nav${view === 'project' ? ' active' : ''}`}
+            onClick={() => setView('project')}
+            title="Missions — revenir à la dernière mission ouverte"
+          >
+            <Map size={16} aria-hidden="true" />
+            {!sidebarCollapsed && (
+              <>
+                <span className="sidebar-nav-label">Missions</span>
+                {!loading && <span className="sidebar-count-badge">{summaries.length}</span>}
+              </>
+            )}
+          </button>
           <button
             type="button"
             className={`sidebar-actors${view === 'actors' ? ' active' : ''}`}
