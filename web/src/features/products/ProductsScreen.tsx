@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import type { Product, ProductKpi, ProjectSummary } from '../../api/types'
 import { buildKpiTree, excludeSelfAndDescendants } from './kpiTree'
+import { KpiTreeDiagram } from './KpiTreeDiagram'
 import { VisionRefinementModal } from './VisionRefinementModal'
 
 interface Props {
@@ -62,6 +63,10 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   const [linkTargetId, setLinkTargetId] = useState('')
   const [linking, setLinking] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
+  // Id du KPI brièvement mis en surbrillance après un clic dans
+  // KpiTreeDiagram.tsx (voir handleSelectKpi) — retiré après un court
+  // délai, pas un état de sélection persistant.
+  const [highlightedKpiId, setHighlightedKpiId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!products) return
@@ -177,6 +182,19 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     const deleted = draft.kpis.find((k) => k.id === id)
     const reparented = draft.kpis.map((k) => (k.parentId === id ? { ...k, parentId: deleted?.parentId } : k))
     setDraft({ ...draft, kpis: reparented.filter((k) => k.id !== id) })
+  }
+
+  // Relie la visualisation d'ensemble (KpiTreeDiagram.tsx) au formulaire
+  // d'édition : un clic sur un nœud de l'arbre fait défiler jusqu'à sa
+  // carte (id="kpi-card-{id}" posé sur chaque carte ci-dessous) et la met
+  // brièvement en surbrillance (.kpi-card-highlighted, App.css) pour que
+  // l'utilisateur retrouve immédiatement où éditer ce KPI.
+  function handleSelectKpi(kpiId: string) {
+    document.getElementById(`kpi-card-${kpiId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    setHighlightedKpiId(kpiId)
+    window.setTimeout(() => {
+      setHighlightedKpiId((current) => (current === kpiId ? null : current))
+    }, 1200)
   }
 
   // Lie une mission DÉJÀ EXISTANTE à ce produit, depuis l'écran Produits
@@ -338,6 +356,9 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
 
           <section className="actor-mission-section">
             <h3>KPI</h3>
+            {draft.kpis.length > 0 && (
+              <KpiTreeDiagram kpis={draft.kpis} onSelectKpi={handleSelectKpi} />
+            )}
             {draft.kpis.length === 0 ? (
               <p className="placeholder">Aucun KPI pour l'instant.</p>
             ) : (
@@ -349,9 +370,15 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                     l'ancien tableau à 8 colonnes était trop dense) sur 3
                     lignes visibles — nom, définition, puis unité/actuel/
                     cible — plus une ligne compacte pour la hiérarchie/le
-                    pilier/la suppression. */}
+                    pilier/la suppression. id + surbrillance conditionnelle :
+                    cible du clic sur un nœud de KpiTreeDiagram.tsx (voir
+                    handleSelectKpi). */}
                 {buildKpiTree(draft.kpis).map(({ kpi, depth }) => (
-                  <div className="product-kpi-card" key={kpi.id}>
+                  <div
+                    id={`kpi-card-${kpi.id}`}
+                    className={`product-kpi-card${kpi.id === highlightedKpiId ? ' kpi-card-highlighted' : ''}`}
+                    key={kpi.id}
+                  >
                     <input
                       className="product-kpi-name-input"
                       style={{ ['--kpi-depth' as string]: depth }}

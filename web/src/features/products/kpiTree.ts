@@ -38,6 +38,46 @@ export function buildKpiTree(kpis: ProductKpi[]): KpiTreeNode[] {
   return result
 }
 
+export interface KpiForestNode {
+  kpi: ProductKpi
+  children: KpiForestNode[]
+}
+
+// Même donnée que buildKpiTree, mais en structure imbriquée plutôt qu'en
+// liste plate — nécessaire pour dessiner des connecteurs parent→enfant
+// (KpiTreeDiagram.tsx), impossible à retrouver depuis une simple
+// profondeur. Racine de repli explicite pour un KPI dont parentId ne
+// correspond à AUCUN id de `kpis` (orphelin) : buildKpiTree, lui, ne le
+// visite jamais dans ce cas (walk() ne descend que depuis un nœud déjà
+// visité en partant des racines) et le fait donc disparaître
+// silencieusement de la liste plate rendue par les cartes — improbable en
+// pratique (Product.Validate() côté serveur) mais un arbre affiché doit
+// rendre TOUS les nœuds, jamais en perdre un silencieusement.
+export function buildKpiForest(kpis: ProductKpi[]): KpiForestNode[] {
+  const ids = new Set(kpis.map((k) => k.id))
+  const byParent = new Map<string, ProductKpi[]>()
+  for (const kpi of kpis) {
+    const key = kpi.parentId && ids.has(kpi.parentId) ? kpi.parentId : ''
+    const list = byParent.get(key) ?? []
+    list.push(kpi)
+    byParent.set(key, list)
+  }
+
+  const visited = new Set<string>()
+
+  function build(parentKey: string): KpiForestNode[] {
+    const nodes: KpiForestNode[] = []
+    for (const kpi of byParent.get(parentKey) ?? []) {
+      if (visited.has(kpi.id)) continue // cycle déjà présent, ne pas boucler indéfiniment
+      visited.add(kpi.id)
+      nodes.push({ kpi, children: build(kpi.id) })
+    }
+    return nodes
+  }
+
+  return build('')
+}
+
 // Descendants (directs et indirects) de `selfId`, inclus lui-même —
 // utilisé pour exclure ces options du sélecteur "Sous-KPI de" : un KPI ne
 // peut jamais devenir son propre sous-KPI, ni celui d'un de ses
