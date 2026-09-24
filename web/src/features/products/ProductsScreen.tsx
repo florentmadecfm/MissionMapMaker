@@ -67,6 +67,14 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   // KpiTreeDiagram.tsx (voir handleSelectKpi) — retiré après un court
   // délai, pas un état de sélection persistant.
   const [highlightedKpiId, setHighlightedKpiId] = useState<string | null>(null)
+  // Bascule Configuration/Graphe de la section KPI (retour utilisateur :
+  // un onglet dédié plutôt que le graphe affiché en permanence au-dessus
+  // des cartes) — 'config' par défaut, l'édition reste le cas d'usage
+  // principal. TOUR_STEPS[1] (tourSteps.ts) cible '.product-kpi-table',
+  // rendu seulement en vue 'config' : la valeur par défaut doit rester
+  // 'config' pour que cette étape de la visite guidée continue de trouver
+  // sa cible sans changement de sa part.
+  const [kpiView, setKpiView] = useState<'config' | 'graph'>('config')
 
   useEffect(() => {
     if (!products) return
@@ -184,17 +192,25 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     setDraft({ ...draft, kpis: reparented.filter((k) => k.id !== id) })
   }
 
-  // Relie la visualisation d'ensemble (KpiTreeDiagram.tsx) au formulaire
-  // d'édition : un clic sur un nœud de l'arbre fait défiler jusqu'à sa
-  // carte (id="kpi-card-{id}" posé sur chaque carte ci-dessous) et la met
+  // Relie la visualisation d'ensemble (KpiTreeDiagram.tsx, vue 'graph') au
+  // formulaire d'édition (vue 'config') : un clic sur un nœud de l'arbre
+  // bascule vers Configuration puis fait défiler jusqu'à sa carte
+  // (id="kpi-card-{id}" posé sur chaque carte ci-dessous) et la met
   // brièvement en surbrillance (.kpi-card-highlighted, App.css) pour que
-  // l'utilisateur retrouve immédiatement où éditer ce KPI.
+  // l'utilisateur retrouve immédiatement où éditer ce KPI. Les cartes ne
+  // sont pas montées tant que la vue reste 'graph' (rendu conditionnel
+  // ci-dessous) : requestAnimationFrame attend que le changement de vue
+  // soit commité au DOM avant de chercher la carte, sans quoi elle
+  // n'existerait pas encore au moment du scroll.
   function handleSelectKpi(kpiId: string) {
-    document.getElementById(`kpi-card-${kpiId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    setHighlightedKpiId(kpiId)
-    window.setTimeout(() => {
-      setHighlightedKpiId((current) => (current === kpiId ? null : current))
-    }, 1200)
+    setKpiView('config')
+    requestAnimationFrame(() => {
+      document.getElementById(`kpi-card-${kpiId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      setHighlightedKpiId(kpiId)
+      window.setTimeout(() => {
+        setHighlightedKpiId((current) => (current === kpiId ? null : current))
+      }, 1200)
+    })
   }
 
   // Lie une mission DÉJÀ EXISTANTE à ce produit, depuis l'écran Produits
@@ -355,11 +371,39 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           </section>
 
           <section className="actor-mission-section">
-            <h3>KPI</h3>
-            {draft.kpis.length > 0 && (
-              <KpiTreeDiagram kpis={draft.kpis} onSelectKpi={handleSelectKpi} />
-            )}
-            {draft.kpis.length === 0 ? (
+            <div className="kpi-section-header">
+              <h3>KPI</h3>
+              <div className="variant-toggle kpi-view-toggle" role="radiogroup" aria-label="Vue des KPI">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={kpiView === 'config'}
+                  className={`variant-toggle-option${kpiView === 'config' ? ' active' : ''}`}
+                  onClick={() => setKpiView('config')}
+                >
+                  <span className="variant-toggle-dot" aria-hidden="true" />
+                  Configuration
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={kpiView === 'graph'}
+                  className={`variant-toggle-option${kpiView === 'graph' ? ' active' : ''}`}
+                  onClick={() => setKpiView('graph')}
+                >
+                  <span className="variant-toggle-dot" aria-hidden="true" />
+                  Graphe
+                </button>
+              </div>
+            </div>
+
+            {kpiView === 'graph' ? (
+              draft.kpis.length === 0 ? (
+                <p className="placeholder">Aucun KPI pour l'instant.</p>
+              ) : (
+                <KpiTreeDiagram kpis={draft.kpis} onSelectKpi={handleSelectKpi} />
+              )
+            ) : draft.kpis.length === 0 ? (
               <p className="placeholder">Aucun KPI pour l'instant.</p>
             ) : (
               <div className="product-kpi-table">

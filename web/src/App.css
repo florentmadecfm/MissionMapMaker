@@ -2251,6 +2251,33 @@
   min-width: 0;
 }
 
+/* Bascule Configuration/Graphe de la section KPI — réutilise le langage
+   visuel déjà établi pour le sélecteur Actuel/Cible (.variant-toggle/
+   .variant-toggle-option/.variant-toggle-dot, plus haut dans ce fichier)
+   plutôt qu'un nouveau composant de bascule : même rôle ARIA "radio",
+   même rendu en pilule avec puce pleine sur l'option active. Seule la
+   couleur de l'option active est propre à ce contexte (une seule
+   nuance ici, contrairement au bicolore Actuel/Cible). */
+.kpi-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.kpi-view-toggle {
+  padding: 0;
+  margin-top: 0;
+}
+
+.kpi-view-toggle .variant-toggle-option.active {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 /* Une carte par KPI (retour utilisateur : l'ancien tableau à 8 colonnes
    était trop dense) plutôt qu'un <table> — nom, définition, puis
    unité/actuel/cible sur 3 lignes visibles, une 4e ligne compacte pour
