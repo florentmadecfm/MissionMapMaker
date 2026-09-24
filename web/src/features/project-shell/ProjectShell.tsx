@@ -597,12 +597,12 @@ export function ProjectShell() {
             trigger={
               <>
                 <Menu size={16} aria-hidden="true" />
-                {!sidebarCollapsed && <span className="sidebar-nav-label">Menu</span>}
+                {!sidebarCollapsed && <span className="sidebar-nav-label">Options</span>}
               </>
             }
             triggerClassName="sidebar-menu-trigger"
             dropdownClassName="sidebar-menu-dropdown"
-            triggerLabel="Menu"
+            triggerLabel="Options"
           >
             <button type="button" onClick={() => setSettingsOpen(true)}>
               <Settings size={14} aria-hidden="true" /> Paramètres
