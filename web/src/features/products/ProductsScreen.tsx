@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { Maximize2 } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Product, ProductKpi, ProjectSummary } from '../../api/types'
 import { buildKpiTree, excludeSelfAndDescendants } from './kpiTree'
+import { KpiTreeDiagram } from './KpiTreeDiagram'
 import { VisionRefinementModal } from './VisionRefinementModal'
 
 interface Props {
@@ -62,6 +64,23 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   const [linkTargetId, setLinkTargetId] = useState('')
   const [linking, setLinking] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
+  // Id du KPI brièvement mis en surbrillance après un clic dans
+  // KpiTreeDiagram.tsx (voir handleSelectKpi) — retiré après un court
+  // délai, pas un état de sélection persistant.
+  const [highlightedKpiId, setHighlightedKpiId] = useState<string | null>(null)
+  // Bascule Configuration/Graphe de la section KPI (retour utilisateur :
+  // un onglet dédié plutôt que le graphe affiché en permanence au-dessus
+  // des cartes) — 'config' par défaut, l'édition reste le cas d'usage
+  // principal. TOUR_STEPS[1] (tourSteps.ts) cible '.product-kpi-table',
+  // rendu seulement en vue 'config' : la valeur par défaut doit rester
+  // 'config' pour que cette étape de la visite guidée continue de trouver
+  // sa cible sans changement de sa part.
+  const [kpiView, setKpiView] = useState<'config' | 'graph'>('config')
+  // Vue agrandie du graphe (retour utilisateur : voir tous les KPI d'un
+  // coup, sans être limité à la largeur de la colonne principale) — une
+  // modale plutôt qu'un panneau intégré, sur le modèle déjà établi
+  // ailleurs dans l'app (.modal-backdrop/.modal).
+  const [kpiTreeExpanded, setKpiTreeExpanded] = useState(false)
 
   useEffect(() => {
     if (!products) return
@@ -177,6 +196,29 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     const deleted = draft.kpis.find((k) => k.id === id)
     const reparented = draft.kpis.map((k) => (k.parentId === id ? { ...k, parentId: deleted?.parentId } : k))
     setDraft({ ...draft, kpis: reparented.filter((k) => k.id !== id) })
+  }
+
+  // Relie la visualisation d'ensemble (KpiTreeDiagram.tsx, vue 'graph' ou
+  // modale agrandie) au formulaire d'édition (vue 'config') : un clic sur
+  // un nœud de l'arbre ferme la modale si ouverte, bascule vers
+  // Configuration puis fait défiler jusqu'à sa carte (id="kpi-card-{id}"
+  // posé sur chaque carte ci-dessous) et la met brièvement en
+  // surbrillance (.kpi-card-highlighted, App.css) pour que l'utilisateur
+  // retrouve immédiatement où éditer ce KPI. Les cartes ne sont pas
+  // montées tant que la vue reste 'graph' (rendu conditionnel ci-dessous)
+  // : requestAnimationFrame attend que le changement de vue soit commité
+  // au DOM avant de chercher la carte, sans quoi elle n'existerait pas
+  // encore au moment du scroll.
+  function handleSelectKpi(kpiId: string) {
+    setKpiView('config')
+    setKpiTreeExpanded(false)
+    requestAnimationFrame(() => {
+      document.getElementById(`kpi-card-${kpiId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      setHighlightedKpiId(kpiId)
+      window.setTimeout(() => {
+        setHighlightedKpiId((current) => (current === kpiId ? null : current))
+      }, 1200)
+    })
   }
 
   // Lie une mission DÉJÀ EXISTANTE à ce produit, depuis l'écran Produits
@@ -337,8 +379,46 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           </section>
 
           <section className="actor-mission-section">
-            <h3>KPI</h3>
-            {draft.kpis.length === 0 ? (
+            <div className="kpi-section-header">
+              <h3>KPI</h3>
+              <div className="kpi-section-header-actions">
+                {kpiView === 'graph' && draft.kpis.length > 0 && (
+                  <button type="button" className="kpi-tree-expand-button" onClick={() => setKpiTreeExpanded(true)}>
+                    <Maximize2 size={13} aria-hidden="true" /> Agrandir
+                  </button>
+                )}
+                <div className="variant-toggle kpi-view-toggle" role="radiogroup" aria-label="Vue des KPI">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={kpiView === 'config'}
+                    className={`variant-toggle-option${kpiView === 'config' ? ' active' : ''}`}
+                    onClick={() => setKpiView('config')}
+                  >
+                    <span className="variant-toggle-dot" aria-hidden="true" />
+                    Configuration
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={kpiView === 'graph'}
+                    className={`variant-toggle-option${kpiView === 'graph' ? ' active' : ''}`}
+                    onClick={() => setKpiView('graph')}
+                  >
+                    <span className="variant-toggle-dot" aria-hidden="true" />
+                    Graphe
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {kpiView === 'graph' ? (
+              draft.kpis.length === 0 ? (
+                <p className="placeholder">Aucun KPI pour l'instant.</p>
+              ) : (
+                <KpiTreeDiagram kpis={draft.kpis} onSelectKpi={handleSelectKpi} />
+              )
+            ) : draft.kpis.length === 0 ? (
               <p className="placeholder">Aucun KPI pour l'instant.</p>
             ) : (
               <div className="product-kpi-table">
@@ -349,9 +429,15 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                     l'ancien tableau à 8 colonnes était trop dense) sur 3
                     lignes visibles — nom, définition, puis unité/actuel/
                     cible — plus une ligne compacte pour la hiérarchie/le
-                    pilier/la suppression. */}
+                    pilier/la suppression. id + surbrillance conditionnelle :
+                    cible du clic sur un nœud de KpiTreeDiagram.tsx (voir
+                    handleSelectKpi). */}
                 {buildKpiTree(draft.kpis).map(({ kpi, depth }) => (
-                  <div className="product-kpi-card" key={kpi.id}>
+                  <div
+                    id={`kpi-card-${kpi.id}`}
+                    className={`product-kpi-card${kpi.id === highlightedKpiId ? ' kpi-card-highlighted' : ''}`}
+                    key={kpi.id}
+                  >
                     <input
                       className="product-kpi-name-input"
                       style={{ ['--kpi-depth' as string]: depth }}
@@ -475,6 +561,20 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           onChange={setDraft}
           onClose={() => setAiModalMode(null)}
         />
+      )}
+
+      {kpiTreeExpanded && draft && (
+        <div className="modal-backdrop" onClick={() => setKpiTreeExpanded(false)}>
+          <div className="modal kpi-tree-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <h2>Arbre de KPI — {draft.name}</h2>
+              <button type="button" className="modal-close" onClick={() => setKpiTreeExpanded(false)} aria-label="Fermer">
+                ×
+              </button>
+            </header>
+            <KpiTreeDiagram kpis={draft.kpis} onSelectKpi={handleSelectKpi} />
+          </div>
+        </div>
       )}
     </div>
   )

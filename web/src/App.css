@@ -2251,6 +2251,62 @@
   min-width: 0;
 }
 
+/* Bascule Configuration/Graphe de la section KPI — réutilise le langage
+   visuel déjà établi pour le sélecteur Actuel/Cible (.variant-toggle/
+   .variant-toggle-option/.variant-toggle-dot, plus haut dans ce fichier)
+   plutôt qu'un nouveau composant de bascule : même rôle ARIA "radio",
+   même rendu en pilule avec puce pleine sur l'option active. Seule la
+   couleur de l'option active est propre à ce contexte (une seule
+   nuance ici, contrairement au bicolore Actuel/Cible). */
+.kpi-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.kpi-section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.kpi-view-toggle {
+  padding: 0;
+  margin-top: 0;
+}
+
+/* Ouvre la modale plein écran du graphe (retour utilisateur : voir tous
+   les KPI sans être limité à la largeur de la colonne principale) — même
+   traitement que .variant-toggle-create (bordure en pointillés, pas de
+   fond), pour se lire comme une action secondaire plutôt qu'une des 2
+   options du bouton radio juste à côté. */
+.kpi-tree-expand-button {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.7rem;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: none;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.kpi-tree-expand-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.kpi-view-toggle .variant-toggle-option.active {
+  background: var(--color-primary-bg);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 /* Une carte par KPI (retour utilisateur : l'ancien tableau à 8 colonnes
    était trop dense) plutôt qu'un <table> — nom, définition, puis
    unité/actuel/cible sur 3 lignes visibles, une 4e ligne compacte pour
@@ -2323,6 +2379,142 @@
   padding-left: calc(0.4rem + var(--kpi-depth, 0) * 1.25rem) !important;
 }
 
+/* Surbrillance temporaire de la carte ciblée par un clic dans
+   KpiTreeDiagram.tsx (voir handleSelectKpi, ProductsScreen.tsx) — relie la
+   visualisation d'ensemble au formulaire d'édition juste en dessous. */
+.kpi-card-highlighted {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  transition: outline-color 0.2s var(--ease);
+}
+
+/* Visualisation de l'arbre de KPI (KpiTreeDiagram.tsx), au-dessus des
+   cartes d'édition — organigramme en CSS pur (ul/li imbriqués +
+   connecteurs par pseudo-éléments, technique classique), pas de nouvelle
+   dépendance ni de réutilisation de React Flow (déjà présent pour
+   ProcessDiagram.tsx : pan/zoom/drag hors de proportion pour un arbre de
+   KPI, typiquement peu profond et purement consultatif ici). */
+.kpi-tree-wrapper {
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.kpi-tree,
+.kpi-tree ul {
+  display: flex;
+  justify-content: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.kpi-tree ul {
+  padding-top: 1rem;
+  position: relative;
+}
+
+.kpi-tree li {
+  position: relative;
+  padding: 1rem 0.4rem 0;
+  text-align: center;
+}
+
+.kpi-tree > li {
+  padding-top: 0;
+}
+
+/* Connecteur horizontal entre frères et sœurs — une moitié par côté
+   (::before à gauche du centre, ::after à droite), tronquée sur le
+   premier/dernier enfant d'une fratrie pour ne pas dépasser vers
+   l'extérieur. Masqué entièrement sur un enfant unique (rien à relier). */
+.kpi-tree li::before,
+.kpi-tree li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 50%;
+  width: 50%;
+  height: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.kpi-tree li::after {
+  right: auto;
+  left: 50%;
+  border-left: 1px solid var(--color-border);
+}
+
+.kpi-tree > li::before,
+.kpi-tree > li::after,
+.kpi-tree li:only-child::before,
+.kpi-tree li:only-child::after {
+  display: none;
+}
+
+.kpi-tree li:only-child {
+  padding-top: 0;
+}
+
+.kpi-tree li:first-child::before,
+.kpi-tree li:last-child::after {
+  border-top: none;
+}
+
+.kpi-tree li:last-child::before {
+  border-right: 1px solid var(--color-border);
+  border-radius: 0 6px 0 0;
+}
+
+.kpi-tree li:first-child::after {
+  border-radius: 6px 0 0 0;
+}
+
+/* Connecteur vertical d'un parent vers la rangée de ses enfants (posé sur
+   le <ul> imbriqué lui-même, pas sur les <li> qu'il contient). */
+.kpi-tree ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 1rem;
+  border-left: 1px solid var(--color-border);
+}
+
+/* Retour utilisateur : réduire la police pour voir davantage de KPI sans
+   défiler — taille et gabarit resserrés par rapport à la première
+   version (0.8rem/0.5-0.75rem de padding). */
+.kpi-tree-node {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.kpi-tree-node:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.kpi-tree-node-name {
+  font-weight: 600;
+}
+
+.kpi-tree-pillar-badge {
+  padding: 0.03rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: 0.6rem;
+}
+
 .products-save-row {
   display: flex;
   align-items: center;
@@ -2378,6 +2570,27 @@
   width: 1040px;
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
+}
+
+/* Vue agrandie du graphe de KPI (retour utilisateur : voir tous les KPI
+   sans être limité à la largeur de la colonne principale) — quasi plein
+   écran plutôt qu'une largeur fixe comme .actor-profile-modal, l'arbre
+   pouvant s'étaler dans les deux dimensions selon le nombre de KPI. */
+.kpi-tree-modal {
+  width: calc(100vw - 4rem);
+  max-width: 1400px;
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-tree-modal .kpi-tree-wrapper {
+  flex: 1;
+  overflow: auto;
+  margin-bottom: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .actor-profile-modal h3,
