@@ -52,7 +52,7 @@ function normalizeProject(project: Project): Project {
       painPoints: a.painPoints ?? [],
       backstage: a.backstage ?? false,
     })),
-    phases: project.phases ?? [],
+    phases: (project.phases ?? []).map((p) => ({ ...p, kpiLinks: p.kpiLinks ?? [] })),
     activities: (project.activities ?? []).map((a) => ({
       ...a,
       offsetX: a.offsetX ?? 0,
@@ -60,6 +60,7 @@ function normalizeProject(project: Project): Project {
       userStories: a.userStories ?? [],
       traceLinks: a.traceLinks ?? [],
       painPoints: a.painPoints ?? [],
+      kpiLinks: a.kpiLinks ?? [],
     })),
     interactions: project.interactions ?? [],
     specifications: project.specifications ?? [],

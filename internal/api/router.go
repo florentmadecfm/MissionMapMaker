@@ -215,6 +215,10 @@ func (h *Handler) updateProduct(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, err)
 			return
 		}
+		if errors.Is(err, domain.ErrInvalidProduct) {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

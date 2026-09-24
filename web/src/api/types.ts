@@ -57,6 +57,10 @@ export interface Phase {
   // neutre (3) : n'apparaît alors pas dans la courbe de satisfaction
   // (ADR-065).
   satisfactionScore?: number
+  // KPI (Product.kpis[].id, produit associé via Project.productId) que
+  // cette phase permet de mesurer (Phase 3 du plan Produit/Vision/KPI) —
+  // voir KpiLinksSection.tsx/PhaseDetailModal.tsx.
+  kpiLinks: string[]
 }
 
 export interface UserStory {
@@ -99,6 +103,10 @@ export interface Activity {
   // de l'activité elle-même). Ajoutés/retirés depuis le diagramme
   // (ActivityDetailModal.tsx).
   painPoints: PainPoint[]
+  // KPI (Product.kpis[].id, produit associé via Project.productId) que
+  // cette activité permet de mesurer (Phase 3 du plan Produit/Vision/
+  // KPI) — voir KpiLinksSection.tsx.
+  kpiLinks: string[]
 }
 
 export interface PainPoint {
@@ -326,6 +334,10 @@ export interface ProductKpi {
   // correspond plus à aucun pilier reste un simple libellé orphelin sans
   // conséquence (pas de lookup cassé).
   pillar?: string
+  // Référence un autre ProductKpi.id du MÊME produit (Phase 3 du plan
+  // Produit/Vision/KPI) — absent/vide = KPI de premier niveau. L'arbre
+  // n'est jamais stocké imbriqué, dérivé à l'affichage par kpiTree.ts.
+  parentId?: string
 }
 
 // ProductVisionContext fournit à l'IA le brouillon actuel de la vision

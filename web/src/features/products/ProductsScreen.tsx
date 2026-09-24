@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import type { Product, ProductKpi, ProjectSummary } from '../../api/types'
+import { buildKpiTree, excludeSelfAndDescendants } from './kpiTree'
 import { VisionRefinementModal } from './VisionRefinementModal'
 
 interface Props {
@@ -153,9 +154,16 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     setDraft({ ...draft, kpis: draft.kpis.map((k) => (k.id === id ? { ...k, ...patch } : k)) })
   }
 
+  // Réattache les éventuels sous-KPI du nœud supprimé au parent DE CE
+  // NŒUD (pas au premier niveau) avant de le retirer — sans cette
+  // réattache, supprimer un KPI parent laisserait ses enfants avec un
+  // parentId pendant (référençant un KPI qui n'existe plus), rejeté par
+  // Product.Validate() côté serveur dès le prochain "Enregistrer".
   function removeKpi(id: string) {
     if (!draft) return
-    setDraft({ ...draft, kpis: draft.kpis.filter((k) => k.id !== id) })
+    const deleted = draft.kpis.find((k) => k.id === id)
+    const reparented = draft.kpis.map((k) => (k.parentId === id ? { ...k, parentId: deleted?.parentId } : k))
+    setDraft({ ...draft, kpis: reparented.filter((k) => k.id !== id) })
   }
 
   if (error) {
@@ -170,7 +178,7 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   return (
     <div className="actor-missions-screen products-screen">
       <aside className="actor-missions-list">
-        <div className="new-project">
+        <div className="new-product">
           <input
             placeholder="Nom du nouveau produit"
             value={newName}
@@ -288,6 +296,7 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                   <thead>
                     <tr>
                       <th>Nom</th>
+                      <th>Sous-KPI de</th>
                       <th>Définition</th>
                       <th>Unité</th>
                       <th>Actuel</th>
@@ -297,10 +306,33 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                     </tr>
                   </thead>
                   <tbody>
-                    {draft.kpis.map((kpi) => (
+                    {/* Rendu en profondeur (buildKpiTree) plutôt que dans
+                        l'ordre brut du tableau : un sous-KPI apparaît juste
+                        après son parent, indenté (voir --kpi-depth,
+                        App.css), pour que la hiérarchie se lise sans avoir
+                        à recouper la colonne "Sous-KPI de" de chaque ligne. */}
+                    {buildKpiTree(draft.kpis).map(({ kpi, depth }) => (
                       <tr key={kpi.id}>
                         <td>
-                          <input value={kpi.name} onChange={(e) => updateKpi(kpi.id, { name: e.target.value })} />
+                          <input
+                            className="product-kpi-name-input"
+                            style={{ ['--kpi-depth' as string]: depth }}
+                            value={kpi.name}
+                            onChange={(e) => updateKpi(kpi.id, { name: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <select
+                            value={kpi.parentId ?? ''}
+                            onChange={(e) => updateKpi(kpi.id, { parentId: e.target.value || undefined })}
+                          >
+                            <option value="">— (premier niveau)</option>
+                            {excludeSelfAndDescendants(draft.kpis, kpi.id).map((candidate) => (
+                              <option key={candidate.id} value={candidate.id}>
+                                {candidate.name || '(sans nom)'}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td>
                           <input

@@ -655,6 +655,7 @@ export function ProjectShell() {
                 onChange={handleWorkingChange}
                 isTargetActive={activeVariant === 'target'}
                 rootProject={project}
+                product={products?.find((p) => p.id === project.productId)}
               />
             )}
             {tab === 'specifications' && (

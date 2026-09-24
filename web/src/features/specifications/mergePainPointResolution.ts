@@ -163,6 +163,7 @@ function applyDiagramChange(
         userStories: [],
         traceLinks: [],
         painPoints: [],
+        kpiLinks: [],
       }
       return { collections: { ...collections, activities: [...activities, created] }, applied: true }
     }

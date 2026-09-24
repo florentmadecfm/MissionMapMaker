@@ -14,7 +14,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { api } from '../../api/client'
 import { classifyGenerationError } from '../../api/generationErrors'
-import type { Activity, Interaction, Phase, Project } from '../../api/types'
+import type { Activity, Interaction, Phase, Product, Project } from '../../api/types'
 import { Spinner } from '../../components/Spinner'
 import { generateAndMerge } from '../nl-input/generateUpdate'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
@@ -37,6 +37,7 @@ import {
   type LayoutNode,
 } from './layout'
 import { nodeTypes } from './nodes'
+import { PhaseDetailModal } from './PhaseDetailModal'
 import { captureReactFlowPng, exportOffscreenProjectToPng, triggerPngDownload, waitForTransformSettled } from './pngExport'
 import { SketchPreviewModal } from './SketchPreviewModal'
 import './process-diagram.css'
@@ -48,6 +49,11 @@ interface Props {
   // dernier fichier. false quand omis (onglet Diagramme utilisé hors du
   // contexte Actuel/Cible, ex. tests).
   isTargetActive?: boolean
+  // Produit associé à la mission (Project.productId), résolu par
+  // ProjectShell.tsx — undefined si aucun produit associé (Phase 3 du plan
+  // Produit/Vision/KPI). Transmis à ActivityDetailModal/PhaseDetailModal
+  // (section "KPI liés") et à computeLayout (compte de KPI liés du badge).
+  product?: Product
   // Le vrai projet (Actuel + Cible), pour que l'export PNG puisse
   // proposer d'exporter l'autre variante que celle affichée à l'écran —
   // `project` ci-dessus, lui, porte déjà la CIBLE remplacée par l'ACTUEL
@@ -394,8 +400,14 @@ function DownloadPngButton({
 
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null, diff, focusedDiff }: Props) {
-  const { nodes, edges } = useMemo(() => computeLayout(project), [project])
+export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null, diff, focusedDiff, product }: Props) {
+  // Ensemble des ids de KPI réellement connus du produit lié — computeLayout
+  // filtre Activity/Phase.kpiLinks contre cet ensemble pour le compte du
+  // badge (jamais la longueur brute, voir layout.ts) : un id qui ne
+  // correspond plus à aucun KPI du produit (supprimé entretemps) ne doit
+  // pas gonfler artificiellement le compte affiché sur la carte/l'en-tête.
+  const validKpiIds = useMemo(() => new Set((product?.kpis ?? []).map((k) => k.id)), [product])
+  const { nodes, edges } = useMemo(() => computeLayout(project, validKpiIds), [project, validKpiIds])
   // Id(s) de nœud correspondant à la différence sélectionnée dans la liste
   // détaillée (DiffList.tsx), résolus pour CE panneau — `null` si absente
   // ou sans équivalent ici (voir resolveFocusNodeIds ci-dessus), auquel
@@ -447,6 +459,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   // de l'endroit où la carte atterrirait si on la lâchait maintenant.
   const [dragTarget, setDragTarget] = useState<DropTarget | null>(null)
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null)
+  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null)
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null)
   const [selectedActorProfileId, setSelectedActorProfileId] = useState<string | null>(null)
   // Sketch IA généré (ADR-073) en attente d'aperçu/téléchargement — voir
@@ -703,7 +716,14 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   // défaut à préciser ensuite), pour construire le diagramme sans y
   // aller et venir.
   function addPhase() {
-    const phase: Phase = { id: newId('ph'), name: 'Nouvelle phase', order: project.phases.length + 1, subColumns: 0, icon: '' }
+    const phase: Phase = {
+      id: newId('ph'),
+      name: 'Nouvelle phase',
+      order: project.phases.length + 1,
+      subColumns: 0,
+      icon: '',
+      kpiLinks: [],
+    }
     commitChange({ ...project, phases: [...project.phases, phase] })
   }
 
@@ -749,6 +769,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
       userStories: [],
       traceLinks: [],
       painPoints: [],
+      kpiLinks: [],
     }
     commitChange({ ...project, activities: [...project.activities, activity] })
   }
@@ -758,9 +779,11 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   // un bouton "+" de la colonne d'ajout : crée la phase/l'activité
   // correspondante. Clic sur le bouton "+" en coin d'un en-tête de
   // phase/acteur (voir nodes.tsx) : réserve une sous-colonne/sous-ligne
-  // supplémentaire — distingué du reste de l'en-tête (qui n'a pas
-  // d'action au clic) via event.target, React Flow ne remontant pas
-  // d'identifiant de sous-élément cliqué.
+  // supplémentaire — distingué du reste de l'en-tête via event.target
+  // (React Flow ne remonte pas d'identifiant de sous-élément cliqué), qui
+  // ouvre désormais sa propre modale de détail (PhaseDetailModal — section
+  // "KPI liés", Phase 3 du plan Produit/Vision/KPI ; ActorProfileModal
+  // pour un en-tête d'acteur, déjà existant).
   function handleNodeClick(event: React.MouseEvent, node: Node) {
     if (node.type === 'activity') {
       setSelectedActivityId(node.id)
@@ -768,8 +791,12 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
       addPhase()
     } else if (node.type === 'addActivity') {
       addActivityForActor(node.data.actorId as string)
-    } else if (node.type === 'phaseHeader' && (event.target as HTMLElement).closest('.add-subcolumn-button')) {
-      addSubColumnForPhase(node.data.phaseId as string)
+    } else if (node.type === 'phaseHeader') {
+      if ((event.target as HTMLElement).closest('.add-subcolumn-button')) {
+        addSubColumnForPhase(node.data.phaseId as string)
+      } else {
+        setSelectedPhaseId(node.data.phaseId as string)
+      }
     } else if (node.type === 'actorHeader') {
       if ((event.target as HTMLElement).closest('.add-sublane-button')) {
         addSubLaneForActor(node.data.actorId as string)
@@ -947,6 +974,16 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           onChange={commitChange}
           onClose={() => setSelectedActivityId(null)}
           isTargetActive={isTargetActive}
+          product={product}
+        />
+      )}
+      {selectedPhaseId && (
+        <PhaseDetailModal
+          project={project}
+          phaseId={selectedPhaseId}
+          onChange={commitChange}
+          onClose={() => setSelectedPhaseId(null)}
+          product={product}
         />
       )}
       {selectedInteractionId && (

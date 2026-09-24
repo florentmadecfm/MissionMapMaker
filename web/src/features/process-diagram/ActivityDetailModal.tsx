@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { PainPoint, Project } from '../../api/types'
+import type { PainPoint, Product, Project } from '../../api/types'
+import { KpiLinksSection } from '../products/KpiLinksSection'
 import { PainPointSolutionsModal } from './PainPointSolutionsModal'
 
 interface Props {
@@ -9,6 +10,10 @@ interface Props {
   onClose: () => void
   // Transmis tel quel à PainPointSolutionsModal — voir ce fichier.
   isTargetActive: boolean
+  // Produit associé à la mission (Project.productId), résolu par
+  // ProjectShell.tsx — undefined si aucun (voir KpiLinksSection.tsx pour
+  // l'état affiché dans ce cas), Phase 3 du plan Produit/Vision/KPI.
+  product: Product | undefined
 }
 
 const SPEC_TYPE_LABELS: Record<string, string> = {
@@ -35,7 +40,7 @@ function sameText(a: string, b: string) {
 // voir ProjectShell.tsx). Un point de friction peut être repris depuis la liste déjà
 // connue de l'acteur (sa fiche persona, ADR-055/056) plutôt que retapé, et
 // un point réellement nouveau enrichit cette même fiche au passage.
-export function ActivityDetailModal({ project, activityId, onChange, onClose, isTargetActive }: Props) {
+export function ActivityDetailModal({ project, activityId, onChange, onClose, isTargetActive, product }: Props) {
   const [newPainPoint, setNewPainPoint] = useState('')
   const [knownPainPointId, setKnownPainPointId] = useState('')
   // Point de friction en cours de résolution (ADR-066) — ouvre
@@ -99,6 +104,14 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose, is
       activities: project.activities.map((a) =>
         a.id === activity.id ? { ...a, painPoints: a.painPoints.filter((p) => p.id !== id) } : a,
       ),
+    })
+  }
+
+  function updateKpiLinks(ids: string[]) {
+    if (!activity) return
+    onChange({
+      ...project,
+      activities: project.activities.map((a) => (a.id === activity.id ? { ...a, kpiLinks: ids } : a)),
     })
   }
 
@@ -186,6 +199,8 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose, is
             Ajouter
           </button>
         </div>
+
+        <KpiLinksSection product={product} linkedIds={activity.kpiLinks} onChange={updateKpiLinks} />
 
         <h3>Spécifications liées</h3>
         {specs.length === 0 ? (

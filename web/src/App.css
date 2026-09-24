@@ -271,13 +271,15 @@
 
 /* ---------- New project ---------- */
 
-.new-project {
+.new-project,
+.new-product {
   display: flex;
   gap: 0.4rem;
   margin-bottom: 1.25rem;
 }
 
-.new-project input {
+.new-project input,
+.new-product input {
   flex: 1;
   min-width: 0;
 }
@@ -2150,6 +2152,13 @@
 .product-kpi-table select {
   width: 100%;
   font-size: 0.85rem;
+}
+
+/* Indentation par niveau (voir buildKpiTree, kpiTree.ts) : un sous-KPI
+   affiche son nom décalé vers la droite, proportionnellement à sa
+   profondeur dans l'arbre — --kpi-depth posé inline par ProductsScreen.tsx. */
+.product-kpi-name-input {
+  padding-left: calc(0.4rem + var(--kpi-depth, 0) * 1.25rem) !important;
 }
 
 .products-save-row {

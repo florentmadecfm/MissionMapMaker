@@ -54,9 +54,9 @@ export const TOUR_DEMO_PROJECT: Project = {
     },
   ],
   phases: [
-    { id: 'tour-p-accueil', name: 'Accueil', order: 0, subColumns: 0, icon: '👋' },
-    { id: 'tour-p-commande', name: 'Commande', order: 1, subColumns: 0, icon: '📝' },
-    { id: 'tour-p-service', name: 'Service', order: 2, subColumns: 0, icon: '🍽️' },
+    { id: 'tour-p-accueil', name: 'Accueil', order: 0, subColumns: 0, icon: '👋', kpiLinks: [] },
+    { id: 'tour-p-commande', name: 'Commande', order: 1, subColumns: 0, icon: '📝', kpiLinks: [] },
+    { id: 'tour-p-service', name: 'Service', order: 2, subColumns: 0, icon: '🍽️', kpiLinks: [] },
   ],
   activities: [
     {
@@ -73,6 +73,7 @@ export const TOUR_DEMO_PROJECT: Project = {
       userStories: [],
       traceLinks: [],
       painPoints: [{ id: 'tour-pp-1', text: "Attente trop longue à l'entrée aux heures de pointe" }],
+      kpiLinks: [],
     },
     {
       id: 'tour-act-commander',
@@ -88,6 +89,7 @@ export const TOUR_DEMO_PROJECT: Project = {
       userStories: [],
       traceLinks: [],
       painPoints: [],
+      kpiLinks: [],
     },
     {
       id: 'tour-act-preparer',
@@ -103,6 +105,7 @@ export const TOUR_DEMO_PROJECT: Project = {
       userStories: [],
       traceLinks: [SPEC_ID],
       painPoints: [],
+      kpiLinks: [],
     },
     {
       id: 'tour-act-servir',
@@ -118,6 +121,7 @@ export const TOUR_DEMO_PROJECT: Project = {
       userStories: [],
       traceLinks: [],
       painPoints: [],
+      kpiLinks: [],
     },
   ],
   interactions: [
@@ -184,9 +188,9 @@ export const TOUR_DEMO_PROJECT: Project = {
       },
     ],
     phases: [
-      { id: 'tour-p-accueil', name: 'Accueil', order: 0, subColumns: 0, icon: '👋' },
-      { id: 'tour-p-commande', name: 'Commande en ligne', order: 1, subColumns: 0, icon: '📱' },
-      { id: 'tour-p-service', name: 'Service', order: 2, subColumns: 0, icon: '🍽️' },
+      { id: 'tour-p-accueil', name: 'Accueil', order: 0, subColumns: 0, icon: '👋', kpiLinks: [] },
+      { id: 'tour-p-commande', name: 'Commande en ligne', order: 1, subColumns: 0, icon: '📱', kpiLinks: [] },
+      { id: 'tour-p-service', name: 'Service', order: 2, subColumns: 0, icon: '🍽️', kpiLinks: [] },
     ],
     activities: [
       {
@@ -203,6 +207,7 @@ export const TOUR_DEMO_PROJECT: Project = {
         userStories: [],
         traceLinks: [],
         painPoints: [],
+        kpiLinks: [],
       },
       {
         id: 'tour-act-commander',
@@ -218,6 +223,7 @@ export const TOUR_DEMO_PROJECT: Project = {
         userStories: [],
         traceLinks: [SPEC_ID],
         painPoints: [],
+        kpiLinks: [],
       },
       {
         id: 'tour-act-preparer',
@@ -233,6 +239,7 @@ export const TOUR_DEMO_PROJECT: Project = {
         userStories: [],
         traceLinks: [SPEC_ID],
         painPoints: [],
+        kpiLinks: [],
       },
       {
         id: 'tour-act-servir',
@@ -248,6 +255,7 @@ export const TOUR_DEMO_PROJECT: Project = {
         userStories: [],
         traceLinks: [],
         painPoints: [],
+        kpiLinks: [],
       },
     ],
     interactions: [

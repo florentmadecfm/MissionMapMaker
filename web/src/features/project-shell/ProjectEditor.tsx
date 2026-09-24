@@ -94,6 +94,7 @@ export function ProjectEditor({ project, onChange, products }: Props) {
       icon: '',
       duration: '',
       satisfactionScore: 0,
+      kpiLinks: [],
     }
     onChange({ ...project, phases: [...project.phases, phase] })
   }
@@ -158,6 +159,7 @@ export function ProjectEditor({ project, onChange, products }: Props) {
       userStories: [],
       traceLinks: [],
       painPoints: [],
+      kpiLinks: [],
     }
     onChange({ ...project, activities: [...project.activities, activity] })
   }

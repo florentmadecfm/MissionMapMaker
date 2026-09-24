@@ -58,6 +58,11 @@ func normalizeCollections(
 			(*actors)[i].PainPoints = []ActorPainPoint{}
 		}
 	}
+	for i := range *phases {
+		if (*phases)[i].KpiLinks == nil {
+			(*phases)[i].KpiLinks = []string{}
+		}
+	}
 	for i := range *activities {
 		if (*activities)[i].UserStories == nil {
 			(*activities)[i].UserStories = []UserStory{}
@@ -67,6 +72,9 @@ func normalizeCollections(
 		}
 		if (*activities)[i].PainPoints == nil {
 			(*activities)[i].PainPoints = []PainPoint{}
+		}
+		if (*activities)[i].KpiLinks == nil {
+			(*activities)[i].KpiLinks = []string{}
 		}
 	}
 	for i := range *testScenarios {

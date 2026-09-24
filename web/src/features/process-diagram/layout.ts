@@ -250,7 +250,17 @@ function resolveColumns(activities: Project['activities']): Map<string, number> 
 // les phases partagent les mêmes sous-lignes d'un acteur donné) — ce qui
 // garde le diagramme lisible même quand une phase ou un acteur concentre
 // beaucoup d'activités.
-export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
+// validKpiIds (Phase 3 du plan Produit/Vision/KPI) : ensemble des ids de
+// KPI réellement connus du produit associé à la mission (résolu par
+// ProjectShell.tsx/ProcessDiagram.tsx) — absent (undefined, ex. appelants
+// sans contexte produit comme ReadOnlyProcessDiagram.tsx, ou le second
+// appel interne de ProcessDiagram.tsx qui ne calcule qu'une position) :
+// aucun KPI compté plutôt qu'une longueur brute potentiellement gonflée
+// par un id orphelin (KPI supprimé du produit depuis).
+export function computeLayout(
+  project: Project,
+  validKpiIds?: Set<string>,
+): { nodes: LayoutNode[]; edges: LayoutEdge[] } {
   const phases = [...project.phases].sort((a, b) => a.order - b.order)
   // Acteurs front-stage (visibles/en interaction directe avec le client)
   // groupés avant les back-stage (support interne) — tri STABLE, qui
@@ -263,6 +273,9 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
   const phaseIndex = new Map(phases.map((p, i) => [p.id, i]))
   const actorIndex = new Map(actors.map((a, i) => [a.id, i]))
   const actorById = new Map(actors.map((a) => [a.id, a]))
+
+  // Voir le commentaire sur validKpiIds ci-dessus.
+  const countValidKpis = (ids: string[]) => (validKpiIds ? ids.filter((id) => validKpiIds.has(id)).length : 0)
 
   const activityColumn = resolveColumns(project.activities)
 
@@ -342,7 +355,13 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
       id: `phase-header-${phase.id}`,
       type: 'phaseHeader',
       position: { x: phaseOffsets[i], y: 0 },
-      data: { label: phase.name, icon: phase.icon, width: phaseWidths[i], phaseId: phase.id },
+      data: {
+        label: phase.name,
+        icon: phase.icon,
+        width: phaseWidths[i],
+        phaseId: phase.id,
+        kpiCount: countValidKpis(phase.kpiLinks),
+      },
       draggable: false,
       selectable: false,
     })
@@ -533,6 +552,7 @@ export function computeLayout(project: Project): { nodes: LayoutNode[]; edges: L
         specCount: activity.traceLinks.length,
         painPointCount: activity.painPoints.length,
         branchCount: branchCountByActivity.get(activity.id) ?? 0,
+        kpiCount: countValidKpis(activity.kpiLinks),
       },
       draggable: true,
       selectable: true,

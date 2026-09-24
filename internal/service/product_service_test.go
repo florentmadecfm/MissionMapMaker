@@ -70,3 +70,21 @@ func TestProductService_CreateRequiresName(t *testing.T) {
 		t.Fatalf("Create avec un nom vide devrait échouer")
 	}
 }
+
+// Update doit rejeter un ParentID de KPI invalide (Phase 3 du plan
+// Produit/Vision/KPI) — voir domain.Product.Validate, testé plus en détail
+// dans internal/domain.
+func TestProductService_UpdateRejectsInvalidKpiParent(t *testing.T) {
+	dir := t.TempDir()
+	svc := NewProductService(storage.NewProductStore(dir))
+
+	created, err := svc.Create("Pulse.MissionMap")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	created.Kpis = []domain.ProductKpi{{ID: "kpi1", Name: "Taux d'adoption", ParentID: "inconnu"}}
+	if _, err := svc.Update(created.ID, created); !errors.Is(err, domain.ErrInvalidProduct) {
+		t.Fatalf("Update avec un ParentID inconnu devrait échouer avec ErrInvalidProduct, obtenu %v", err)
+	}
+}

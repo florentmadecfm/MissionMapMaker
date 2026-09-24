@@ -203,6 +203,10 @@
   color: var(--color-text-muted);
 }
 
+/* Cliquer l'en-tête (hors bouton "+", voir handleNodeClick,
+   ProcessDiagram.tsx) ouvre PhaseDetailModal (Phase 3 du plan Produit/
+   Vision/KPI) — même affordance cursor/survol que .actor-header
+   ci-dessous, qui ouvre déjà sa propre modale de détail au clic. */
 .phase-header {
   position: relative;
   flex-direction: column;
@@ -213,6 +217,28 @@
   border-radius: var(--radius-md);
   text-align: center;
   padding: 0.3rem;
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease);
+}
+
+.phase-header:hover {
+  background: var(--color-primary-bg);
+}
+
+/* Signale, sans avoir à ouvrir la modale de détail, qu'au moins un KPI
+   est lié à cette phase — même esprit que .actor-header-backstage-tag. */
+.phase-header-kpi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  align-self: center;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
 /* Emoji illustrant la phase (mode storyboard, ADR-059) — grand, au-dessus
@@ -689,11 +715,13 @@
 }
 
 .diagram-readonly .actor-header,
+.diagram-readonly .phase-header,
 .diagram-readonly .activity-card {
   cursor: default;
 }
 
-.diagram-readonly .actor-header:hover {
+.diagram-readonly .actor-header:hover,
+.diagram-readonly .phase-header:hover {
   background: var(--color-surface-muted);
 }
 
