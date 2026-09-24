@@ -89,8 +89,12 @@
    Produits sont 2 des 4 destinations de navigation de toute l'app, un
    traitement en petits liens texte discrets les faisait passer pour un
    menu utilitaire secondaire plutôt que de la navigation principale. Reste
-   nettement plus petit que la zone Missions au-dessus (le focus reste sur
-   les missions), mais gagne un peu de présence propre. */
+   nettement plus petit que la liste de missions au-dessus (le focus reste
+   sur les missions), mais gagne un peu de présence propre.
+   Missions (.sidebar-missions-nav) rejoint Personas/Produits ici : sidebar
+   repliée, la liste de missions elle-même disparaît entièrement (comme la
+   zone de création) — sans ce bouton, aucun moyen de revenir à la
+   dernière mission ouverte sans redéplier la sidebar. */
 .sidebar-bottom {
   margin-top: 0.75rem;
   padding: 0.4rem;
@@ -98,6 +102,7 @@
   border-radius: var(--radius-md);
 }
 
+.sidebar-missions-nav,
 .sidebar-actors,
 .sidebar-products {
   position: relative;
@@ -114,11 +119,13 @@
   font-size: 0.85rem;
 }
 
+.sidebar-missions-nav svg,
 .sidebar-actors svg,
 .sidebar-products svg {
   flex-shrink: 0;
 }
 
+.sidebar-missions-nav,
 .sidebar-actors {
   margin-bottom: 0.2rem;
 }
@@ -148,12 +155,14 @@
   font-weight: 600;
 }
 
+.sidebar-missions-nav:hover,
 .sidebar-actors:hover,
 .sidebar-products:hover {
   background: var(--color-surface-hover);
   color: var(--color-text);
 }
 
+.sidebar-missions-nav.active,
 .sidebar-actors.active,
 .sidebar-products.active {
   background: var(--color-primary-bg);
@@ -161,12 +170,14 @@
   font-weight: 600;
 }
 
+.sidebar-missions-nav.active .sidebar-count-badge,
 .sidebar-actors.active .sidebar-count-badge,
 .sidebar-products.active .sidebar-count-badge {
   background: var(--color-surface);
   color: var(--color-primary);
 }
 
+.shell-sidebar.collapsed .sidebar-missions-nav,
 .shell-sidebar.collapsed .sidebar-actors,
 .shell-sidebar.collapsed .sidebar-products {
   justify-content: center;
