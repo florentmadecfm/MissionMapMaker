@@ -43,16 +43,43 @@ export function WelcomeTour({ step, onNext, onPrev, onClose }: Props) {
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const [cardPos, setCardPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null)
+  // Hauteur naturelle (non contrainte) de la carte pour l'étape en cours —
+  // mesurée une seule fois par étape (voir la remise à zéro ci-dessous),
+  // au moment où cardPos vaut encore null : la carte est alors affichée en
+  // mode centré (.welcome-tour-centered, sans maxHeight), donc à sa taille
+  // de contenu réelle. Sert à décider si la carte a la place de s'afficher
+  // pleinement à côté de la cible (voir l'effet suivant) plutôt que de
+  // comparer à sa propre taille déjà contrainte lors des remesures
+  // suivantes.
+  const naturalCardHeightRef = useRef<number | null>(null)
 
   // Mesure (et re-mesure à intervalle) l'élément ciblé par cette étape —
   // absent tant que l'onglet/écran visé n'a pas fini de se rendre (voir
   // TOUR_STEPS[step].tab, piloté par ProjectShell.tsx en parallèle),
   // retrouvé dès qu'il apparaît. Repart de zéro à chaque changement
   // d'étape (`step` en dépendance) : l'ancien élément n'a plus de sens.
+  //
+  // scrollIntoView dès que l'élément est retrouvé (une seule fois par
+  // étape, voir `scrolled`) : un écran comme Produits défile en interne
+  // (.products-screen) et la section KPI se trouve après Vision/
+  // Différenciateurs/Piliers — sans ce scroll, l'élément ciblé restait
+  // hors du champ visible, la carte d'étape se positionnait alors par
+  // rapport à un rectangle situé sous le bas de l'écran et se retrouvait
+  // elle-même coupée (boutons Précédent/Suivant inaccessibles, bug
+  // remonté par l'utilisateur sur l'étape "Produits"). scrollIntoView
+  // remonte automatiquement TOUS les ancêtres défilants concernés (pas
+  // seulement .products-screen), ce qui met cette étape à l'abri du même
+  // problème sur n'importe quelle étape future.
   useLayoutEffect(() => {
     setTargetRect(null)
+    naturalCardHeightRef.current = null
+    let scrolled = false
     function measure() {
       const el = document.querySelector(stepData.target)
+      if (el && !scrolled) {
+        el.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+        scrolled = true
+      }
       setTargetRect(el ? el.getBoundingClientRect() : null)
     }
     measure()
@@ -78,16 +105,35 @@ export function WelcomeTour({ step, onNext, onPrev, onClose }: Props) {
   // l'espace réellement disponible du côté choisi (avec défilement
   // interne, voir .welcome-tour en CSS) : elle ne peut alors plus jamais
   // déborder sur la cible, quelle que soit la longueur de son texte.
+  //
+  // Mais une cible elle-même très haute (ex. le tableau de KPI à plusieurs
+  // cartes, étape "Produits") peut ne laisser assez de place NI au-dessus
+  // NI en dessous pour la carte à sa taille naturelle : la contraindre
+  // quand même la réduisait au point de rendre Précédent/Suivant
+  // inatteignables sans défiler DANS la carte elle-même (bug remonté par
+  // l'utilisateur). Dans ce cas, `cardPos` reste null : la carte retombe
+  // en mode centré (.welcome-tour-centered, non contraint par la cible) —
+  // le halo de surbrillance reste affiché autour de la cible (piloté par
+  // `targetRect`, indépendant de `cardPos`), seule la carte d'instructions
+  // n'essaie plus de se coller à côté d'elle.
   useLayoutEffect(() => {
     if (!targetRect || !cardRef.current) {
       setCardPos(null)
       return
     }
     const cardRect = cardRef.current.getBoundingClientRect()
+    if (naturalCardHeightRef.current === null) {
+      naturalCardHeightRef.current = cardRect.height
+    }
+    const naturalHeight = naturalCardHeightRef.current
     const spotlightTop = targetRect.top - SPOTLIGHT_PADDING
     const spotlightBottom = targetRect.bottom + SPOTLIGHT_PADDING
     const spaceAbove = spotlightTop - CARD_MARGIN * 2
     const spaceBelow = window.innerHeight - CARD_MARGIN * 2 - spotlightBottom
+    if (spaceAbove < naturalHeight && spaceBelow < naturalHeight) {
+      setCardPos(null)
+      return
+    }
     const placeBelow = spaceBelow >= cardRect.height || spaceBelow >= spaceAbove
     const maxHeight = Math.max(placeBelow ? spaceBelow : spaceAbove, 120)
     const top = placeBelow
