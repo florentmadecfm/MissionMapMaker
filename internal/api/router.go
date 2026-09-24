@@ -56,6 +56,8 @@ func NewRouter(projects *service.ProjectService, generate *service.GenerateServi
 	mux.HandleFunc("POST /api/generate-painpoint-resolution", h.generatePainPointResolution)
 	mux.HandleFunc("POST /api/generate-persona-portrait", h.generatePersonaPortrait)
 	mux.HandleFunc("POST /api/generate-diagram-sketch", h.generateDiagramSketch)
+	mux.HandleFunc("POST /api/generate-vision", h.generateVisionRefinement)
+	mux.HandleFunc("POST /api/generate-kpi-suggestions", h.generateKpiSuggestions)
 	mux.HandleFunc("GET /api/settings", h.getSettings)
 	mux.HandleFunc("PUT /api/settings", h.saveSettings)
 	mux.HandleFunc("DELETE /api/settings", h.deleteSettings)
@@ -211,6 +213,10 @@ func (h *Handler) updateProduct(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, storage.ErrProductNotFound) {
 			writeError(w, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidProduct) {
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err)
@@ -412,6 +418,42 @@ func (h *Handler) generateDiagramSketch(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{"imageDataUrl": imageDataURL})
 }
 
+// generateVisionRefinement (Phase 2 du plan Produit/Vision/KPI) affine le
+// brouillon de vision produit (vision, différenciateurs, piliers) —
+// renvoyé tel quel au frontend, jamais persisté ici : à l'utilisateur de
+// relire et d'appliquer (VisionRefinementModal.tsx) avant "Enregistrer".
+func (h *Handler) generateVisionRefinement(w http.ResponseWriter, r *http.Request) {
+	var body llm.ProductVisionContext
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	draft, err := h.generate.GenerateVisionRefinement(r.Context(), body)
+	if err != nil {
+		writeGenerateError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, draft)
+}
+
+// generateKpiSuggestions (Phase 2 du plan Produit/Vision/KPI) propose des
+// KPI à partir de la vision/des piliers déjà définis.
+func (h *Handler) generateKpiSuggestions(w http.ResponseWriter, r *http.Request) {
+	var body llm.ProductVisionContext
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	suggestions, err := h.generate.GenerateKpiSuggestions(r.Context(), body)
+	if err != nil {
+		writeGenerateError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, suggestions)
+}
+
 func (h *Handler) getSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"configured":                h.generate.Configured(),
@@ -601,6 +643,10 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 		PainPointSolutionsContext string `json:"painPointSolutionsContext"`
 		ImageGeneration           string `json:"imageGeneration"`
 		ImageGenerationContext    string `json:"imageGenerationContext"`
+		VisionRefinement          string `json:"visionRefinement"`
+		VisionRefinementContext   string `json:"visionRefinementContext"`
+		KpiSuggestions            string `json:"kpiSuggestions"`
+		KpiSuggestionsContext     string `json:"kpiSuggestionsContext"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, err)
@@ -616,6 +662,10 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 		TestScenarioContext:       normalizePromptOverride(body.TestScenarioContext, llm.DefaultTestScenarioContextPrompt),
 		PainPointSolutions:        normalizePromptOverride(body.PainPointSolutions, llm.DefaultPainPointSolutionsPrompt),
 		PainPointSolutionsContext: normalizePromptOverride(body.PainPointSolutionsContext, llm.DefaultPainPointSolutionsContextPrompt),
+		VisionRefinement:          normalizePromptOverride(body.VisionRefinement, llm.DefaultVisionRefinementPrompt),
+		VisionRefinementContext:   normalizePromptOverride(body.VisionRefinementContext, llm.DefaultVisionRefinementContextPrompt),
+		KpiSuggestions:            normalizePromptOverride(body.KpiSuggestions, llm.DefaultKpiSuggestionsPrompt),
+		KpiSuggestionsContext:     normalizePromptOverride(body.KpiSuggestionsContext, llm.DefaultKpiSuggestionsContextPrompt),
 	}
 	h.generate.SetPrompts(overrides)
 
@@ -641,6 +691,10 @@ func (h *Handler) savePrompts(w http.ResponseWriter, r *http.Request) {
 		PainPointSolutionsContext: overrides.PainPointSolutionsContext,
 		ImageGeneration:           imageOverrides.Generation,
 		ImageGenerationContext:    imageOverrides.GenerationContext,
+		VisionRefinement:          overrides.VisionRefinement,
+		VisionRefinementContext:   overrides.VisionRefinementContext,
+		KpiSuggestions:            overrides.KpiSuggestions,
+		KpiSuggestionsContext:     overrides.KpiSuggestionsContext,
 	}
 	if err := config.Save(cfg); err != nil {
 		log.Printf("sauvegarde de la configuration : %v", err)
@@ -672,6 +726,10 @@ func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateServi
 		"painPointSolutionsContext": p.PainPointSolutionsContext.Value,
 		"imageGeneration":           ip.Generation.Value,
 		"imageGenerationContext":    ip.GenerationContext.Value,
+		"visionRefinement":          p.VisionRefinement.Value,
+		"visionRefinementContext":   p.VisionRefinementContext.Value,
+		"kpiSuggestions":            p.KpiSuggestions.Value,
+		"kpiSuggestionsContext":     p.KpiSuggestionsContext.Value,
 		"customized": map[string]bool{
 			"process":                   p.Process.Customized,
 			"processContext":            p.ProcessContext.Customized,
@@ -683,6 +741,10 @@ func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateServi
 			"painPointSolutionsContext": p.PainPointSolutionsContext.Customized,
 			"imageGeneration":           ip.Generation.Customized,
 			"imageGenerationContext":    ip.GenerationContext.Customized,
+			"visionRefinement":          p.VisionRefinement.Customized,
+			"visionRefinementContext":   p.VisionRefinementContext.Customized,
+			"kpiSuggestions":            p.KpiSuggestions.Customized,
+			"kpiSuggestionsContext":     p.KpiSuggestionsContext.Customized,
 		},
 		"defaults": map[string]string{
 			"process":                   llm.DefaultProcessPrompt,
@@ -695,6 +757,10 @@ func writePromptsResponse(w http.ResponseWriter, generate *service.GenerateServi
 			"painPointSolutionsContext": llm.DefaultPainPointSolutionsContextPrompt,
 			"imageGeneration":           llm.DefaultImageGenerationPrompt,
 			"imageGenerationContext":    llm.DefaultImageGenerationContextPrompt,
+			"visionRefinement":          llm.DefaultVisionRefinementPrompt,
+			"visionRefinementContext":   llm.DefaultVisionRefinementContextPrompt,
+			"kpiSuggestions":            llm.DefaultKpiSuggestionsPrompt,
+			"kpiSuggestionsContext":     llm.DefaultKpiSuggestionsContextPrompt,
 		},
 	})
 }

@@ -57,6 +57,10 @@ export interface Phase {
   // neutre (3) : n'apparaît alors pas dans la courbe de satisfaction
   // (ADR-065).
   satisfactionScore?: number
+  // KPI (Product.kpis[].id, produit associé via Project.productId) que
+  // cette phase permet de mesurer (Phase 3 du plan Produit/Vision/KPI) —
+  // voir KpiLinksSection.tsx/PhaseDetailModal.tsx.
+  kpiLinks: string[]
 }
 
 export interface UserStory {
@@ -99,6 +103,10 @@ export interface Activity {
   // de l'activité elle-même). Ajoutés/retirés depuis le diagramme
   // (ActivityDetailModal.tsx).
   painPoints: PainPoint[]
+  // KPI (Product.kpis[].id, produit associé via Project.productId) que
+  // cette activité permet de mesurer (Phase 3 du plan Produit/Vision/
+  // KPI) — voir KpiLinksSection.tsx.
+  kpiLinks: string[]
 }
 
 export interface PainPoint {
@@ -326,6 +334,42 @@ export interface ProductKpi {
   // correspond plus à aucun pilier reste un simple libellé orphelin sans
   // conséquence (pas de lookup cassé).
   pillar?: string
+  // Référence un autre ProductKpi.id du MÊME produit (Phase 3 du plan
+  // Produit/Vision/KPI) — absent/vide = KPI de premier niveau. L'arbre
+  // n'est jamais stocké imbriqué, dérivé à l'affichage par kpiTree.ts.
+  parentId?: string
+}
+
+// ProductVisionContext fournit à l'IA le brouillon actuel de la vision
+// produit (voir buildProductContext.ts) — utilisé à la fois pour l'affiner
+// (generateVisionRefinement) et pour en dériver des suggestions de KPI
+// (generateKpiSuggestions), Phase 2 du plan Produit/Vision/KPI.
+export interface ProductVisionContext {
+  productName: string
+  visionStatement: string
+  differentiators: string[]
+  pillars: string[]
+}
+
+// DraftVisionRefinement est la vision affinée proposée par l'IA à partir
+// d'un ProductVisionContext — une proposition à relire dans
+// VisionRefinementModal.tsx, jamais appliquée automatiquement au produit.
+export interface DraftVisionRefinement {
+  visionStatement: string
+  differentiators: string[]
+  pillars: string[]
+}
+
+// DraftKpiSuggestion est un KPI proposé par l'IA à partir de la vision et
+// des piliers du produit — même forme que ProductKpi sans id ni parentId
+// (attribués à l'acceptation, voir VisionRefinementModal.tsx).
+export interface DraftKpiSuggestion {
+  name: string
+  definition?: string
+  unit?: string
+  baseline?: string
+  target?: string
+  pillar?: string
 }
 
 export interface DraftActor {
@@ -404,6 +448,12 @@ export interface PromptSettings {
   painPointSolutionsContext: string
   imageGeneration: string
   imageGenerationContext: string
+  // visionRefinement/kpiSuggestions (Phase 2 du plan Produit/Vision/KPI) :
+  // 6e et 7e paires personnalisables, même patron que les précédentes.
+  visionRefinement: string
+  visionRefinementContext: string
+  kpiSuggestions: string
+  kpiSuggestionsContext: string
 }
 
 export interface PromptSettingsResponse extends PromptSettings {
@@ -418,6 +468,10 @@ export interface PromptSettingsResponse extends PromptSettings {
     painPointSolutionsContext: boolean
     imageGeneration: boolean
     imageGenerationContext: boolean
+    visionRefinement: boolean
+    visionRefinementContext: boolean
+    kpiSuggestions: boolean
+    kpiSuggestionsContext: boolean
   }
   defaults: PromptSettings
 }

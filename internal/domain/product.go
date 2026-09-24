@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"errors"
+	"fmt"
+	"time"
+)
 
 // Product représente le produit lui-même (vision, différenciateurs,
 // piliers stratégiques, KPI) — distinct d'une mission (Project, un
@@ -49,6 +53,15 @@ type ProductKpi struct {
 	Baseline   string `json:"baseline,omitempty"`
 	Target     string `json:"target,omitempty"`
 	Pillar     string `json:"pillar,omitempty"`
+	// ParentID référence un autre ProductKpi.ID du MÊME produit (Phase 3 du
+	// plan Produit/Vision/KPI) — vide (la valeur par défaut, y compris pour
+	// les KPI enregistrés avant l'introduction de ce champ) signifie un KPI
+	// de premier niveau. L'arbre n'est jamais stocké imbriqué, seulement
+	// dérivé à l'affichage par regroupement (voir kpiTree.ts côté
+	// frontend) — Kpis reste une liste plate patchable par id, comme en
+	// Phase 1. Validé par Product.Validate() ci-dessous (existence +
+	// absence de cycle).
+	ParentID string `json:"parentId,omitempty"`
 }
 
 // Normalize garantit qu'aucune liste n'est nil après chargement depuis le
@@ -65,4 +78,63 @@ func (p *Product) Normalize() {
 	if p.Kpis == nil {
 		p.Kpis = []ProductKpi{}
 	}
+}
+
+var ErrInvalidProduct = errors.New("invalid product")
+
+// Validate vérifie l'intégrité référentielle de ProductKpi.ParentID (Phase
+// 3 du plan Produit/Vision/KPI) : un parent doit exister parmi les KPI du
+// MÊME produit, et la chaîne de parenté ne doit jamais revenir sur le
+// nœud de départ (cycle). Mirroring Project.Validate (validate.go) —
+// même précédent que Specification.ParentID (référence intra-liste de
+// même forme), qui valide déjà l'existence mais pas l'absence de cycle :
+// un angle mort déjà présent en production sur les spécifications,
+// corrigé ici plutôt que reproduit à l'identique. Le sélecteur "Sous-KPI
+// de" (frontend, excludeSelfAndDescendants) empêche déjà ce cas en usage
+// normal ; cette vérification serveur reste la ligne de défense qui ne
+// dépend pas de l'UI (ex. appel direct à l'API).
+func (p *Product) Validate() error {
+	kpiIDs := make(map[string]bool, len(p.Kpis))
+	for _, k := range p.Kpis {
+		kpiIDs[k.ID] = true
+	}
+
+	for _, k := range p.Kpis {
+		if k.ParentID == "" {
+			continue
+		}
+		if !kpiIDs[k.ParentID] {
+			return fmt.Errorf("%w: kpi %q references unknown parent %q", ErrInvalidProduct, k.ID, k.ParentID)
+		}
+		if err := checkKpiCycle(p.Kpis, k.ID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// checkKpiCycle remonte la chaîne de parenté de startID (via ParentID) et
+// échoue si elle revient sur startID lui-même — une boucle for bornée par
+// len(kpis) plutôt qu'un ensemble de nœuds visités suffit : toute chaîne
+// plus longue que le nombre de KPI existants contient nécessairement déjà
+// un cycle.
+func checkKpiCycle(kpis []ProductKpi, startID string) error {
+	byID := make(map[string]ProductKpi, len(kpis))
+	for _, k := range kpis {
+		byID[k.ID] = k
+	}
+
+	current := startID
+	for range kpis {
+		k, ok := byID[current]
+		if !ok || k.ParentID == "" {
+			return nil
+		}
+		if k.ParentID == startID {
+			return fmt.Errorf("%w: kpi %q parentage forms a cycle", ErrInvalidProduct, startID)
+		}
+		current = k.ParentID
+	}
+	return fmt.Errorf("%w: kpi %q parentage forms a cycle", ErrInvalidProduct, startID)
 }

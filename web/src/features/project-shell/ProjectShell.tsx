@@ -8,7 +8,7 @@ import { ActorMissionsScreen } from '../actor-missions/ActorMissionsScreen'
 import { NlInput } from '../nl-input/NlInput'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { WelcomeTour } from '../onboarding/WelcomeTour'
-import { TOUR_DEMO_PROJECT } from '../onboarding/tourDemoProject'
+import { TOUR_DEMO_PRODUCT, TOUR_DEMO_PROJECT } from '../onboarding/tourDemoProject'
 import { TOUR_STEPS } from '../onboarding/tourSteps'
 import { ProductsScreen } from '../products/ProductsScreen'
 import { SettingsModal } from '../settings/SettingsModal'
@@ -21,6 +21,7 @@ import {
   toWorkingProject,
 } from './activeVariant'
 import { ExportImportMenu } from './ExportImportMenu'
+import { HeaderMenu } from './HeaderMenu'
 import { ProjectEditor } from './ProjectEditor'
 import { VariantComparisonScreen } from './VariantComparisonScreen'
 import { VariantToggle } from './VariantToggle'
@@ -36,7 +37,7 @@ export type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acte
 // 'products' est l'écran transverse "Produits" (ProductsScreen), pour
 // définir vision/différenciateurs/piliers/KPI — indépendant de tout
 // projet ouvert, même principe que 'actors'.
-type View = 'project' | 'actors' | 'compare' | 'products'
+export type View = 'project' | 'actors' | 'compare' | 'products'
 
 const SIDEBAR_COLLAPSED_KEY = 'mmm-sidebar-collapsed'
 // Visite guidée (ADR-078, WelcomeTour.tsx) : affichée automatiquement tant
@@ -88,17 +89,24 @@ export function ProjectShell() {
   // de l'app sur ce navigateur, sans attendre un effet après montage.
   const [tourOpen, setTourOpen] = useState(() => !loadWelcomeTourSeen())
   const [tourStep, setTourStep] = useState(0)
+  // Toujours à jour, contrairement à `tourOpen` capturé par une fermeture —
+  // lu depuis refreshProducts ci-dessous, dont la résolution (async) peut
+  // survenir bien après le rendu qui l'a déclenchée. Même patron que
+  // projectRef.
+  const tourOpenRef = useRef(tourOpen)
+  tourOpenRef.current = tourOpen
   // Capture l'état réel (projet ouvert, onglet, vue, variante affichée,
-  // sidebar repliée ou non) juste avant que la visite guidée ne les
-  // remplace le temps de sa durée (voir l'effet ci-dessous) — restauré tel
-  // quel à la fermeture. Un ref plutôt qu'un state : lu/écrit uniquement
-  // depuis des effets/handlers, jamais depuis le rendu.
+  // sidebar repliée ou non, produits) juste avant que la visite guidée ne
+  // les remplace le temps de sa durée (voir l'effet ci-dessous) — restauré
+  // tel quel à la fermeture. Un ref plutôt qu'un state : lu/écrit
+  // uniquement depuis des effets/handlers, jamais depuis le rendu.
   const preTourStateRef = useRef<{
     project: Project | null
     tab: Tab
     view: View
     activeVariant: ActiveVariant
     sidebarCollapsed: boolean
+    products: Product[] | null
   } | null>(null)
   // Quel état du diagramme de la mission ouverte est affiché/édité (voir
   // activeVariant.ts) — remis à 'current' à chaque changement de projet
@@ -147,26 +155,38 @@ export function ProjectShell() {
   useEffect(() => {
     if (!tourOpen) return
     if (!preTourStateRef.current) {
-      preTourStateRef.current = { project, tab, view, activeVariant, sidebarCollapsed }
+      preTourStateRef.current = { project, tab, view, activeVariant, sidebarCollapsed, products }
     }
     setView('project')
     setProject(TOUR_DEMO_PROJECT)
     setActiveVariant('current')
     setSidebarCollapsed(false)
+    // Produit fictif associé à TOUR_DEMO_PROJECT (Phase 5 du plan Produit/
+    // Vision/KPI) — même bascule que `project` ci-dessus, pour que
+    // l'étape "Produits" (view: 'products') ait un vrai arbre de KPI à
+    // montrer plutôt que la vraie liste (potentiellement vide) de
+    // l'utilisateur.
+    setProducts([TOUR_DEMO_PRODUCT])
     // Snapshot volontairement pris une seule fois par ouverture (voir le
     // commentaire ci-dessus) : ne doit PAS se redéclencher sur
-    // project/tab/view/activeVariant/sidebarCollapsed, seulement sur
-    // tourOpen.
+    // project/tab/view/activeVariant/sidebarCollapsed/products, seulement
+    // sur tourOpen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tourOpen])
 
-  // Bascule l'onglet affiché à chaque étape (voir TOUR_STEPS[i].tab,
-  // tourSteps.ts) — l'étape 1 (tab absent) n'y touche pas, elle pointe un
-  // élément de la barre latérale, visible quel que soit l'onglet actif.
+  // Bascule l'onglet ET la vue affichés à chaque étape (voir
+  // TOUR_STEPS[i].tab/view, tourSteps.ts) — l'étape 1 (ni l'un ni l'autre)
+  // n'y touche pas, elle pointe un élément de la barre latérale, visible
+  // quel que soit l'onglet/la vue actifs. `view` retombe sur 'project' par
+  // défaut (le fonctionnement habituel, piloté par `tab`) dès qu'une
+  // étape ne la précise pas — sans ce else, une étape sans `view` après
+  // l'étape "Produits" (view: 'products') laisserait la vue Produits
+  // affichée au lieu de revenir sur le diagramme/l'édition attendus.
   useEffect(() => {
     if (!tourOpen) return
     const step = TOUR_STEPS[tourStep]
     if (step.tab) setTab(step.tab)
+    setView(step.view ?? 'project')
   }, [tourOpen, tourStep])
 
   // "Passer" et "Terminer" de la visite guidée (WelcomeTour.tsx) déclenchent
@@ -187,7 +207,19 @@ export function ProjectShell() {
       setView(prev.view)
       setActiveVariant(prev.activeVariant)
       setSidebarCollapsed(prev.sidebarCollapsed)
+      setProducts(prev.products)
     }
+    // Relance systématiquement un chargement réel des produits, même si
+    // `prev.products` vient d'être restauré : au tout premier chargement
+    // (le seul cas où la visite s'ouvre automatiquement), le snapshot
+    // ci-dessus a été pris AVANT que le refreshProducts() du montage
+    // n'ait eu le temps de répondre (voir tourOpenRef, refreshProducts) —
+    // prev.products vaudrait alors encore `null`, laissant l'écran
+    // Produits bloqué sur "Chargement…" jusqu'au prochain rechargement de
+    // page. Un second appel ici est un GET idempotent et sans coût
+    // perceptible dans le cas contraire (revisite via "Revoir la visite
+    // guidée", où prev.products était déjà la vraie liste).
+    refreshProducts()
     try {
       localStorage.setItem(WELCOME_TOUR_SEEN_KEY, '1')
     } catch {
@@ -211,15 +243,27 @@ export function ProjectShell() {
       .catch((e) => setActorsError(String(e)))
   // Index des produits (écran Produits), rafraîchi au montage ET après
   // toute création/sauvegarde/suppression de produit — même patron que
-  // refreshActors ci-dessus.
+  // refreshActors ci-dessus. Ignore sa propre résolution pendant que la
+  // visite guidée est ouverte (tourOpenRef, pas `tourOpen` — cette
+  // fermeture ne se recrée pas à chaque rendu, elle capturerait une
+  // valeur périmée) : sans cette garde, l'appel déclenché au montage
+  // pourrait répondre APRÈS que la visite ait basculé sur le produit de
+  // démonstration (voir l'effet d'ouverture ci-dessus) et écraser
+  // silencieusement cette démo par la vraie liste (potentiellement vide)
+  // pendant que la visite est encore affichée. closeTour() relance un
+  // appel non filtré à la fermeture pour rattraper ce chargement ignoré.
   const refreshProducts = () =>
     api
       .listProducts()
       .then((list) => {
+        if (tourOpenRef.current) return
         setProducts(list)
         setProductsError(null)
       })
-      .catch((e) => setProductsError(String(e)))
+      .catch((e) => {
+        if (tourOpenRef.current) return
+        setProductsError(String(e))
+      })
   // Après toute sauvegarde d'un projet (Édition, Diagramme,
   // Spécifications) : la liste de projets ET l'index d'acteurs peuvent
   // tous deux avoir changé (nom de projet, acteurs ajoutés/renommés...) —
@@ -507,25 +551,32 @@ export function ProjectShell() {
             <Package size={16} aria-hidden="true" />
             {!sidebarCollapsed && 'Produits'}
           </button>
-          <button
-            type="button"
-            className="sidebar-settings"
-            onClick={() => setSettingsOpen(true)}
-            title={llmConfigured === false ? 'Paramètres — aucun fournisseur LLM configuré' : 'Paramètres'}
-          >
-            <Settings size={16} aria-hidden="true" />
-            {!sidebarCollapsed && 'Paramètres'}
-            {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
-          </button>
-          {/* Rappel manuel de la visite guidée (WelcomeTour.tsx) pour qui
-              l'a passée ou veut la revoir — seul point d'entrée hors du
-              tout premier chargement de l'app. */}
-          <button type="button" className="sidebar-replay-tour" onClick={() => setTourOpen(true)} title="Revoir la visite guidée">
-            <CircleHelp size={16} aria-hidden="true" />
-            {!sidebarCollapsed && 'Revoir la visite guidée'}
-          </button>
         </div>
       </aside>
+
+      {/* Menu burger fixe en haut à droite (Paramètres + visite guidée) —
+          retour utilisateur : ces deux actions n'ont rien à voir avec la
+          navigation entre missions/écrans qui occupe le reste de la
+          sidebar, et sont désormais accessibles depuis n'importe quelle
+          vue (pas seulement un projet ouvert). triggerClassName distinct
+          de la valeur par défaut de HeaderMenu ('header-menu-trigger') :
+          la toute dernière étape de la visite guidée (tourSteps.ts)
+          cible spécifiquement le burger export/import de
+          ExportImportMenu.tsx via ce même sélecteur par défaut —
+          document.querySelector prend le premier match du DOM, un nom de
+          classe partagé ferait pointer cette étape sur CE menu-ci à la
+          place. */}
+      <div className="app-menu">
+        <HeaderMenu triggerClassName="app-menu-trigger" triggerLabel="Menu">
+          <button type="button" onClick={() => setSettingsOpen(true)}>
+            <Settings size={14} aria-hidden="true" /> Paramètres
+            {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
+          </button>
+          <button type="button" onClick={() => setTourOpen(true)}>
+            <CircleHelp size={14} aria-hidden="true" /> Revoir la visite guidée
+          </button>
+        </HeaderMenu>
+      </div>
 
       {tourOpen && (
         <WelcomeTour
@@ -561,6 +612,7 @@ export function ProjectShell() {
             onProductsChanged={refreshProducts}
             missions={summaries}
             onOpenMission={handleOpen}
+            onMissionsChanged={refreshList}
           />
         ) : view === 'compare' && project ? (
           <VariantComparisonScreen project={project} onChange={handleComparisonChange} onClose={() => setView('project')} />
@@ -571,15 +623,15 @@ export function ProjectShell() {
                 <button type="button" className={tab === 'generer' ? 'active' : ''} onClick={() => setTab('generer')}>
                   Générer (langage naturel)
                 </button>
-                <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
-                  Édition
-                </button>
                 <button
                   type="button"
                   className={tab === 'diagramme' ? 'active' : ''}
                   onClick={() => setTab('diagramme')}
                 >
                   Diagramme de processus
+                </button>
+                <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
+                  Édition
                 </button>
                 <button
                   type="button"
@@ -655,6 +707,7 @@ export function ProjectShell() {
                 onChange={handleWorkingChange}
                 isTargetActive={activeVariant === 'target'}
                 rootProject={project}
+                product={products?.find((p) => p.id === project.productId)}
               />
             )}
             {tab === 'specifications' && (

@@ -59,6 +59,10 @@ func setupGenerateService() *service.GenerateService {
 		TestScenarioContext:       cfg.Prompts.TestScenarioContext,
 		PainPointSolutions:        cfg.Prompts.PainPointSolutions,
 		PainPointSolutionsContext: cfg.Prompts.PainPointSolutionsContext,
+		VisionRefinement:          cfg.Prompts.VisionRefinement,
+		VisionRefinementContext:   cfg.Prompts.VisionRefinementContext,
+		KpiSuggestions:            cfg.Prompts.KpiSuggestions,
+		KpiSuggestionsContext:     cfg.Prompts.KpiSuggestionsContext,
 	})
 	return gs
 }

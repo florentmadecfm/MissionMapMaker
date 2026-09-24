@@ -232,3 +232,50 @@ type PainPointResolution struct {
 	TestSteps              []DraftTestStep             `json:"testSteps"`
 	DiagramChange          DraftPainPointDiagramChange `json:"diagramChange"`
 }
+
+// ProductVisionContext fournit à l'IA le brouillon actuel de la vision
+// produit (souvent informel/incomplet, saisi à la main dans
+// ProductsScreen.tsx) — utilisé à la fois pour l'affiner
+// (GenerateVisionRefinement) et pour en dériver des suggestions de KPI
+// (GenerateKpiSuggestions), Phase 2 du plan Produit/Vision/KPI.
+type ProductVisionContext struct {
+	ProductName     string   `json:"productName"`
+	VisionStatement string   `json:"visionStatement"`
+	Differentiators []string `json:"differentiators"`
+	Pillars         []string `json:"pillars"`
+}
+
+// DraftVisionRefinement est la vision affinée proposée par l'IA à partir
+// d'un ProductVisionContext — comme tout autre draft de l'app (ADR-002),
+// une proposition à relire et éditer avant application (jamais enregistrée
+// automatiquement : VisionRefinementModal.tsx met seulement à jour le
+// brouillon local de ProductsScreen.tsx, "Enregistrer" reste un geste
+// explicite séparé).
+type DraftVisionRefinement struct {
+	VisionStatement string   `json:"visionStatement"`
+	Differentiators []string `json:"differentiators"`
+	Pillars         []string `json:"pillars"`
+}
+
+func (d *DraftVisionRefinement) normalize() {
+	if d.Differentiators == nil {
+		d.Differentiators = []string{}
+	}
+	if d.Pillars == nil {
+		d.Pillars = []string{}
+	}
+}
+
+// DraftKpiSuggestion est un KPI proposé par l'IA à partir de la vision et
+// des piliers du produit (ProductVisionContext) — même forme que
+// domain.ProductKpi sans l'ID ni le ParentID (attribués côté frontend à
+// l'acceptation, un KPI suggéré est toujours de premier niveau : rattacher
+// une suggestion à un KPI parent existant reste un geste manuel ultérieur).
+type DraftKpiSuggestion struct {
+	Name       string `json:"name"`
+	Definition string `json:"definition,omitempty"`
+	Unit       string `json:"unit,omitempty"`
+	Baseline   string `json:"baseline,omitempty"`
+	Target     string `json:"target,omitempty"`
+	Pillar     string `json:"pillar,omitempty"`
+}

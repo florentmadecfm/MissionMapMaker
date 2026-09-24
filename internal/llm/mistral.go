@@ -324,6 +324,48 @@ func (c *mistralClient) GeneratePainPointResolution(ctx context.Context, painPoi
 	return &result, nil
 }
 
+func (c *mistralClient) GenerateVisionRefinement(ctx context.Context, productContext ProductVisionContext, systemPrompt string) (*DraftVisionRefinement, error) {
+	input, err := json.Marshal(productContext)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation du contexte produit : %w", err)
+	}
+
+	spec := refineProductVisionToolSpec()
+	raw, err := c.call(ctx, systemPrompt, string(input), spec)
+	if err != nil {
+		return nil, err
+	}
+	var draft DraftVisionRefinement
+	if err := json.Unmarshal(raw, &draft); err != nil {
+		return nil, fmt.Errorf("parsing des arguments de l'outil : %w", err)
+	}
+	draft.normalize()
+	return &draft, nil
+}
+
+func (c *mistralClient) GenerateKpiSuggestions(ctx context.Context, productContext ProductVisionContext, systemPrompt string) ([]DraftKpiSuggestion, error) {
+	input, err := json.Marshal(productContext)
+	if err != nil {
+		return nil, fmt.Errorf("sérialisation du contexte produit : %w", err)
+	}
+
+	spec := suggestProductKpisToolSpec()
+	raw, err := c.call(ctx, systemPrompt, string(input), spec)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Kpis []DraftKpiSuggestion `json:"kpis"`
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, fmt.Errorf("parsing des arguments de l'outil : %w", err)
+	}
+	if result.Kpis == nil {
+		result.Kpis = []DraftKpiSuggestion{}
+	}
+	return result.Kpis, nil
+}
+
 func (c *mistralClient) GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error) {
 	input, err := json.Marshal(specifications)
 	if err != nil {

@@ -43,6 +43,11 @@ type ProviderSettings struct {
 // la 2e étape (formaliser la solution choisie en SSS + test) reste fixe,
 // pas de champs correspondants ici.
 //
+// VisionRefinement*/KpiSuggestions* (Phase 2 du plan Produit/Vision/KPI)
+// couvrent respectivement l'affinage de la vision produit et la
+// suggestion de KPI à partir de cette vision — voir
+// GenerateService.GenerateVisionRefinement/GenerateKpiSuggestions.
+//
 // ImageGeneration* (ADR-073/ADR-074) régit le STYLE commun aux deux usages
 // de la génération d'image (portrait de persona, sketch de diagramme) —
 // les données propres à chaque usage (nom/fiche du persona, ou contenu du
@@ -60,12 +65,16 @@ type PromptSettings struct {
 	TestScenario       string `json:"testScenario,omitempty"`
 	PainPointSolutions string `json:"painPointSolutions,omitempty"`
 	ImageGeneration    string `json:"imageGeneration,omitempty"`
+	VisionRefinement   string `json:"visionRefinement,omitempty"`
+	KpiSuggestions     string `json:"kpiSuggestions,omitempty"`
 
 	ProcessContext            string `json:"processContext,omitempty"`
 	SpecificationContext      string `json:"specificationContext,omitempty"`
 	TestScenarioContext       string `json:"testScenarioContext,omitempty"`
 	PainPointSolutionsContext string `json:"painPointSolutionsContext,omitempty"`
 	ImageGenerationContext    string `json:"imageGenerationContext,omitempty"`
+	VisionRefinementContext   string `json:"visionRefinementContext,omitempty"`
+	KpiSuggestionsContext     string `json:"kpiSuggestionsContext,omitempty"`
 }
 
 type Config struct {

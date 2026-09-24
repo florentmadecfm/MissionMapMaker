@@ -158,6 +158,14 @@ type Phase struct {
 	// serait 3) : une phase sans score n'apparaît pas dans la courbe
 	// (ADR-065).
 	SatisfactionScore int `json:"satisfactionScore,omitempty"`
+	// KpiLinks référence les KPI (Product.Kpis[].ID, de premier niveau ou
+	// sous-KPI) du produit associé à la mission (Project.ProductID) que
+	// cette phase permet de mesurer (Phase 3 du plan Produit/Vision/KPI).
+	// Aucune validation référentielle ici (voir Activity.KpiLinks
+	// ci-dessous, même raisonnement) : un id qui ne correspond plus à
+	// aucun KPI du produit reste un lien orphelin sans conséquence côté
+	// serveur, affiché explicitement comme tel côté frontend.
+	KpiLinks []string `json:"kpiLinks"`
 }
 
 type Activity struct {
@@ -210,6 +218,17 @@ type Activity struct {
 	// peuvent coexister pour une même activité, ajoutés/retirés un par un
 	// depuis le diagramme (voir ActivityDetailModal.tsx).
 	PainPoints []PainPoint `json:"painPoints"`
+	// KpiLinks référence les KPI (Product.Kpis[].ID, de premier niveau ou
+	// sous-KPI) du produit associé à la mission (Project.ProductID) que
+	// cette activité permet de mesurer (Phase 3 du plan Produit/Vision/
+	// KPI). Pas de validation référentielle dans Project.Validate()
+	// (validate.go) : Product est un magasin séparé (storage.ProductStore),
+	// structurellement inatteignable depuis ici — même raisonnement déjà
+	// documenté pour Project.ProductID (Phase 1). Un id qui ne correspond
+	// plus à aucun KPI du produit reste un lien orphelin sans conséquence
+	// côté serveur ; côté frontend, le badge de compte (layout.ts) le
+	// filtre plutôt que de compter la longueur brute.
+	KpiLinks []string `json:"kpiLinks"`
 }
 
 type PainPoint struct {

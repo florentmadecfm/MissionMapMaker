@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import type { Product, ProductKpi, ProjectSummary } from '../../api/types'
+import { buildKpiTree, excludeSelfAndDescendants } from './kpiTree'
+import { VisionRefinementModal } from './VisionRefinementModal'
 
 interface Props {
   // Tenu à jour par ProjectShell.tsx (rafraîchi après chaque création/
@@ -11,9 +13,14 @@ interface Props {
   error: string | null
   onProductsChanged: () => void
   // Missions déjà connues du shell (résumés), pour lister celles
-  // rattachées au produit sélectionné sans requête dédiée.
+  // rattachées au produit sélectionné sans requête dédiée, et proposer
+  // d'en lier de nouvelles (voir handleLinkMission).
   missions: ProjectSummary[]
   onOpenMission: (projectId: string) => void
+  // Rafraîchit `missions` (ProjectShell.refreshList) après avoir lié une
+  // mission à ce produit — distinct de onProductsChanged, qui ne
+  // recharge que les produits.
+  onMissionsChanged: () => void
 }
 
 function newId(prefix: string) {
@@ -25,18 +32,20 @@ function emptyKpi(): ProductKpi {
 }
 
 // Écran indépendant de tout projet ouvert (voir ProjectShell.tsx, état
-// `view`) : liste les Produits (liste à gauche, détail à droite — même
-// patron master-detail que ActorMissionsScreen.tsx), pour définir vision/
+// `view`) : un produit à la fois (sélectionné depuis un dropdown en
+// en-tête, pas une liste master-detail — retour utilisateur : la liste
+// prenait une colonne entière pour peu d'usage), pour définir vision/
 // différenciateurs/piliers stratégiques/KPI. Sauvegarde EXPLICITE (bouton
 // "Enregistrer"), pas l'autosave débouncée du reste de l'app : un Produit
 // vit dans un magasin séparé (storage.ProductStore) sans lien avec la
 // mécanique d'autosave d'une mission, et un moment explicite "j'ai fini
 // d'éditer" convient bien à un flux de rédaction assistée par IA (voir
 // VisionRefinementModal.tsx, Phase 2).
-export function ProductsScreen({ products, error, onProductsChanged, missions, onOpenMission }: Props) {
+export function ProductsScreen({ products, error, onProductsChanged, missions, onOpenMission, onMissionsChanged }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Product | null>(null)
   const [newName, setNewName] = useState('')
+  const [creatingOpen, setCreatingOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -44,6 +53,15 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const [newDifferentiator, setNewDifferentiator] = useState('')
   const [newPillar, setNewPillar] = useState('')
+  // Phase 2 du plan Produit/Vision/KPI : mode de la modale de génération
+  // assistée actuellement ouverte, ou null si fermée — voir
+  // VisionRefinementModal.tsx (2 modes dans le même composant).
+  const [aiModalMode, setAiModalMode] = useState<'vision' | 'kpis' | null>(null)
+  // Liaison d'une mission déjà existante à ce produit — voir
+  // handleLinkMission ci-dessous.
+  const [linkTargetId, setLinkTargetId] = useState('')
+  const [linking, setLinking] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!products) return
@@ -78,6 +96,7 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     try {
       const created = await api.createProduct(newName.trim())
       setNewName('')
+      setCreatingOpen(false)
       onProductsChanged()
       setSelectedId(created.id)
     } catch (e) {
@@ -148,9 +167,37 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     setDraft({ ...draft, kpis: draft.kpis.map((k) => (k.id === id ? { ...k, ...patch } : k)) })
   }
 
+  // Réattache les éventuels sous-KPI du nœud supprimé au parent DE CE
+  // NŒUD (pas au premier niveau) avant de le retirer — sans cette
+  // réattache, supprimer un KPI parent laisserait ses enfants avec un
+  // parentId pendant (référençant un KPI qui n'existe plus), rejeté par
+  // Product.Validate() côté serveur dès le prochain "Enregistrer".
   function removeKpi(id: string) {
     if (!draft) return
-    setDraft({ ...draft, kpis: draft.kpis.filter((k) => k.id !== id) })
+    const deleted = draft.kpis.find((k) => k.id === id)
+    const reparented = draft.kpis.map((k) => (k.parentId === id ? { ...k, parentId: deleted?.parentId } : k))
+    setDraft({ ...draft, kpis: reparented.filter((k) => k.id !== id) })
+  }
+
+  // Lie une mission DÉJÀ EXISTANTE à ce produit, depuis l'écran Produits
+  // (sens inverse du sélecteur "Produit associé" de ProjectEditor.tsx,
+  // qui reste l'unique façon de faire ce lien jusqu'ici). Pas d'endpoint
+  // PATCH dédié : même aller-retour complet get/save que ProjectEditor
+  // utilise déjà via son autosave (aucune nouvelle route API).
+  async function handleLinkMission() {
+    if (!linkTargetId || !draft) return
+    setLinking(true)
+    setLinkError(null)
+    try {
+      const project = await api.getProject(linkTargetId)
+      await api.saveProject({ ...project, productId: draft.id })
+      setLinkTargetId('')
+      onMissionsChanged()
+    } catch (e) {
+      setLinkError(String(e))
+    } finally {
+      setLinking(false)
+    }
   }
 
   if (error) {
@@ -161,12 +208,39 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   }
 
   const linkedMissions = draft ? missions.filter((m) => m.productId === draft.id) : []
+  // Missions proposées au lien : TOUTES sauf celles déjà liées à CE
+  // produit — y compris celles déjà liées à un AUTRE produit (réassigner
+  // depuis ici est un geste déjà possible depuis ProjectEditor.tsx, pas
+  // de raison de le masquer ici).
+  const linkableMissions = draft ? missions.filter((m) => m.productId !== draft.id) : []
 
   return (
-    <div className="actor-missions-screen products-screen">
-      <aside className="actor-missions-list">
-        <div className="new-project">
+    <div className="products-screen">
+      <div className="products-header">
+        <select
+          className="products-select"
+          value={selectedId ?? ''}
+          onChange={(e) => setSelectedId(e.target.value || null)}
+          disabled={products.length === 0}
+        >
+          {products.length === 0 ? (
+            <option value="">— aucun produit —</option>
+          ) : (
+            products.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))
+          )}
+        </select>
+        <button type="button" onClick={() => setCreatingOpen((v) => !v)}>
+          + Nouveau produit
+        </button>
+      </div>
+      {creatingOpen && (
+        <div className="new-product">
           <input
+            autoFocus
             placeholder="Nom du nouveau produit"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -176,193 +250,232 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
             {creating ? 'Création…' : 'Créer'}
           </button>
         </div>
-        {createError && <p className="error">{createError}</p>}
+      )}
+      {createError && <p className="error">{createError}</p>}
+      {products.length === 0 && <p className="placeholder">Aucun produit pour l'instant — créez-en un.</p>}
 
-        {products.length === 0 && <p className="placeholder">Aucun produit pour l'instant.</p>}
-        {products.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            className={`actor-missions-list-item${p.id === selectedId ? ' active' : ''}`}
-            onClick={() => setSelectedId(p.id)}
-          >
-            <span className="actor-missions-list-name">{p.name}</span>
-          </button>
-        ))}
-      </aside>
+      {draft && (
+        <>
+          <div className="actor-missions-header">
+            <h2 className="panel-title">{draft.name}</h2>
+            <button type="button" className="danger" onClick={() => handleDelete(draft.id, draft.name)}>
+              Supprimer
+            </button>
+          </div>
 
-      <div className="actor-missions-detail">
-        {draft && (
-          <>
-            <div className="actor-missions-header">
-              <h2 className="panel-title">{draft.name}</h2>
-              <button type="button" className="danger" onClick={() => handleDelete(draft.id, draft.name)}>
-                Supprimer
+          <section className="actor-mission-section">
+            <h3>Vision</h3>
+            <textarea
+              rows={3}
+              placeholder="Ex. Pour les Product Owners et Designers qui veulent ancrer leurs missions dans une vision produit claire, Pulse.MissionMap est l'outil de story mapping qui relie chaque activité du diagramme à un KPI mesurable — contrairement aux outils de mapping génériques, sans lien avec la stratégie produit."
+              value={draft.visionStatement ?? ''}
+              onChange={(e) => setDraft({ ...draft, visionStatement: e.target.value })}
+            />
+            <div className="nl-actions">
+              <button type="button" onClick={() => setAiModalMode('vision')}>
+                Affiner avec l'IA
               </button>
             </div>
+          </section>
 
-            <section className="actor-mission-section">
-              <h3>Vision</h3>
-              <textarea
-                rows={3}
-                placeholder="Ex. Pour les Product Owners et Designers qui veulent ancrer leurs missions dans une vision produit claire, Pulse.MissionMap est l'outil de story mapping qui relie chaque activité du diagramme à un KPI mesurable — contrairement aux outils de mapping génériques, sans lien avec la stratégie produit."
-                value={draft.visionStatement ?? ''}
-                onChange={(e) => setDraft({ ...draft, visionStatement: e.target.value })}
+          <section className="actor-mission-section">
+            <h3>Différenciateurs</h3>
+            {draft.differentiators.length === 0 ? (
+              <p className="placeholder">Aucun différenciateur pour l'instant.</p>
+            ) : (
+              <ul className="item-list">
+                {draft.differentiators.map((d, i) => (
+                  <li key={i}>
+                    <span>{d}</span>
+                    <button type="button" onClick={() => removeDifferentiator(i)}>
+                      retirer
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="add-item-row">
+              <input
+                placeholder="Nouveau différenciateur"
+                value={newDifferentiator}
+                onChange={(e) => setNewDifferentiator(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addDifferentiator()}
               />
-            </section>
+              <button type="button" onClick={addDifferentiator}>
+                Ajouter
+              </button>
+            </div>
+          </section>
 
-            <section className="actor-mission-section">
-              <h3>Différenciateurs</h3>
-              {draft.differentiators.length === 0 ? (
-                <p className="placeholder">Aucun différenciateur pour l'instant.</p>
-              ) : (
-                <ul className="item-list">
-                  {draft.differentiators.map((d, i) => (
-                    <li key={i}>
-                      <span>{d}</span>
-                      <button type="button" onClick={() => removeDifferentiator(i)}>
+          <section className="actor-mission-section">
+            <h3>Piliers stratégiques</h3>
+            {draft.pillars.length === 0 ? (
+              <p className="placeholder">Aucun pilier pour l'instant.</p>
+            ) : (
+              <ul className="item-list">
+                {draft.pillars.map((pillar, i) => (
+                  <li key={i}>
+                    <span>{pillar}</span>
+                    <button type="button" onClick={() => removePillar(i)}>
+                      retirer
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="add-item-row">
+              <input
+                placeholder="Nouveau pilier"
+                value={newPillar}
+                onChange={(e) => setNewPillar(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addPillar()}
+              />
+              <button type="button" onClick={addPillar}>
+                Ajouter
+              </button>
+            </div>
+          </section>
+
+          <section className="actor-mission-section">
+            <h3>KPI</h3>
+            {draft.kpis.length === 0 ? (
+              <p className="placeholder">Aucun KPI pour l'instant.</p>
+            ) : (
+              <div className="product-kpi-table">
+                {/* Rendu en profondeur (buildKpiTree) plutôt que dans
+                    l'ordre brut de la liste : un sous-KPI apparaît juste
+                    après son parent, indenté (voir --kpi-depth,
+                    App.css). Une carte par KPI (retour utilisateur :
+                    l'ancien tableau à 8 colonnes était trop dense) sur 3
+                    lignes visibles — nom, définition, puis unité/actuel/
+                    cible — plus une ligne compacte pour la hiérarchie/le
+                    pilier/la suppression. */}
+                {buildKpiTree(draft.kpis).map(({ kpi, depth }) => (
+                  <div className="product-kpi-card" key={kpi.id}>
+                    <input
+                      className="product-kpi-name-input"
+                      style={{ ['--kpi-depth' as string]: depth }}
+                      placeholder="Nom du KPI"
+                      value={kpi.name}
+                      onChange={(e) => updateKpi(kpi.id, { name: e.target.value })}
+                    />
+                    <input
+                      placeholder="Définition"
+                      value={kpi.definition ?? ''}
+                      onChange={(e) => updateKpi(kpi.id, { definition: e.target.value })}
+                    />
+                    <div className="product-kpi-metrics-row">
+                      <label className="product-kpi-metric">
+                        <span>Unité</span>
+                        <input value={kpi.unit ?? ''} onChange={(e) => updateKpi(kpi.id, { unit: e.target.value })} />
+                      </label>
+                      <label className="product-kpi-metric">
+                        <span>Actuel</span>
+                        <input
+                          value={kpi.baseline ?? ''}
+                          onChange={(e) => updateKpi(kpi.id, { baseline: e.target.value })}
+                        />
+                      </label>
+                      <label className="product-kpi-metric">
+                        <span>Cible</span>
+                        <input value={kpi.target ?? ''} onChange={(e) => updateKpi(kpi.id, { target: e.target.value })} />
+                      </label>
+                    </div>
+                    <div className="product-kpi-meta-row">
+                      <select
+                        value={kpi.parentId ?? ''}
+                        onChange={(e) => updateKpi(kpi.id, { parentId: e.target.value || undefined })}
+                      >
+                        <option value="">Sous-KPI de : — (premier niveau)</option>
+                        {excludeSelfAndDescendants(draft.kpis, kpi.id).map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            Sous-KPI de : {candidate.name || '(sans nom)'}
+                          </option>
+                        ))}
+                      </select>
+                      <select value={kpi.pillar ?? ''} onChange={(e) => updateKpi(kpi.id, { pillar: e.target.value })}>
+                        <option value="">Pilier : —</option>
+                        {draft.pillars.map((pillar) => (
+                          <option key={pillar} value={pillar}>
+                            Pilier : {pillar}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="button" className="danger" onClick={() => removeKpi(kpi.id)}>
                         retirer
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="add-item-row">
-                <input
-                  placeholder="Nouveau différenciateur"
-                  value={newDifferentiator}
-                  onChange={(e) => setNewDifferentiator(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addDifferentiator()}
-                />
-                <button type="button" onClick={addDifferentiator}>
-                  Ajouter
-                </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </section>
-
-            <section className="actor-mission-section">
-              <h3>Piliers stratégiques</h3>
-              {draft.pillars.length === 0 ? (
-                <p className="placeholder">Aucun pilier pour l'instant.</p>
-              ) : (
-                <ul className="item-list">
-                  {draft.pillars.map((pillar, i) => (
-                    <li key={i}>
-                      <span>{pillar}</span>
-                      <button type="button" onClick={() => removePillar(i)}>
-                        retirer
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="add-item-row">
-                <input
-                  placeholder="Nouveau pilier"
-                  value={newPillar}
-                  onChange={(e) => setNewPillar(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addPillar()}
-                />
-                <button type="button" onClick={addPillar}>
-                  Ajouter
-                </button>
-              </div>
-            </section>
-
-            <section className="actor-mission-section">
-              <h3>KPI</h3>
-              {draft.kpis.length === 0 ? (
-                <p className="placeholder">Aucun KPI pour l'instant.</p>
-              ) : (
-                <table className="product-kpi-table">
-                  <thead>
-                    <tr>
-                      <th>Nom</th>
-                      <th>Définition</th>
-                      <th>Unité</th>
-                      <th>Actuel</th>
-                      <th>Cible</th>
-                      <th>Pilier</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {draft.kpis.map((kpi) => (
-                      <tr key={kpi.id}>
-                        <td>
-                          <input value={kpi.name} onChange={(e) => updateKpi(kpi.id, { name: e.target.value })} />
-                        </td>
-                        <td>
-                          <input
-                            value={kpi.definition ?? ''}
-                            onChange={(e) => updateKpi(kpi.id, { definition: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input value={kpi.unit ?? ''} onChange={(e) => updateKpi(kpi.id, { unit: e.target.value })} />
-                        </td>
-                        <td>
-                          <input
-                            value={kpi.baseline ?? ''}
-                            onChange={(e) => updateKpi(kpi.id, { baseline: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input value={kpi.target ?? ''} onChange={(e) => updateKpi(kpi.id, { target: e.target.value })} />
-                        </td>
-                        <td>
-                          <select value={kpi.pillar ?? ''} onChange={(e) => updateKpi(kpi.id, { pillar: e.target.value })}>
-                            <option value="">—</option>
-                            {draft.pillars.map((pillar) => (
-                              <option key={pillar} value={pillar}>
-                                {pillar}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <button type="button" className="danger" onClick={() => removeKpi(kpi.id)}>
-                            retirer
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
+            )}
+            <div className="nl-actions">
               <button type="button" onClick={addKpi}>
                 + Ajouter un KPI
               </button>
-            </section>
-
-            <section className="actor-mission-section">
-              <h3>Missions rattachées</h3>
-              {linkedMissions.length === 0 ? (
-                <p className="placeholder">Aucune mission rattachée à ce produit pour l'instant.</p>
-              ) : (
-                <ul className="item-list">
-                  {linkedMissions.map((m) => (
-                    <li key={m.id}>
-                      <span>{m.name}</span>
-                      <button type="button" onClick={() => onOpenMission(m.id)}>
-                        Ouvrir cette mission
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <div className="products-save-row">
-              <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
-                {saving ? 'Enregistrement…' : 'Enregistrer'}
+              <button type="button" onClick={() => setAiModalMode('kpis')}>
+                Suggérer des KPI (IA)
               </button>
-              {savedAt && <span className="autosave-status">Enregistré à {savedAt}</span>}
-              {saveError && <span className="error">{saveError}</span>}
             </div>
-          </>
-        )}
-      </div>
+          </section>
+
+          <section className="actor-mission-section">
+            <h3>Missions rattachées</h3>
+            {linkedMissions.length === 0 ? (
+              <p className="placeholder">Aucune mission rattachée à ce produit pour l'instant.</p>
+            ) : (
+              <ul className="item-list">
+                {linkedMissions.map((m) => (
+                  <li key={m.id}>
+                    <span>{m.name}</span>
+                    <button type="button" onClick={() => onOpenMission(m.id)}>
+                      Ouvrir cette mission
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {linkableMissions.length > 0 && (
+              <div className="add-item-row">
+                <select value={linkTargetId} onChange={(e) => setLinkTargetId(e.target.value)}>
+                  <option value="">Lier une mission…</option>
+                  {linkableMissions.map((m) => {
+                    const otherProductName = m.productId ? products.find((p) => p.id === m.productId)?.name : undefined
+                    return (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                        {otherProductName ? ` — déjà liée à « ${otherProductName} »` : ''}
+                      </option>
+                    )
+                  })}
+                </select>
+                <button type="button" onClick={handleLinkMission} disabled={!linkTargetId || linking}>
+                  {linking ? 'Liaison…' : 'Lier'}
+                </button>
+              </div>
+            )}
+            {linkError && <p className="error">{linkError}</p>}
+          </section>
+
+          <div className="products-save-row">
+            <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+            {savedAt && <span className="autosave-status">Enregistré à {savedAt}</span>}
+            {saveError && <span className="error">{saveError}</span>}
+          </div>
+        </>
+      )}
+
+      {aiModalMode && draft && (
+        <VisionRefinementModal
+          key={aiModalMode}
+          product={draft}
+          mode={aiModalMode}
+          onChange={setDraft}
+          onClose={() => setAiModalMode(null)}
+        />
+      )}
     </div>
   )
 }

@@ -49,7 +49,14 @@ export function mergeDraft(project: Project, draft: DraftProcess): MergeResult {
   for (const dp of draft.phases) {
     if (!phases.some((p) => sameName(p.name, dp.name))) {
       changed = true
-      phases.push({ id: newId('ph'), name: dp.name, order: dp.order || phases.length + 1, subColumns: 0, icon: dp.icon ?? '' })
+      phases.push({
+        id: newId('ph'),
+        name: dp.name,
+        order: dp.order || phases.length + 1,
+        subColumns: 0,
+        icon: dp.icon ?? '',
+        kpiLinks: [],
+      })
     }
   }
 
@@ -83,6 +90,7 @@ export function mergeDraft(project: Project, draft: DraftProcess): MergeResult {
       userStories: [],
       traceLinks: [],
       painPoints: [],
+      kpiLinks: [],
     })
   }
 

@@ -61,6 +61,14 @@ type GenerateService struct {
 	// prompts.go.
 	promptPainPointSolutions        string
 	promptPainPointSolutionsContext string
+	// promptVisionRefinement/promptVisionRefinementContext et
+	// promptKpiSuggestions/promptKpiSuggestionsContext (Phase 2 du plan
+	// Produit/Vision/KPI) : 6e et 7e paires personnalisables, même patron
+	// que les précédentes.
+	promptVisionRefinement        string
+	promptVisionRefinementContext string
+	promptKpiSuggestions          string
+	promptKpiSuggestionsContext   string
 }
 
 // PromptInfo est le texte actuellement utilisé pour un skill ou un prompt
@@ -92,6 +100,14 @@ type PromptOverrides struct {
 	// personnalisable, voir le champ correspondant sur GenerateService.
 	PainPointSolutions        string
 	PainPointSolutionsContext string
+	// VisionRefinement/VisionRefinementContext et KpiSuggestions/
+	// KpiSuggestionsContext (Phase 2 du plan Produit/Vision/KPI) : 6e et 7e
+	// paires personnalisables, voir les champs correspondants sur
+	// GenerateService.
+	VisionRefinement        string
+	VisionRefinementContext string
+	KpiSuggestions          string
+	KpiSuggestionsContext   string
 }
 
 // PromptSet est l'état actuel (texte effectif + personnalisé ou non) des 4
@@ -105,6 +121,10 @@ type PromptSet struct {
 	TestScenarioContext       PromptInfo
 	PainPointSolutions        PromptInfo
 	PainPointSolutionsContext PromptInfo
+	VisionRefinement          PromptInfo
+	VisionRefinementContext   PromptInfo
+	KpiSuggestions            PromptInfo
+	KpiSuggestionsContext     PromptInfo
 }
 
 // effectiveSystemPrompt concatène la couche "Prompt" (contexte + objectif)
@@ -194,6 +214,10 @@ func (s *GenerateService) SetPrompts(overrides PromptOverrides) {
 	s.promptTestScenarioContext = overrides.TestScenarioContext
 	s.promptPainPointSolutions = overrides.PainPointSolutions
 	s.promptPainPointSolutionsContext = overrides.PainPointSolutionsContext
+	s.promptVisionRefinement = overrides.VisionRefinement
+	s.promptVisionRefinementContext = overrides.VisionRefinementContext
+	s.promptKpiSuggestions = overrides.KpiSuggestions
+	s.promptKpiSuggestionsContext = overrides.KpiSuggestionsContext
 }
 
 // Prompts renvoie l'état actuel (texte effectif + personnalisé ou non) des
@@ -210,6 +234,10 @@ func (s *GenerateService) Prompts() PromptSet {
 		TestScenarioContext:       resolvePrompt(s.promptTestScenarioContext, llm.DefaultTestScenarioContextPrompt),
 		PainPointSolutions:        resolvePrompt(s.promptPainPointSolutions, llm.DefaultPainPointSolutionsPrompt),
 		PainPointSolutionsContext: resolvePrompt(s.promptPainPointSolutionsContext, llm.DefaultPainPointSolutionsContextPrompt),
+		VisionRefinement:          resolvePrompt(s.promptVisionRefinement, llm.DefaultVisionRefinementPrompt),
+		VisionRefinementContext:   resolvePrompt(s.promptVisionRefinementContext, llm.DefaultVisionRefinementContextPrompt),
+		KpiSuggestions:            resolvePrompt(s.promptKpiSuggestions, llm.DefaultKpiSuggestionsPrompt),
+		KpiSuggestionsContext:     resolvePrompt(s.promptKpiSuggestionsContext, llm.DefaultKpiSuggestionsContextPrompt),
 	}
 }
 
@@ -299,11 +327,45 @@ func (s *GenerateService) GeneratePainPointResolution(ctx context.Context, painP
 	return generator.GeneratePainPointResolution(ctx, painPoint, chosen, llm.DefaultPainPointResolutionPrompt)
 }
 
+// GenerateVisionRefinement (Phase 2 du plan Produit/Vision/KPI) affine le
+// brouillon de vision produit (vision, différenciateurs, piliers, tous
+// éventuellement incomplets) fourni par productContext.
+func (s *GenerateService) GenerateVisionRefinement(ctx context.Context, productContext llm.ProductVisionContext) (*llm.DraftVisionRefinement, error) {
+	if strings.TrimSpace(productContext.VisionStatement) == "" && len(productContext.Differentiators) == 0 && len(productContext.Pillars) == 0 {
+		return nil, errEmptyProductContext
+	}
+	generator := s.currentGenerator()
+	if generator == nil {
+		return nil, llm.ErrNotConfigured
+	}
+	prompts := s.Prompts()
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
+	return generator.GenerateVisionRefinement(ctx, productContext, effectiveSystemPrompt(prompts.VisionRefinementContext, prompts.VisionRefinement))
+}
+
+// GenerateKpiSuggestions (Phase 2 du plan Produit/Vision/KPI) propose des
+// KPI à partir de la vision/des piliers déjà définis (productContext).
+func (s *GenerateService) GenerateKpiSuggestions(ctx context.Context, productContext llm.ProductVisionContext) ([]llm.DraftKpiSuggestion, error) {
+	if strings.TrimSpace(productContext.VisionStatement) == "" && len(productContext.Differentiators) == 0 && len(productContext.Pillars) == 0 {
+		return nil, errEmptyProductContext
+	}
+	generator := s.currentGenerator()
+	if generator == nil {
+		return nil, llm.ErrNotConfigured
+	}
+	prompts := s.Prompts()
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
+	return generator.GenerateKpiSuggestions(ctx, productContext, effectiveSystemPrompt(prompts.KpiSuggestionsContext, prompts.KpiSuggestions))
+}
+
 var errEmptyText = &validationError{"le texte à analyser est vide"}
 var errNoActivities = &validationError{"aucune activité à traiter"}
 var errNoSpecifications = &validationError{"aucune spécification à traiter"}
 var errEmptyPainPoint = &validationError{"le point de friction est vide"}
 var errEmptySolution = &validationError{"la solution choisie est vide"}
+var errEmptyProductContext = &validationError{"aucune vision, différenciateur ou pilier à traiter"}
 var errTextTooLong = &validationError{fmt.Sprintf("le texte dépasse la longueur maximale autorisée (%d caractères)", maxTextLength)}
 var errTooManyActivities = &validationError{fmt.Sprintf("trop d'activités à traiter en une seule fois (maximum %d)", maxActivityRefs)}
 var errTooManySpecifications = &validationError{fmt.Sprintf("trop de spécifications à traiter en une seule fois (maximum %d)", maxSpecRefs)}

@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { GitBranch, TriangleAlert } from 'lucide-react'
+import { ChartNoAxesColumn, GitBranch, TriangleAlert } from 'lucide-react'
 import type { DiffSelection, DiffStatus } from '../project-shell/missionDiff'
 import {
   ADD_LANE_WIDTH,
@@ -73,6 +73,7 @@ export function PhaseHeaderNode({ data }: NodeProps) {
   const icon = data.icon as string
   const diffStatus = data.diffStatus as DiffStatus | undefined
   const diffSelection = data.diffSelection as DiffSelection | undefined
+  const kpiCount = data.kpiCount as number
   return (
     <div
       className={`lane-node phase-header${diffStatus ? ` lane-node-diff-${diffStatus}` : ''}${diffSelectionClass(diffSelection)}`}
@@ -87,6 +88,18 @@ export function PhaseHeaderNode({ data }: NodeProps) {
         </span>
       )}
       <span className="phase-header-label">{data.label as string}</span>
+      {/* Signale, sans avoir à ouvrir la modale de détail, qu'au moins un
+          KPI est lié à cette phase (Phase 3 du plan Produit/Vision/KPI) —
+          même esprit que les badges de carte d'activité (ActivityNode
+          ci-dessous). */}
+      {kpiCount > 0 && (
+        <span
+          className="phase-header-kpi-badge"
+          title={`${kpiCount} KPI lié${kpiCount > 1 ? 's' : ''}`}
+        >
+          <ChartNoAxesColumn size={12} aria-hidden="true" /> {kpiCount}
+        </span>
+      )}
       {/* Étiquette de comparaison (voir DIFF_LABELS ci-dessus) — même
           patron que .actor-header-backstage-tag, couleur selon le statut. */}
       {diffStatus && <span className={`lane-node-diff-tag lane-node-diff-tag-${diffStatus}`}>{DIFF_LABELS[diffStatus]}</span>}
@@ -233,6 +246,7 @@ export function ActivityNode({ data }: NodeProps) {
   const specCount = data.specCount as number
   const painPointCount = data.painPointCount as number
   const branchCount = data.branchCount as number
+  const kpiCount = data.kpiCount as number
   const color = data.color as string
   const diffStatus = data.diffStatus as DiffStatus | undefined
   const diffSelection = data.diffSelection as DiffSelection | undefined
@@ -308,10 +322,13 @@ export function ActivityNode({ data }: NodeProps) {
         <Handle key={`bottom-out-h${i}`} id={`bottom-out-h${i}`} type="source" position={Position.Bottom} style={{ left }} />
       ))}
       <div className="activity-card-title">{data.label as string}</div>
-      {(storyCount > 0 || specCount > 0) && (
+      {(storyCount > 0 || specCount > 0 || kpiCount > 0) && (
         <div className="activity-card-meta">
           {storyCount > 0 && <span>{storyCount} {storyCount > 1 ? 'stories' : 'story'}</span>}
           {specCount > 0 && <span>{specCount} spec{specCount > 1 ? 's' : ''}</span>}
+          {/* KPI liés (Phase 3 du plan Produit/Vision/KPI) — même ligne de
+              méta que stories/specs ci-dessus. */}
+          {kpiCount > 0 && <span>{kpiCount} KPI</span>}
         </div>
       )}
     </div>

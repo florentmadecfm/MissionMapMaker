@@ -68,6 +68,10 @@ function painPointTexts(points: Activity['painPoints']): string {
 // quels points de friction), jamais sur les artefacts d'ingénierie SSS/V&V
 // qui en découlent — générer une SSS pour une activité ne doit jamais, à
 // lui seul, la faire ressortir comme "modifiée" dans la comparaison.
+// `kpiLinks` (Phase 3 du plan Produit/Vision/KPI) suit exactement le même
+// raisonnement : un artefact de suivi produit/stratégie, pas un élément du
+// PROCESSUS lui-même — lier un KPI à une activité ne doit pas non plus la
+// faire ressortir comme "modifiée".
 function activityChangedFields(a: Activity, b: Activity): string[] {
   const fields: string[] = []
   if (a.name !== b.name) fields.push('nom')
@@ -100,6 +104,8 @@ function actorChangedFields(a: Actor, b: Actor): string[] {
   return fields
 }
 
+// `kpiLinks` volontairement absent — voir le commentaire sur
+// activityChangedFields ci-dessus, même raisonnement.
 function phaseChangedFields(a: Phase, b: Phase): string[] {
   const fields: string[] = []
   if (a.name !== b.name) fields.push('nom')

@@ -186,6 +186,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
     icon: r['Icône'] ?? '',
     duration: r['Durée'] ?? '',
     satisfactionScore: clampSatisfaction(toNumber(r['Satisfaction (1-5)'] ?? '0')),
+    kpiLinks: [],
   }))
   const phaseIdByName = new Map(phases.map((p) => [p.name.trim().toLowerCase(), p.id]))
 
@@ -233,6 +234,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
       userStories: [],
       traceLinks,
       painPoints: [],
+      kpiLinks: [],
     }
   })
   activities.forEach((a, i) => {

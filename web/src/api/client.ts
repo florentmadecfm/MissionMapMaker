@@ -1,13 +1,16 @@
 import type {
   ActivityRef,
   ActorSummary,
+  DraftKpiSuggestion,
   DraftPainPointSolution,
   DraftProcess,
   DraftSpecification,
   DraftTestScenario,
+  DraftVisionRefinement,
   PainPointContext,
   PainPointResolution,
   Product,
+  ProductVisionContext,
   Project,
   ProjectSummary,
   ProjectVersion,
@@ -49,7 +52,7 @@ function normalizeProject(project: Project): Project {
       painPoints: a.painPoints ?? [],
       backstage: a.backstage ?? false,
     })),
-    phases: project.phases ?? [],
+    phases: (project.phases ?? []).map((p) => ({ ...p, kpiLinks: p.kpiLinks ?? [] })),
     activities: (project.activities ?? []).map((a) => ({
       ...a,
       offsetX: a.offsetX ?? 0,
@@ -57,6 +60,7 @@ function normalizeProject(project: Project): Project {
       userStories: a.userStories ?? [],
       traceLinks: a.traceLinks ?? [],
       painPoints: a.painPoints ?? [],
+      kpiLinks: a.kpiLinks ?? [],
     })),
     interactions: project.interactions ?? [],
     specifications: project.specifications ?? [],
@@ -120,6 +124,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ ...context, chosenSolution }),
     }),
+  // Phase 2 du plan Produit/Vision/KPI : affinage de la vision produit et
+  // suggestion de KPI à partir de cette vision (VisionRefinementModal.tsx).
+  generateVisionRefinement: (context: ProductVisionContext) =>
+    request<DraftVisionRefinement>('/generate-vision', { method: 'POST', body: JSON.stringify(context) }),
+  generateKpiSuggestions: (context: ProductVisionContext) =>
+    request<DraftKpiSuggestion[]>('/generate-kpi-suggestions', { method: 'POST', body: JSON.stringify(context) }),
   getSettings: () => request<Settings>('/settings'),
   saveApiKey: (provider: Provider, apiKey: string, model?: string, baseUrl?: string) =>
     request<Settings>('/settings', { method: 'PUT', body: JSON.stringify({ provider, apiKey, model, baseUrl }) }),

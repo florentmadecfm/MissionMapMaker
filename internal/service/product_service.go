@@ -79,6 +79,9 @@ func (s *ProductService) Update(id string, p domain.Product) (domain.Product, er
 	p.ID = id
 	p.CreatedAt = existing.CreatedAt
 	p.UpdatedAt = time.Now().UTC()
+	if err := p.Validate(); err != nil {
+		return domain.Product{}, err
+	}
 	if err := s.products.Save(p); err != nil {
 		return domain.Product{}, err
 	}

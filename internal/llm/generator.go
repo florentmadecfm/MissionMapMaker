@@ -25,6 +25,11 @@ type Generator interface {
 	// scénario de test correspondant à celle choisie par l'utilisateur.
 	GeneratePainPointSolutions(ctx context.Context, painPoint PainPointContext, systemPrompt string) ([]DraftPainPointSolution, error)
 	GeneratePainPointResolution(ctx context.Context, painPoint PainPointContext, chosen DraftPainPointSolution, systemPrompt string) (*PainPointResolution, error)
+	// GenerateVisionRefinement/GenerateKpiSuggestions (Phase 2 du plan
+	// Produit/Vision/KPI) affinent le brouillon de vision produit et en
+	// dérivent des suggestions de KPI — voir ProductVisionContext, draft.go.
+	GenerateVisionRefinement(ctx context.Context, productContext ProductVisionContext, systemPrompt string) (*DraftVisionRefinement, error)
+	GenerateKpiSuggestions(ctx context.Context, productContext ProductVisionContext, systemPrompt string) ([]DraftKpiSuggestion, error)
 }
 
 // Provider identifie un fournisseur LLM supporté. Ajouter un fournisseur

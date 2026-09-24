@@ -196,6 +196,51 @@ func proposePainPointResolutionToolSpec() ToolSpec {
 	}
 }
 
+// refineProductVisionToolSpec décrit la vision affinée proposée par l'IA
+// (voir DraftVisionRefinement, draft.go) : les 3 champs sont requis (même
+// vide, un différenciateur/pilier omis désérialiserait en nil, non
+// itérable côté frontend — même raisonnement que extractProcessToolSpec).
+func refineProductVisionToolSpec() ToolSpec {
+	stringProp := map[string]any{"type": "string"}
+
+	return ToolSpec{
+		Name:        "refine_product_vision",
+		Description: "Enregistre la vision produit affinée : l'énoncé de vision, les différenciateurs et les piliers stratégiques.",
+		Properties: map[string]any{
+			"visionStatement": stringProp,
+			"differentiators": map[string]any{"type": "array", "items": stringProp},
+			"pillars":         map[string]any{"type": "array", "items": stringProp},
+		},
+		Required: []string{"visionStatement", "differentiators", "pillars"},
+	}
+}
+
+func suggestProductKpisToolSpec() ToolSpec {
+	stringProp := map[string]any{"type": "string"}
+
+	kpiSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"name":       stringProp,
+			"definition": stringProp,
+			"unit":       stringProp,
+			"baseline":   stringProp,
+			"target":     stringProp,
+			"pillar":     stringProp,
+		},
+		"required": []string{"name"},
+	}
+
+	return ToolSpec{
+		Name:        "suggest_product_kpis",
+		Description: "Enregistre les KPI proposés pour mesurer la progression du produit vers sa vision.",
+		Properties: map[string]any{
+			"kpis": map[string]any{"type": "array", "items": kpiSchema},
+		},
+		Required: []string{"kpis"},
+	}
+}
+
 func proposeTestScenariosToolSpec() ToolSpec {
 	stringProp := map[string]any{"type": "string"}
 
