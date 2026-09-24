@@ -500,19 +500,31 @@ export function ProjectShell() {
         </div>
 
         {!sidebarCollapsed && (
-          <>
-            <div className="new-project">
-              <input
-                placeholder="Nom du nouveau projet"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              />
-              <button type="button" className="btn-primary" onClick={handleCreate}>
-                Créer
-              </button>
-            </div>
+          <div className="new-project">
+            <input
+              placeholder="Nom du nouveau projet"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            />
+            <button type="button" className="btn-primary" onClick={handleCreate}>
+              Créer
+            </button>
+          </div>
+        )}
 
+        {/* Zone de défilement bornée à la SEULE liste de missions (flex:1 +
+            min-height:0 côté App.css) — audit UX/UI du menu de gauche :
+            .shell-sidebar portait auparavant overflow-y sur toute la
+            colonne, et .sidebar-bottom ne restait en bas que grâce à
+            margin-top:auto, un mécanisme qui cesse de fonctionner dès que
+            la liste déborde (vérifié avec 18 missions : Personas/Produits
+            se retrouvaient hors du champ visible, atteignables seulement en
+            faisant défiler toute la liste). Personas/Produits restent
+            désormais toujours visibles, quel que soit le nombre de
+            missions. */}
+        {!sidebarCollapsed && (
+          <div className="sidebar-missions">
             {loading && <p>Chargement…</p>}
             {error && <p className="error">{error}</p>}
 
@@ -529,7 +541,7 @@ export function ProjectShell() {
               ))}
               {!loading && summaries.length === 0 && <li className="empty">Aucun projet pour l'instant.</li>}
             </ul>
-          </>
+          </div>
         )}
 
         <div className="sidebar-bottom">
@@ -540,7 +552,12 @@ export function ProjectShell() {
             title="Personas — consulter un persona à travers toutes les missions"
           >
             <Users size={16} aria-hidden="true" />
-            {!sidebarCollapsed && 'Personas (toutes missions)'}
+            {!sidebarCollapsed && (
+              <>
+                <span className="sidebar-nav-label">Personas</span>
+                {actors && <span className="sidebar-count-badge">{actors.length}</span>}
+              </>
+            )}
           </button>
           <button
             type="button"
@@ -549,7 +566,12 @@ export function ProjectShell() {
             title="Produits — vision, différenciateurs, piliers stratégiques, KPI"
           >
             <Package size={16} aria-hidden="true" />
-            {!sidebarCollapsed && 'Produits'}
+            {!sidebarCollapsed && (
+              <>
+                <span className="sidebar-nav-label">Produits</span>
+                {products && <span className="sidebar-count-badge">{products.length}</span>}
+              </>
+            )}
           </button>
         </div>
       </aside>
