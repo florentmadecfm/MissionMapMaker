@@ -1,6 +1,17 @@
-import { ClipboardCheck, Download, FlaskConical, GitCompareArrows, Map, Sparkles, Users, Workflow, type LucideIcon } from 'lucide-react'
+import {
+  ChartNoAxesColumn,
+  ClipboardCheck,
+  Download,
+  FlaskConical,
+  GitCompareArrows,
+  Map,
+  Sparkles,
+  Users,
+  Workflow,
+  type LucideIcon,
+} from 'lucide-react'
 import type { SubTab } from '../specifications/SpecificationsPanel'
-import type { Tab } from '../project-shell/ProjectShell'
+import type { Tab, View } from '../project-shell/ProjectShell'
 
 export interface TourStep {
   icon: LucideIcon
@@ -12,6 +23,12 @@ export interface TourStep {
   // specSubTab ci-dessous) actifs (aucun ne dépend d'une interaction
   // préalable, comme ouvrir une modale).
   target: string
+  // Vue de la zone principale à activer pour cette étape (View,
+  // ProjectShell.tsx) — absente = 'project' (le fonctionnement habituel,
+  // piloté par `tab` ci-dessous), Phase 5 du plan Produit/Vision/KPI :
+  // seule l'étape "Produits" s'en sert (view: 'products', un écran
+  // transverse indépendant de tout projet ouvert, comme 'tab').
+  view?: View
   // Onglet à activer pour cette étape — absent pour l'étape 1, qui pointe
   // un élément de la barre latérale (visible quel que soit l'onglet).
   tab?: Tab
@@ -31,6 +48,13 @@ export const TOUR_STEPS: TourStep[] = [
     target: '.new-project',
   },
   {
+    icon: ChartNoAxesColumn,
+    title: 'Une vision produit, reliée à des KPI',
+    body: "Avant même une mission, définissez la vision de votre produit et un arbre de KPI (indicateurs et sous-indicateurs) pour mesurer les progrès — l'IA peut vous aider à les affiner ou à les suggérer.",
+    target: '.product-kpi-table',
+    view: 'products',
+  },
+  {
     icon: Sparkles,
     title: 'Décrivez, l’IA cartographie',
     body: 'Décrivez votre mission en langage naturel ici : personas, phases, activités et interactions sont proposés automatiquement, prêts à ajuster.',
@@ -42,6 +66,13 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Un diagramme qui se manipule',
     body: 'Glissez-déposez les activités entre personas et phases, reliez-les pour créer des interactions, annulez/rétablissez (Ctrl+Z), ou générez un sketch illustré.',
     target: '.activity-card',
+    tab: 'diagramme',
+  },
+  {
+    icon: ChartNoAxesColumn,
+    title: 'Liez vos activités et phases à vos KPI',
+    body: "Cliquez une carte d'activité ou l'en-tête d'une phase pour la relier à un ou plusieurs KPI de votre produit : le badge sur le diagramme rappelle en un coup d'œil ce qui est mesuré.",
+    target: '.phase-header-kpi-badge',
     tab: 'diagramme',
   },
   {

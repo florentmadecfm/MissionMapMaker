@@ -1,4 +1,4 @@
-import type { Project } from '../../api/types'
+import type { Product, Project } from '../../api/types'
 
 // Mission fictive utilisée UNIQUEMENT pendant la visite guidée
 // (WelcomeTour.tsx, ADR-078) — jamais persistée (aucun appel à l'API),
@@ -13,11 +13,51 @@ export const TOUR_DEMO_PROJECT_ID = '__tour_demo__'
 
 const SPEC_ID = 'tour-spec-1'
 
+// Produit fictif (Phase 5 du plan Produit/Vision/KPI) — même statut que
+// TOUR_DEMO_PROJECT ci-dessous : jamais persisté, installé le temps de la
+// visite guidée uniquement (ProjectShell.tsx bascule `products` sur
+// `[TOUR_DEMO_PRODUCT]`). Arbre de KPI à 2 niveaux (un KPI parent + un
+// sous-KPI) pour que l'étape "Produits" de la visite ait un vrai exemple
+// de hiérarchie à montrer, pas une liste plate.
+export const TOUR_DEMO_PRODUCT_ID = '__tour_demo_product__'
+
+const TOUR_KPI_ROOT_ID = 'tour-kpi-temps-service'
+const TOUR_KPI_CHILD_ID = 'tour-kpi-attente-accueil'
+
+export const TOUR_DEMO_PRODUCT: Product = {
+  id: TOUR_DEMO_PRODUCT_ID,
+  name: 'Le Bistrot Rapide',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  visionStatement:
+    'Pour les restaurateurs qui veulent réduire le temps d’attente en salle, Le Bistrot Rapide est le concept qui accélère chaque étape du service — contrairement à un service traditionnel, chaque étape est mesurée et optimisée.',
+  differentiators: ['Suivi en temps réel du temps de service, étape par étape'],
+  pillars: ['Rapidité de service', 'Satisfaction client'],
+  kpis: [
+    {
+      id: TOUR_KPI_ROOT_ID,
+      name: 'Temps de service moyen',
+      definition: "Durée moyenne entre l'arrivée d'un client et son départ",
+      unit: 'min',
+      pillar: 'Rapidité de service',
+    },
+    {
+      id: TOUR_KPI_CHILD_ID,
+      name: "Temps d'attente à l'accueil",
+      definition: "Durée moyenne entre l'arrivée d'un client et sa prise en charge",
+      unit: 'min',
+      pillar: 'Rapidité de service',
+      parentId: TOUR_KPI_ROOT_ID,
+    },
+  ],
+}
+
 export const TOUR_DEMO_PROJECT: Project = {
   id: TOUR_DEMO_PROJECT_ID,
   name: 'Mission de démonstration',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
+  productId: TOUR_DEMO_PRODUCT_ID,
   actors: [
     {
       id: 'tour-a-serveur',
@@ -54,7 +94,7 @@ export const TOUR_DEMO_PROJECT: Project = {
     },
   ],
   phases: [
-    { id: 'tour-p-accueil', name: 'Accueil', order: 0, subColumns: 0, icon: '👋', kpiLinks: [] },
+    { id: 'tour-p-accueil', name: 'Accueil', order: 0, subColumns: 0, icon: '👋', kpiLinks: [TOUR_KPI_ROOT_ID] },
     { id: 'tour-p-commande', name: 'Commande', order: 1, subColumns: 0, icon: '📝', kpiLinks: [] },
     { id: 'tour-p-service', name: 'Service', order: 2, subColumns: 0, icon: '🍽️', kpiLinks: [] },
   ],
@@ -73,7 +113,9 @@ export const TOUR_DEMO_PROJECT: Project = {
       userStories: [],
       traceLinks: [],
       painPoints: [{ id: 'tour-pp-1', text: "Attente trop longue à l'entrée aux heures de pointe" }],
-      kpiLinks: [],
+      // Exemple concret pour l'étape de la visite guidée expliquant le
+      // lien KPI <-> activité/phase (Phase 5 du plan Produit/Vision/KPI).
+      kpiLinks: [TOUR_KPI_CHILD_ID],
     },
     {
       id: 'tour-act-commander',
