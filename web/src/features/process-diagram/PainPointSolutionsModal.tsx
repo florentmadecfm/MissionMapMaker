@@ -173,7 +173,7 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
         {error && <p className="error">{error}</p>}
         {status === 'loading' && (
           <p className="loading-row">
-            <Spinner /> Génération de 5 solutions…
+            <Spinner /> Génération de solutions…
           </p>
         )}
         {status === 'ready' && solutions.length === 0 && !error && (

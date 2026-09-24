@@ -21,6 +21,7 @@ import {
   toWorkingProject,
 } from './activeVariant'
 import { ExportImportMenu } from './ExportImportMenu'
+import { HeaderMenu } from './HeaderMenu'
 import { ProjectEditor } from './ProjectEditor'
 import { VariantComparisonScreen } from './VariantComparisonScreen'
 import { VariantToggle } from './VariantToggle'
@@ -550,25 +551,32 @@ export function ProjectShell() {
             <Package size={16} aria-hidden="true" />
             {!sidebarCollapsed && 'Produits'}
           </button>
-          <button
-            type="button"
-            className="sidebar-settings"
-            onClick={() => setSettingsOpen(true)}
-            title={llmConfigured === false ? 'Paramètres — aucun fournisseur LLM configuré' : 'Paramètres'}
-          >
-            <Settings size={16} aria-hidden="true" />
-            {!sidebarCollapsed && 'Paramètres'}
-            {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
-          </button>
-          {/* Rappel manuel de la visite guidée (WelcomeTour.tsx) pour qui
-              l'a passée ou veut la revoir — seul point d'entrée hors du
-              tout premier chargement de l'app. */}
-          <button type="button" className="sidebar-replay-tour" onClick={() => setTourOpen(true)} title="Revoir la visite guidée">
-            <CircleHelp size={16} aria-hidden="true" />
-            {!sidebarCollapsed && 'Revoir la visite guidée'}
-          </button>
         </div>
       </aside>
+
+      {/* Menu burger fixe en haut à droite (Paramètres + visite guidée) —
+          retour utilisateur : ces deux actions n'ont rien à voir avec la
+          navigation entre missions/écrans qui occupe le reste de la
+          sidebar, et sont désormais accessibles depuis n'importe quelle
+          vue (pas seulement un projet ouvert). triggerClassName distinct
+          de la valeur par défaut de HeaderMenu ('header-menu-trigger') :
+          la toute dernière étape de la visite guidée (tourSteps.ts)
+          cible spécifiquement le burger export/import de
+          ExportImportMenu.tsx via ce même sélecteur par défaut —
+          document.querySelector prend le premier match du DOM, un nom de
+          classe partagé ferait pointer cette étape sur CE menu-ci à la
+          place. */}
+      <div className="app-menu">
+        <HeaderMenu triggerClassName="app-menu-trigger" triggerLabel="Menu">
+          <button type="button" onClick={() => setSettingsOpen(true)}>
+            <Settings size={14} aria-hidden="true" /> Paramètres
+            {llmConfigured === false && <span className="settings-alert-dot" aria-label="Aucun fournisseur LLM configuré" />}
+          </button>
+          <button type="button" onClick={() => setTourOpen(true)}>
+            <CircleHelp size={14} aria-hidden="true" /> Revoir la visite guidée
+          </button>
+        </HeaderMenu>
+      </div>
 
       {tourOpen && (
         <WelcomeTour
@@ -604,6 +612,7 @@ export function ProjectShell() {
             onProductsChanged={refreshProducts}
             missions={summaries}
             onOpenMission={handleOpen}
+            onMissionsChanged={refreshList}
           />
         ) : view === 'compare' && project ? (
           <VariantComparisonScreen project={project} onChange={handleComparisonChange} onClose={() => setView('project')} />
