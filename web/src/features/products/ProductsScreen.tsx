@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Maximize2 } from 'lucide-react'
 import { api } from '../../api/client'
 import type { Product, ProductKpi, ProjectSummary } from '../../api/types'
 import { buildKpiTree, excludeSelfAndDescendants } from './kpiTree'
@@ -75,6 +76,11 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   // 'config' pour que cette étape de la visite guidée continue de trouver
   // sa cible sans changement de sa part.
   const [kpiView, setKpiView] = useState<'config' | 'graph'>('config')
+  // Vue agrandie du graphe (retour utilisateur : voir tous les KPI d'un
+  // coup, sans être limité à la largeur de la colonne principale) — une
+  // modale plutôt qu'un panneau intégré, sur le modèle déjà établi
+  // ailleurs dans l'app (.modal-backdrop/.modal).
+  const [kpiTreeExpanded, setKpiTreeExpanded] = useState(false)
 
   useEffect(() => {
     if (!products) return
@@ -192,18 +198,20 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     setDraft({ ...draft, kpis: reparented.filter((k) => k.id !== id) })
   }
 
-  // Relie la visualisation d'ensemble (KpiTreeDiagram.tsx, vue 'graph') au
-  // formulaire d'édition (vue 'config') : un clic sur un nœud de l'arbre
-  // bascule vers Configuration puis fait défiler jusqu'à sa carte
-  // (id="kpi-card-{id}" posé sur chaque carte ci-dessous) et la met
-  // brièvement en surbrillance (.kpi-card-highlighted, App.css) pour que
-  // l'utilisateur retrouve immédiatement où éditer ce KPI. Les cartes ne
-  // sont pas montées tant que la vue reste 'graph' (rendu conditionnel
-  // ci-dessous) : requestAnimationFrame attend que le changement de vue
-  // soit commité au DOM avant de chercher la carte, sans quoi elle
-  // n'existerait pas encore au moment du scroll.
+  // Relie la visualisation d'ensemble (KpiTreeDiagram.tsx, vue 'graph' ou
+  // modale agrandie) au formulaire d'édition (vue 'config') : un clic sur
+  // un nœud de l'arbre ferme la modale si ouverte, bascule vers
+  // Configuration puis fait défiler jusqu'à sa carte (id="kpi-card-{id}"
+  // posé sur chaque carte ci-dessous) et la met brièvement en
+  // surbrillance (.kpi-card-highlighted, App.css) pour que l'utilisateur
+  // retrouve immédiatement où éditer ce KPI. Les cartes ne sont pas
+  // montées tant que la vue reste 'graph' (rendu conditionnel ci-dessous)
+  // : requestAnimationFrame attend que le changement de vue soit commité
+  // au DOM avant de chercher la carte, sans quoi elle n'existerait pas
+  // encore au moment du scroll.
   function handleSelectKpi(kpiId: string) {
     setKpiView('config')
+    setKpiTreeExpanded(false)
     requestAnimationFrame(() => {
       document.getElementById(`kpi-card-${kpiId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
       setHighlightedKpiId(kpiId)
@@ -373,27 +381,34 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           <section className="actor-mission-section">
             <div className="kpi-section-header">
               <h3>KPI</h3>
-              <div className="variant-toggle kpi-view-toggle" role="radiogroup" aria-label="Vue des KPI">
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={kpiView === 'config'}
-                  className={`variant-toggle-option${kpiView === 'config' ? ' active' : ''}`}
-                  onClick={() => setKpiView('config')}
-                >
-                  <span className="variant-toggle-dot" aria-hidden="true" />
-                  Configuration
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={kpiView === 'graph'}
-                  className={`variant-toggle-option${kpiView === 'graph' ? ' active' : ''}`}
-                  onClick={() => setKpiView('graph')}
-                >
-                  <span className="variant-toggle-dot" aria-hidden="true" />
-                  Graphe
-                </button>
+              <div className="kpi-section-header-actions">
+                {kpiView === 'graph' && draft.kpis.length > 0 && (
+                  <button type="button" className="kpi-tree-expand-button" onClick={() => setKpiTreeExpanded(true)}>
+                    <Maximize2 size={13} aria-hidden="true" /> Agrandir
+                  </button>
+                )}
+                <div className="variant-toggle kpi-view-toggle" role="radiogroup" aria-label="Vue des KPI">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={kpiView === 'config'}
+                    className={`variant-toggle-option${kpiView === 'config' ? ' active' : ''}`}
+                    onClick={() => setKpiView('config')}
+                  >
+                    <span className="variant-toggle-dot" aria-hidden="true" />
+                    Configuration
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={kpiView === 'graph'}
+                    className={`variant-toggle-option${kpiView === 'graph' ? ' active' : ''}`}
+                    onClick={() => setKpiView('graph')}
+                  >
+                    <span className="variant-toggle-dot" aria-hidden="true" />
+                    Graphe
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -546,6 +561,20 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           onChange={setDraft}
           onClose={() => setAiModalMode(null)}
         />
+      )}
+
+      {kpiTreeExpanded && draft && (
+        <div className="modal-backdrop" onClick={() => setKpiTreeExpanded(false)}>
+          <div className="modal kpi-tree-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="modal-header">
+              <h2>Arbre de KPI — {draft.name}</h2>
+              <button type="button" className="modal-close" onClick={() => setKpiTreeExpanded(false)} aria-label="Fermer">
+                ×
+              </button>
+            </header>
+            <KpiTreeDiagram kpis={draft.kpis} onSelectKpi={handleSelectKpi} />
+          </div>
+        </div>
       )}
     </div>
   )

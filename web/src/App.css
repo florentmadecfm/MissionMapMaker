@@ -2266,9 +2266,38 @@
   gap: 0.5rem;
 }
 
+.kpi-section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .kpi-view-toggle {
   padding: 0;
   margin-top: 0;
+}
+
+/* Ouvre la modale plein écran du graphe (retour utilisateur : voir tous
+   les KPI sans être limité à la largeur de la colonne principale) — même
+   traitement que .variant-toggle-create (bordure en pointillés, pas de
+   fond), pour se lire comme une action secondaire plutôt qu'une des 2
+   options du bouton radio juste à côté. */
+.kpi-tree-expand-button {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.7rem;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: none;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.kpi-tree-expand-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .kpi-view-toggle .variant-toggle-option.active {
@@ -2381,13 +2410,13 @@
 }
 
 .kpi-tree ul {
-  padding-top: 1.25rem;
+  padding-top: 1rem;
   position: relative;
 }
 
 .kpi-tree li {
   position: relative;
-  padding: 1.25rem 0.5rem 0;
+  padding: 1rem 0.4rem 0;
   text-align: center;
 }
 
@@ -2406,7 +2435,7 @@
   top: 0;
   right: 50%;
   width: 50%;
-  height: 1.25rem;
+  height: 1rem;
   border-top: 1px solid var(--color-border);
 }
 
@@ -2449,20 +2478,23 @@
   top: 0;
   left: 50%;
   width: 0;
-  height: 1.25rem;
+  height: 1rem;
   border-left: 1px solid var(--color-border);
 }
 
+/* Retour utilisateur : réduire la police pour voir davantage de KPI sans
+   défiler — taille et gabarit resserrés par rapport à la première
+   version (0.8rem/0.5-0.75rem de padding). */
 .kpi-tree-node {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.2rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.7rem;
   white-space: nowrap;
 }
 
@@ -2476,11 +2508,11 @@
 }
 
 .kpi-tree-pillar-badge {
-  padding: 0.05rem 0.5rem;
+  padding: 0.03rem 0.4rem;
   border-radius: var(--radius-pill);
   background: var(--color-surface-muted);
   color: var(--color-text-muted);
-  font-size: 0.68rem;
+  font-size: 0.6rem;
 }
 
 .products-save-row {
@@ -2538,6 +2570,27 @@
   width: 1040px;
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
+}
+
+/* Vue agrandie du graphe de KPI (retour utilisateur : voir tous les KPI
+   sans être limité à la largeur de la colonne principale) — quasi plein
+   écran plutôt qu'une largeur fixe comme .actor-profile-modal, l'arbre
+   pouvant s'étaler dans les deux dimensions selon le nombre de KPI. */
+.kpi-tree-modal {
+  width: calc(100vw - 4rem);
+  max-width: 1400px;
+  height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-tree-modal .kpi-tree-wrapper {
+  flex: 1;
+  overflow: auto;
+  margin-bottom: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
 .actor-profile-modal h3,
