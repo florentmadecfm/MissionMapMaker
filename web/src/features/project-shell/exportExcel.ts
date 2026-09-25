@@ -1,4 +1,5 @@
-import type { Project } from '../../api/types'
+import type { Product, Project } from '../../api/types'
+import { buildKpiTree } from '../products/kpiTree'
 
 // exceljs pèse plusieurs centaines de Ko à lui seul : importé
 // dynamiquement ici plutôt qu'en haut de fichier, pour que ce coût ne
@@ -29,6 +30,18 @@ const SPEC_TYPE_LABELS: Record<string, string> = {
   VerificationCriterion: 'Critère de vérification',
 }
 
+// Noms (pas les ids, illisibles dans un tableur) des KPI liés — utilisé
+// pour la colonne "KPI liés" des feuilles Activités/Phases. `product`
+// peut être null (aucun produit associé à cette mission) : renvoie alors
+// une chaîne vide plutôt que de planter.
+function kpiNames(product: Product | null, kpiIds: string[]): string {
+  if (!product) return ''
+  return kpiIds
+    .map((id) => product.kpis.find((k) => k.id === id)?.name)
+    .filter((name): name is string => Boolean(name))
+    .join(', ')
+}
+
 interface Column {
   header: string
   key: string
@@ -36,11 +49,14 @@ interface Column {
 }
 
 // Assemble une feuille par catégorie (acteurs, phases, activités, user
-// stories, interactions, spécifications, tests V&V, traçabilité), avec
-// des libellés lisibles (noms résolus depuis les ids) plutôt que les
-// identifiants internes bruts, et déclenche le téléchargement du
-// classeur.
-export async function exportProjectToExcel(project: Project) {
+// stories, interactions, spécifications, tests V&V, traçabilité, produit
+// et ses KPI), avec des libellés lisibles (noms résolus depuis les ids)
+// plutôt que les identifiants internes bruts, et déclenche le
+// téléchargement du classeur. `product` (le produit associé à cette
+// mission, ou null) et `linkedMissionNames` (les AUTRES missions liées à
+// ce même produit, à titre indicatif) sont fournis par ProjectShell.tsx —
+// voir la feuille "Produit" ci-dessous.
+export async function exportProjectToExcel(project: Project, product: Product | null, linkedMissionNames: string[]) {
   const ExcelJS = (await import('exceljs')).default
 
   const wb = new ExcelJS.Workbook()
@@ -103,6 +119,7 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Sous-colonnes', key: 'sousColonnes', width: 14 },
       { header: 'Durée', key: 'duree', width: 14 },
       { header: 'Satisfaction (1-5)', key: 'satisfaction', width: 16 },
+      { header: 'KPI liés', key: 'kpis', width: 30 },
     ],
     [...project.phases]
       .sort((a, b) => a.order - b.order)
@@ -113,6 +130,7 @@ export async function exportProjectToExcel(project: Project) {
         sousColonnes: p.subColumns,
         duree: p.duration ?? '',
         satisfaction: p.satisfactionScore ? p.satisfactionScore : '',
+        kpis: kpiNames(product, p.kpiLinks),
       })),
   )
 
@@ -125,6 +143,7 @@ export async function exportProjectToExcel(project: Project) {
       { header: 'Description', key: 'description', width: 50 },
       { header: 'Texte source', key: 'texteSource', width: 50 },
       { header: 'Spécifications liées', key: 'specs', width: 30 },
+      { header: 'KPI liés', key: 'kpis', width: 30 },
       { header: 'Sous-colonne', key: 'sousColonne', width: 12 },
       { header: 'Sous-ligne', key: 'sousLigne', width: 12 },
       { header: 'Décalage X', key: 'decalageX', width: 12 },
@@ -140,6 +159,7 @@ export async function exportProjectToExcel(project: Project) {
         .map((specId) => project.specifications.find((s) => s.id === specId)?.code)
         .filter(Boolean)
         .join(', '),
+      kpis: kpiNames(product, act.kpiLinks),
       sousColonne: act.column,
       sousLigne: act.subRow,
       decalageX: act.offsetX,
@@ -276,6 +296,63 @@ export async function exportProjectToExcel(project: Project) {
         }
       }),
     ),
+  )
+
+  // Produit associé à cette mission (Phase 1 du plan Produit/Vision/KPI) —
+  // exporté à titre de RÉFÉRENCE (voir le commentaire sur `product` dans
+  // ExportImportMenu.tsx : jamais modifié/réassigné par un import, un même
+  // produit pouvant être partagé par plusieurs missions). "Autres missions
+  // liées" liste les AUTRES missions rattachées à ce même produit, pour
+  // rendre visible ce partage plutôt que de le laisser invisible dans le
+  // fichier.
+  addSheet(
+    'Produit',
+    [
+      { header: 'Champ', key: 'champ', width: 24 },
+      { header: 'Valeur', key: 'valeur', width: 80 },
+    ],
+    product
+      ? [
+          { champ: 'Nom du produit', valeur: product.name },
+          { champ: 'Vision', valeur: product.visionStatement ?? '' },
+          { champ: 'Différenciateurs', valeur: product.differentiators.join('\n') },
+          { champ: 'Piliers stratégiques', valeur: product.pillars.join('\n') },
+          {
+            champ: 'Autres missions liées à ce produit',
+            valeur: linkedMissionNames.length > 0 ? linkedMissionNames.join('\n') : '(aucune autre)',
+          },
+        ]
+      : [{ champ: 'Produit associé', valeur: '(aucun)' }],
+  )
+
+  // Liste à plat ordonnée en profondeur (buildKpiTree, kpiTree.ts) — même
+  // logique de rendu que ProductsScreen.tsx, l'indentation du nom
+  // (espaces en préfixe) suggère la hiérarchie sans avoir besoin d'une
+  // colonne dédiée. Cette indentation n'affecte pas la résolution de la
+  // colonne "KPI liés" des feuilles Activités/Phases à l'import (comparée
+  // par nom déjà `.trim()`, voir importExcel.ts).
+  addSheet(
+    'KPI produit',
+    [
+      { header: 'Nom', key: 'nom', width: 36 },
+      { header: 'Définition', key: 'definition', width: 50 },
+      { header: 'Unité', key: 'unite', width: 14 },
+      { header: 'Actuel', key: 'actuel', width: 14 },
+      { header: 'Cible', key: 'cible', width: 14 },
+      { header: 'Pilier', key: 'pilier', width: 24 },
+      { header: 'Sous-KPI de', key: 'sousKpiDe', width: 30 },
+    ],
+    product
+      ? buildKpiTree(product.kpis).map(({ kpi, depth }) => ({
+          nom: `${'  '.repeat(depth)}${kpi.name}`,
+          definition: kpi.definition ?? '',
+          unite: kpi.unit ?? '',
+          actuel: kpi.baseline ?? '',
+          cible: kpi.target ?? '',
+          pilier: kpi.pillar ?? '',
+          sousKpiDe: product.kpis.find((k) => k.id === kpi.parentId)?.name ?? '',
+        }))
+      : [],
   )
 
   const buffer = await wb.xlsx.writeBuffer()
