@@ -19,7 +19,8 @@
     "lucide-react": "1.45.0",
     "pdfjs-dist": "5.1.91",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
