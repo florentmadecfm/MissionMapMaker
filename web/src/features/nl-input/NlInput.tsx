@@ -3,7 +3,7 @@ import { classifyGenerationError } from '../../api/generationErrors'
 import type { Project } from '../../api/types'
 import { Spinner } from '../../components/Spinner'
 import { generateAndMerge } from './generateUpdate'
-import { extractPdfText } from './pdfText'
+import { extractPdfText, type PdfExtractionProgress } from './pdfText'
 
 interface Props {
   project: Project
@@ -33,6 +33,16 @@ const EXAMPLE =
   "le manager valide une remise avant que le serveur encaisse le paiement, sinon le serveur encaisse directement. " +
   "Au départ, le plongeur débarrasse et nettoie la table, et le serveur remercie et salue les clients."
 
+// L'OCR (tesseract.js) est nettement plus lent que la lecture du texte
+// natif — un libellé générique "Lecture du PDF…" laisserait croire à un
+// blocage sur un document de plusieurs pages scannées. mode indique la
+// branche empruntée pour la page en cours (voir pdfText.ts).
+function pdfButtonLabel(progress: PdfExtractionProgress | null): string {
+  if (!progress) return 'Lecture du PDF…'
+  const { page, totalPages, mode } = progress
+  return mode === 'ocr' ? `OCR page ${page}/${totalPages}…` : `Lecture page ${page}/${totalPages}…`
+}
+
 export function NlInput({ project, onChange, onGenerated }: Props) {
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
@@ -40,6 +50,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
   const [notConfigured, setNotConfigured] = useState(false)
   const [rateLimited, setRateLimited] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfProgress, setPdfProgress] = useState<PdfExtractionProgress | null>(null)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [pdfInfo, setPdfInfo] = useState<string | null>(null)
   const [noEffect, setNoEffect] = useState(false)
@@ -87,13 +98,20 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
     if (!file) return
 
     setPdfLoading(true)
+    setPdfProgress(null)
     setPdfError(null)
     setPdfInfo(null)
+    let ocrPages = 0
     try {
-      const extracted = (await extractPdfText(file)).trim()
+      const extracted = (
+        await extractPdfText(file, (progress) => {
+          setPdfProgress(progress)
+          if (progress.mode === 'ocr') ocrPages++
+        })
+      ).trim()
       if (!extracted) {
         setPdfError(
-          "Aucun texte n'a pu être extrait de ce PDF — c'est probablement un document scanné (image) : l'OCR n'est pas encore pris en charge, seuls les PDF texte le sont.",
+          "Aucun texte n'a pu être extrait de ce PDF, même par OCR — vérifiez qu'il contient bien des pages lisibles (texte net, sans rotation).",
         )
         return
       }
@@ -101,12 +119,14 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
       setText(truncated ? extracted.slice(0, MAX_TEXT_LENGTH) : extracted)
       setPdfInfo(
         `Texte extrait de « ${file.name} » (${extracted.length} caractères)` +
+          (ocrPages > 0 ? ` dont ${ocrPages} page(s) via OCR (relisez-les avec attention)` : '') +
           (truncated ? `, tronqué à ${MAX_TEXT_LENGTH} caractères — relisez avant de générer.` : '.'),
       )
     } catch (err) {
       setPdfError(`Échec de la lecture du PDF : ${String(err)}`)
     } finally {
       setPdfLoading(false)
+      setPdfProgress(null)
     }
   }
 
@@ -114,8 +134,8 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
     <div className="nl-input">
       <p className="nl-hint">
         Décrivez le processus en langage naturel (personas, phases, qui fait quoi, ce qui est échangé), ou chargez un
-        PDF texte dont le contenu sera extrait dans la zone ci-dessous. Claude propose une ébauche que vous pourrez
-        relire et modifier dans l'onglet Édition avant de sauvegarder.
+        PDF dont le contenu sera extrait dans la zone ci-dessous (texte natif, ou OCR si le PDF est scanné). Claude
+        propose une ébauche que vous pourrez relire et modifier dans l'onglet Édition avant de sauvegarder.
       </p>
       <textarea
         rows={8}
@@ -131,7 +151,7 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
       <div className="nl-actions">
         <input ref={fileInputRef} type="file" accept="application/pdf" hidden onChange={handlePdfSelected} />
         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={loading || pdfLoading}>
-          {pdfLoading ? 'Lecture du PDF…' : 'Charger un PDF'}
+          {pdfLoading ? pdfButtonLabel(pdfProgress) : 'Charger un PDF'}
         </button>
         <button type="button" onClick={() => setText(EXAMPLE)} disabled={loading}>
           Charger l'exemple restaurant
