@@ -6,6 +6,7 @@ import type {
   Interaction,
   PainPoint,
   Phase,
+  Product,
   Project,
   Specification,
   SpecificationType,
@@ -128,12 +129,21 @@ function parseSteps(text: string): TestStep[] {
 // Reconstruit un Project à partir d'un fichier .xlsx exporté par
 // exportProjectToExcel — remplace les 6 collections de `base` (le projet
 // actuellement ouvert) par le contenu du fichier, en conservant
-// id/name/createdAt/updatedAt de `base` (le classeur ne les porte pas).
+// id/name/createdAt/updatedAt/productId de `base` (le classeur ne porte
+// pas ces champs, et le produit associé n'est jamais réassigné par un
+// import — voir ExportImportMenu.tsx). `product` (le produit ACTUELLEMENT
+// associé à `base`, ou null) sert uniquement à résoudre la colonne "KPI
+// liés" des feuilles Activités/Phases : les noms qu'elle contient sont
+// comparés (insensible à la casse, comme les autres colonnes lues par
+// nom dans ce fichier) aux KPI de ce produit, jamais recréés depuis la
+// feuille "KPI produit" elle-même (purement informative, voir
+// exportExcel.ts) — un nom sans correspondance est silencieusement
+// ignoré plutôt que de planter, comme un code de spécification introuvable.
 // Comme toute autre modification de cet écran, le résultat remonte par
 // onChange puis est sauvegardé automatiquement après un court délai
 // d'inactivité (voir ProjectShell.tsx, runSave) — d'où la confirmation
 // demandée par ExportImportMenu.tsx avant d'appeler cette fonction.
-export async function importProjectFromExcel(file: File, base: Project): Promise<Project> {
+export async function importProjectFromExcel(file: File, base: Project, product: Product | null): Promise<Project> {
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
   // exceljs type son argument comme un Buffer Node, mais accepte en
@@ -143,6 +153,20 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
   // `Buffer` (introuvable) ou `any` (que ce projet évite partout ailleurs).
   type XlsxBuffer = Parameters<typeof wb.xlsx.load>[0]
   await wb.xlsx.load(new Uint8Array(await file.arrayBuffer()) as unknown as XlsxBuffer)
+
+  // Résolution de la colonne "KPI liés" (Activités/Phases) contre le
+  // produit ACTUELLEMENT associé à `base` — voir le commentaire de
+  // importProjectFromExcel ci-dessus. Un nom sans correspondance (produit
+  // changé depuis l'export, faute de frappe, KPI supprimé) est
+  // silencieusement ignoré, même politique que specIdByCode plus bas pour
+  // un code de spécification introuvable.
+  const kpiIdByName = new Map((product?.kpis ?? []).map((k) => [k.name.trim().toLowerCase(), k.id]))
+  function parseKpiLinks(value: string): string[] {
+    return value
+      .split(',')
+      .map((name) => kpiIdByName.get(name.trim().toLowerCase()))
+      .filter((id): id is string => Boolean(id))
+  }
 
   const actorRows = await readSheet(wb, 'Acteurs')
   const actors: Actor[] = actorRows.map((r) => ({
@@ -186,7 +210,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
     icon: r['Icône'] ?? '',
     duration: r['Durée'] ?? '',
     satisfactionScore: clampSatisfaction(toNumber(r['Satisfaction (1-5)'] ?? '0')),
-    kpiLinks: [],
+    kpiLinks: parseKpiLinks(r['KPI liés'] ?? ''),
   }))
   const phaseIdByName = new Map(phases.map((p) => [p.name.trim().toLowerCase(), p.id]))
 
@@ -234,7 +258,7 @@ export async function importProjectFromExcel(file: File, base: Project): Promise
       userStories: [],
       traceLinks,
       painPoints: [],
-      kpiLinks: [],
+      kpiLinks: parseKpiLinks(r['KPI liés'] ?? ''),
     }
   })
   activities.forEach((a, i) => {

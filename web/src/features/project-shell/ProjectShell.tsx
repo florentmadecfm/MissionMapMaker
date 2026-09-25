@@ -469,6 +469,18 @@ export function ProjectShell() {
   // en 'target'. handleWorkingChange fait le trajet inverse à chaque
   // modification remontée par un onglet.
   const workingProject = project ? toWorkingProject(project, activeVariant) : null
+  // Produit associé à la mission ouverte (si tel est le cas) — transmis à
+  // ExportImportMenu.tsx pour que l'export Excel inclue vision/
+  // différenciateurs/piliers/KPI du produit et que l'import résolve les
+  // noms de KPI de la colonne "KPI liés" vers leurs ids (voir exportExcel.
+  // ts/importExcel.ts). linkedMissionNames : les AUTRES missions
+  // rattachées à ce même produit (summaries est déjà tenu à jour par
+  // refreshList, aucune requête dédiée) — exportées à titre indicatif,
+  // un produit pouvant être lié à plusieurs missions (ADR Phase 1 Produit).
+  const currentProduct = products?.find((p) => p.id === workingProject?.productId) ?? null
+  const linkedMissionNames = currentProduct
+    ? summaries.filter((s) => s.productId === currentProduct.id && s.id !== workingProject?.id).map((s) => s.name)
+    : []
   // Ignore toute modification pendant la visite guidée : le projet affiché
   // est alors TOUR_DEMO_PROJECT (tourDemoProject.ts), jamais persisté —
   // un onglet reste monté et câblé normalement (aucune complexité en plus
@@ -721,7 +733,13 @@ export function ProjectShell() {
               {/* Menu export/import au niveau de la barre d'onglets (pas
                   dans l'en-tête d'un seul onglet) : disponible depuis
                   n'importe quel onglet du projet ouvert (ADR-046). */}
-              <ExportImportMenu project={workingProject} onChange={handleWorkingChange} onShowHistory={() => setHistoryOpen(true)} />
+              <ExportImportMenu
+                project={workingProject}
+                product={currentProduct}
+                linkedMissionNames={linkedMissionNames}
+                onChange={handleWorkingChange}
+                onShowHistory={() => setHistoryOpen(true)}
+              />
             </div>
             <div className="variant-toggle-row">
               <VariantToggle
