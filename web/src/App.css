@@ -1960,6 +1960,20 @@
   background: var(--color-warning-bg);
 }
 
+/* Regroupe 2 boutons d'action (ex. "Ouvrir cette mission" + "Délier",
+   ProductsScreen.tsx) contre le bord droit d'une <li> : sans ce wrapper,
+   justify-content: space-between sur la <li> (3 enfants directs : span +
+   2 boutons) les répartirait sur toute la largeur au lieu de les garder
+   groupés — même piège que .item-list-warning li > span:first-child
+   ci-dessus, résolu ici en ne présentant qu'un seul enfant supplémentaire
+   à la <li> plutôt qu'en forçant flex sur le texte. */
+.item-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
 /* Le texte du point de friction prend l'espace disponible (flex: 1) : sans
    ça, le bouton "Solutions"/l'étiquette "résolu" (voir ADR-066) flotterait
    au milieu de la ligne (justify-content: space-between sur 3 enfants)
