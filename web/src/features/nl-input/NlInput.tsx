@@ -40,7 +40,14 @@ const EXAMPLE =
 function pdfButtonLabel(progress: PdfExtractionProgress | null): string {
   if (!progress) return 'Lecture du PDF…'
   const { page, totalPages, mode } = progress
-  return mode === 'ocr' ? `OCR page ${page}/${totalPages}…` : `Lecture page ${page}/${totalPages}…`
+  switch (mode) {
+    case 'ocr':
+      return `OCR page ${page}/${totalPages}…`
+    case 'schema':
+      return `Analyse schéma page ${page}/${totalPages}…`
+    default:
+      return `Lecture page ${page}/${totalPages}…`
+  }
 }
 
 export function NlInput({ project, onChange, onGenerated }: Props) {
@@ -116,10 +123,22 @@ export function NlInput({ project, onChange, onGenerated }: Props) {
         return
       }
       const truncated = extracted.length > MAX_TEXT_LENGTH
+      // Le mode 'schema' de la progression signale une simple TENTATIVE
+      // d'analyse (voir pdfText.ts) — la plupart n'ajoutent rien de neuf
+      // (schéma décoratif, logo déjà dans le texte natif). Compter les
+      // marqueurs effectivement présents dans le texte final donne le
+      // vrai nombre de pages où du contenu a été ajouté, plutôt que de
+      // prétendre à tort qu'un ajout a eu lieu sur chaque page analysée.
+      const schemaMarker = '[Texte détecté dans un schéma/diagramme de la page '
+      const schemaPagesWithContent = extracted.split(schemaMarker).length - 1
+      const notes = [
+        ocrPages > 0 && `dont ${ocrPages} page(s) via OCR`,
+        schemaPagesWithContent > 0 && `texte de schéma ajouté sur ${schemaPagesWithContent} page(s)`,
+      ].filter(Boolean)
       setText(truncated ? extracted.slice(0, MAX_TEXT_LENGTH) : extracted)
       setPdfInfo(
         `Texte extrait de « ${file.name} » (${extracted.length} caractères)` +
-          (ocrPages > 0 ? ` dont ${ocrPages} page(s) via OCR (relisez-les avec attention)` : '') +
+          (notes.length > 0 ? ` ${notes.join(', ')} (relisez ces passages avec attention)` : '') +
           (truncated ? `, tronqué à ${MAX_TEXT_LENGTH} caractères — relisez avant de générer.` : '.'),
       )
     } catch (err) {

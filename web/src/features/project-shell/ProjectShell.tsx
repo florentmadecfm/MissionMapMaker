@@ -209,6 +209,21 @@ export function ProjectShell() {
       setSidebarCollapsed(prev.sidebarCollapsed)
       setProducts(prev.products)
     }
+    // Aucune mission n'était ouverte avant la visite — cas courant du tout
+    // premier chargement : l'effet d'installation de la démo (ci-dessus)
+    // se déclenche au montage, avant qu'un clic ait pu ouvrir quoi que ce
+    // soit, donc `prev.project` vaut `null` même si des missions existent
+    // déjà côté serveur. Sans ce repli, fermer la visite renvoyait
+    // l'utilisateur sur l'écran vide "créez votre première mission" alors
+    // qu'une mission existe et apparaît juste en dessous dans la barre
+    // latérale — ouvre donc automatiquement la plus récemment modifiée.
+    if (!prev?.project) {
+      api.listProjects().then((list) => {
+        if (list.length === 0) return
+        const mostRecent = [...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
+        void handleOpen(mostRecent.id)
+      })
+    }
     // Relance systématiquement un chargement réel des produits, même si
     // `prev.products` vient d'être restauré : au tout premier chargement
     // (le seul cas où la visite s'ouvre automatiquement), le snapshot
