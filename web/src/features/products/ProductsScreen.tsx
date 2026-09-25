@@ -64,6 +64,10 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   const [linkTargetId, setLinkTargetId] = useState('')
   const [linking, setLinking] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
+  // Id de la mission en cours de déliaison (handleUnlinkMission) — bouton
+  // par ligne plutôt qu'un état global, pour ne désactiver que celui sur
+  // lequel l'utilisateur vient de cliquer.
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null)
   // Id du KPI brièvement mis en surbrillance après un clic dans
   // KpiTreeDiagram.tsx (voir handleSelectKpi) — retiré après un court
   // délai, pas un état de sélection persistant.
@@ -239,6 +243,26 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
       setLinkError(String(e))
     } finally {
       setLinking(false)
+    }
+  }
+
+  // Délie une mission de ce produit — sens inverse de handleLinkMission
+  // ci-dessus, même patron (get/save complet, productId: undefined plutôt
+  // qu'omis : un champ absent du JSON envoyé laisse le pointeur Go à son
+  // zéro `nil` côté serveur, donc bien effacé et pas seulement ignoré).
+  // Ne supprime ni la mission ni ses données, seulement le rattachement :
+  // pas de confirmation nécessaire, contrairement à handleDelete.
+  async function handleUnlinkMission(missionId: string) {
+    setUnlinkingId(missionId)
+    setLinkError(null)
+    try {
+      const project = await api.getProject(missionId)
+      await api.saveProject({ ...project, productId: undefined })
+      onMissionsChanged()
+    } catch (e) {
+      setLinkError(String(e))
+    } finally {
+      setUnlinkingId(null)
     }
   }
 
@@ -514,9 +538,19 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                 {linkedMissions.map((m) => (
                   <li key={m.id}>
                     <span>{m.name}</span>
-                    <button type="button" onClick={() => onOpenMission(m.id)}>
-                      Ouvrir cette mission
-                    </button>
+                    <div className="item-list-actions">
+                      <button type="button" onClick={() => onOpenMission(m.id)}>
+                        Ouvrir cette mission
+                      </button>
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => handleUnlinkMission(m.id)}
+                        disabled={unlinkingId === m.id}
+                      >
+                        {unlinkingId === m.id ? 'Déliaison…' : 'Délier'}
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
