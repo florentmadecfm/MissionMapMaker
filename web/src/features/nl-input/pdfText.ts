@@ -4,12 +4,17 @@
 // "Charger un PDF", au lieu d'alourdir le bundle initial de toute
 // l'application pour tout le monde.
 
-// Extrait le texte d'un PDF "texte" (créé numériquement, pas scanné) :
-// concatène le texte de chaque page, séparées par une ligne vide. Ne fait
-// pas d'OCR — un PDF composé uniquement d'images (document scanné) ne
-// produira aucun texte exploitable ; c'est à l'appelant de le signaler à
-// l'utilisateur plutôt que de générer un processus à partir d'un texte
-// vide.
+import { reconstructPageText } from './pdfLayout'
+
+// Extrait le texte d'un PDF "texte" (créé numériquement, pas scanné),
+// page par page, dans l'ordre de lecture visuel — reconstructPageText
+// (pdfLayout.ts) regroupe les fragments par ligne puis colonne à partir de
+// leur position réelle, et reformate les tableaux détectés en Markdown ;
+// une simple concaténation `item.str` (ancien comportement) entrelaçait
+// les colonnes d'un document à mise en page complexe. Ne fait pas d'OCR —
+// un PDF composé uniquement d'images (document scanné) ne produira aucun
+// texte exploitable ; c'est à l'appelant de le signaler à l'utilisateur
+// plutôt que de générer un processus à partir d'un texte vide.
 export async function extractPdfText(file: File): Promise<string> {
   const [pdfjsLib, { default: pdfWorkerUrl }] = await Promise.all([
     import('pdfjs-dist'),
@@ -25,8 +30,7 @@ export async function extractPdfText(file: File): Promise<string> {
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum)
       const content = await page.getTextContent()
-      const pageText = content.items.map((item) => ('str' in item ? item.str : '')).join(' ')
-      pageTexts.push(pageText.trim())
+      pageTexts.push(reconstructPageText(content).trim())
     }
     return pageTexts.filter(Boolean).join('\n\n')
   } finally {
