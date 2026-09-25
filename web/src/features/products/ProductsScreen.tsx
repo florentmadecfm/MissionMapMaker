@@ -33,16 +33,22 @@ function emptyKpi(): ProductKpi {
   return { id: newId('kpi'), name: '' }
 }
 
+// Délai d'inactivité avant sauvegarde automatique — même valeur et même
+// mécanisme que ProjectShell.tsx (dirtyRef/savingRef/runSave).
+const AUTOSAVE_DEBOUNCE_MS = 900
+
 // Écran indépendant de tout projet ouvert (voir ProjectShell.tsx, état
 // `view`) : un produit à la fois (sélectionné depuis un dropdown en
 // en-tête, pas une liste master-detail — retour utilisateur : la liste
 // prenait une colonne entière pour peu d'usage), pour définir vision/
-// différenciateurs/piliers stratégiques/KPI. Sauvegarde EXPLICITE (bouton
-// "Enregistrer"), pas l'autosave débouncée du reste de l'app : un Produit
-// vit dans un magasin séparé (storage.ProductStore) sans lien avec la
-// mécanique d'autosave d'une mission, et un moment explicite "j'ai fini
-// d'éditer" convient bien à un flux de rédaction assistée par IA (voir
-// VisionRefinementModal.tsx, Phase 2).
+// différenciateurs/piliers stratégiques/KPI. Sauvegarde automatique
+// débouncée (retour utilisateur : des ajouts manuels de différenciateurs/
+// piliers/KPI se perdaient silencieusement si l'utilisateur oubliait de
+// cliquer sur "Enregistrer" avant de changer de produit ou de recharger
+// la page) — même mécanisme que l'éditeur de mission (dirtyRef/savingRef/
+// runSave ci-dessous). Le bouton "Enregistrer" reste présent pour forcer
+// un envoi immédiat sans attendre le délai, mais n'est plus la seule
+// façon de persister une modification.
 export function ProductsScreen({ products, error, onProductsChanged, missions, onOpenMission, onMissionsChanged }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Product | null>(null)
@@ -85,6 +91,14 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   // modale plutôt qu'un panneau intégré, sur le modèle déjà établi
   // ailleurs dans l'app (.modal-backdrop/.modal).
   const [kpiTreeExpanded, setKpiTreeExpanded] = useState(false)
+  // Sauvegarde automatique (voir AUTOSAVE_DEBOUNCE_MS/runSave ci-dessous) :
+  // même triplet de refs que ProjectShell.tsx (dirtyRef/savingRef +
+  // draftRef pour que runSave lise toujours la dernière valeur, jamais
+  // une fermeture périmée d'un déclenchement différé).
+  const dirtyRef = useRef(false)
+  const savingRef = useRef(false)
+  const draftRef = useRef<Product | null>(null)
+  draftRef.current = draft
 
   useEffect(() => {
     if (!products) return
@@ -94,21 +108,35 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   // Le brouillon local se resynchronise avec le produit sélectionné à
   // chaque rafraîchissement de `products` (ex. juste après la création
   // d'un produit — sa sélection peut précéder l'arrivée de la liste
-  // rafraîchie, voir handleCreate — ou après Enregistrer, voir
-  // handleSave) : sans ça, le brouillon resterait vide/périmé tant que
+  // rafraîchie, voir handleCreate — ou après une sauvegarde, voir
+  // runSave) : sans ça, le brouillon resterait vide/périmé tant que
   // `selectedId` lui-même ne change pas. En revanche, savedAt/saveError
   // ne sont réinitialisés QUE quand la SÉLECTION elle-même change (suivi
   // via ce ref) — pas à chaque rafraîchissement de `products` — sans quoi
-  // le rafraîchissement déclenché par handleSave lui-même effacerait le
+  // le rafraîchissement déclenché par runSave lui-même effacerait le
   // message "Enregistré à ..." qu'il vient tout juste d'afficher.
+  //
+  // Le resync lui-même est sauté si le brouillon est actuellement modifié
+  // (dirtyRef) ou en cours d'envoi (savingRef) ET que la sélection n'a
+  // pas changé : `products` vient d'un rafraîchissement en masse
+  // asynchrone (onProductsChanged, après chaque runSave) qui peut arriver
+  // légèrement après la frappe la plus récente de l'utilisateur — sans ce
+  // garde-fou, ce resync écraserait cette frappe avec une version du
+  // produit déjà périmée. runSave applique lui-même la version
+  // fraîchement enregistrée dès la réponse du serveur (setDraft(saved)),
+  // ce garde-fou ne fait qu'éviter qu'un resync concurrent la court-circuite.
   const lastSelectedIdRef = useRef<string | null>(null)
   useEffect(() => {
-    const selected = products?.find((p) => p.id === selectedId) ?? null
-    setDraft(selected)
-    if (lastSelectedIdRef.current !== selectedId) {
+    const selectionChanged = lastSelectedIdRef.current !== selectedId
+    if (selectionChanged) {
       lastSelectedIdRef.current = selectedId
       setSaveError(null)
       setSavedAt(null)
+      dirtyRef.current = false
+    }
+    if (selectionChanged || (!dirtyRef.current && !savingRef.current)) {
+      const selected = products?.find((p) => p.id === selectedId) ?? null
+      setDraft(selected)
     }
   }, [selectedId, products])
 
@@ -129,20 +157,61 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     }
   }
 
-  async function handleSave() {
-    if (!draft) return
+  // Sauvegarde effective — appelée automatiquement par l'effet de
+  // debounce ci-dessous, ou immédiatement par le bouton "Enregistrer".
+  // N'utilise jamais `draft` capturé par une fermeture (qui pourrait être
+  // périmé au moment où un déclenchement différé se produit), toujours
+  // draftRef.current. dirtyRef/savingRef : même garde double que
+  // ProjectShell.runSave (pas de sauvegarde si rien de neuf, pas deux
+  // sauvegardes en vol à la fois — une modification arrivée pendant
+  // l'envoi est reprise juste après plutôt que perdue).
+  async function runSave() {
+    const current = draftRef.current
+    if (!current || !dirtyRef.current || savingRef.current) return
+    savingRef.current = true
+    dirtyRef.current = false
     setSaving(true)
     setSaveError(null)
     try {
-      const saved = await api.saveProduct(draft)
+      const saved = await api.saveProduct(current)
       setDraft(saved)
       setSavedAt(new Date().toLocaleTimeString())
       onProductsChanged()
     } catch (e) {
       setSaveError(String(e))
+      dirtyRef.current = true // à retenter — rien n'a été perdu
     } finally {
+      savingRef.current = false
       setSaving(false)
+      if (dirtyRef.current) {
+        window.setTimeout(() => {
+          void runSave()
+        }, AUTOSAVE_DEBOUNCE_MS)
+      }
     }
+  }
+
+  useEffect(() => {
+    if (!dirtyRef.current) return
+    const timer = window.setTimeout(() => {
+      void runSave()
+    }, AUTOSAVE_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+    // runSave n'est pas mémoïsée (nouvelle fermeture à chaque rendu) et ne
+    // doit déclencher cet effet QUE sur un changement de `draft`, pas à
+    // chaque rendu — même choix que ProjectShell.tsx.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft])
+
+  // Marque le brouillon "sale" avant de l'appliquer — à utiliser pour
+  // toute modification déclenchée par l'utilisateur (ajout/retrait de
+  // différenciateur/pilier/KPI, saisie de la vision, retour de la
+  // génération assistée par IA). Jamais pour un resync depuis `products`
+  // ni pour la valeur reçue après une sauvegarde : ces deux-là appellent
+  // setDraft directement, sans passer par ici.
+  function setDraftDirty(next: Product) {
+    dirtyRef.current = true
+    setDraft(next)
   }
 
   async function handleDelete(id: string, name: string) {
@@ -159,47 +228,47 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   function addDifferentiator() {
     const text = newDifferentiator.trim()
     if (!text || !draft) return
-    setDraft({ ...draft, differentiators: [...draft.differentiators, text] })
+    setDraftDirty({ ...draft, differentiators: [...draft.differentiators, text] })
     setNewDifferentiator('')
   }
 
   function removeDifferentiator(index: number) {
     if (!draft) return
-    setDraft({ ...draft, differentiators: draft.differentiators.filter((_, i) => i !== index) })
+    setDraftDirty({ ...draft, differentiators: draft.differentiators.filter((_, i) => i !== index) })
   }
 
   function addPillar() {
     const text = newPillar.trim()
     if (!text || !draft) return
-    setDraft({ ...draft, pillars: [...draft.pillars, text] })
+    setDraftDirty({ ...draft, pillars: [...draft.pillars, text] })
     setNewPillar('')
   }
 
   function removePillar(index: number) {
     if (!draft) return
-    setDraft({ ...draft, pillars: draft.pillars.filter((_, i) => i !== index) })
+    setDraftDirty({ ...draft, pillars: draft.pillars.filter((_, i) => i !== index) })
   }
 
   function addKpi() {
     if (!draft) return
-    setDraft({ ...draft, kpis: [...draft.kpis, emptyKpi()] })
+    setDraftDirty({ ...draft, kpis: [...draft.kpis, emptyKpi()] })
   }
 
   function updateKpi(id: string, patch: Partial<ProductKpi>) {
     if (!draft) return
-    setDraft({ ...draft, kpis: draft.kpis.map((k) => (k.id === id ? { ...k, ...patch } : k)) })
+    setDraftDirty({ ...draft, kpis: draft.kpis.map((k) => (k.id === id ? { ...k, ...patch } : k)) })
   }
 
   // Réattache les éventuels sous-KPI du nœud supprimé au parent DE CE
   // NŒUD (pas au premier niveau) avant de le retirer — sans cette
   // réattache, supprimer un KPI parent laisserait ses enfants avec un
   // parentId pendant (référençant un KPI qui n'existe plus), rejeté par
-  // Product.Validate() côté serveur dès le prochain "Enregistrer".
+  // Product.Validate() côté serveur au prochain envoi.
   function removeKpi(id: string) {
     if (!draft) return
     const deleted = draft.kpis.find((k) => k.id === id)
     const reparented = draft.kpis.map((k) => (k.parentId === id ? { ...k, parentId: deleted?.parentId } : k))
-    setDraft({ ...draft, kpis: reparented.filter((k) => k.id !== id) })
+    setDraftDirty({ ...draft, kpis: reparented.filter((k) => k.id !== id) })
   }
 
   // Relie la visualisation d'ensemble (KpiTreeDiagram.tsx, vue 'graph' ou
@@ -335,7 +404,7 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
               rows={3}
               placeholder="Ex. Pour les Product Owners et Designers qui veulent ancrer leurs missions dans une vision produit claire, Pulse.MissionMap est l'outil de story mapping qui relie chaque activité du diagramme à un KPI mesurable — contrairement aux outils de mapping génériques, sans lien avec la stratégie produit."
               value={draft.visionStatement ?? ''}
-              onChange={(e) => setDraft({ ...draft, visionStatement: e.target.value })}
+              onChange={(e) => setDraftDirty({ ...draft, visionStatement: e.target.value })}
             />
             <div className="nl-actions">
               <button type="button" onClick={() => setAiModalMode('vision')}>
@@ -578,7 +647,7 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           </section>
 
           <div className="products-save-row">
-            <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+            <button type="button" className="btn-primary" onClick={() => void runSave()} disabled={saving}>
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
             {savedAt && <span className="autosave-status">Enregistré à {savedAt}</span>}
@@ -592,7 +661,7 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           key={aiModalMode}
           product={draft}
           mode={aiModalMode}
-          onChange={setDraft}
+          onChange={setDraftDirty}
           onClose={() => setAiModalMode(null)}
         />
       )}
