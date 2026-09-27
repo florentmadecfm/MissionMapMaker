@@ -5,6 +5,25 @@ export interface KpiTreeNode {
   depth: number
 }
 
+// Cadrage de valeur d'un KPI en un texte court ("12 min → 5 min",
+// "cible : 5 min", "actuel : 12 min") — réutilisé par ActorDetail.tsx
+// (angle "Produit → Persona") et KpiMissionImpact.tsx (angle "Missions →
+// Produit") pour que les deux vues expriment la VALEUR du lien plutôt
+// qu'un simple nom, sans dupliquer ce petit formatage. baseline/target
+// restent du texte libre (voir ProductKpi) : un KPI qualitatif sans les
+// deux valeurs numériques reste géré (repli sur un seul des deux, ou
+// chaîne vide si aucun des deux n'est renseigné — l'appelant décide alors
+// de n'afficher que le nom).
+export function formatKpiValue(kpi: ProductKpi): string {
+  const unit = kpi.unit?.trim() ? ` ${kpi.unit.trim()}` : ''
+  const baseline = kpi.baseline?.trim()
+  const target = kpi.target?.trim()
+  if (baseline && target) return `${baseline} → ${target}${unit}`
+  if (target) return `cible : ${target}${unit}`
+  if (baseline) return `actuel : ${baseline}${unit}`
+  return ''
+}
+
 // Transforme la liste plate ProductKpi.kpis (jamais stockée imbriquée,
 // voir domain.ProductKpi.ParentID côté serveur) en une liste ordonnée en
 // profondeur, chaque entrée portant sa profondeur (0 = premier niveau) —

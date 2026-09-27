@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Maximize2 } from 'lucide-react'
 import { api } from '../../api/client'
-import type { Product, ProductKpi, ProjectSummary } from '../../api/types'
+import type { Product, ProductKpi, Project, ProjectSummary } from '../../api/types'
 import { buildKpiTree, excludeSelfAndDescendants } from './kpiTree'
+import { KpiMissionImpact } from './KpiMissionImpact'
 import { KpiTreeDiagram } from './KpiTreeDiagram'
 import { VisionRefinementModal } from './VisionRefinementModal'
 
@@ -78,14 +79,25 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   // KpiTreeDiagram.tsx (voir handleSelectKpi) — retiré après un court
   // délai, pas un état de sélection persistant.
   const [highlightedKpiId, setHighlightedKpiId] = useState<string | null>(null)
-  // Bascule Configuration/Graphe de la section KPI (retour utilisateur :
-  // un onglet dédié plutôt que le graphe affiché en permanence au-dessus
-  // des cartes) — 'config' par défaut, l'édition reste le cas d'usage
-  // principal. TOUR_STEPS[1] (tourSteps.ts) cible '.product-kpi-table',
-  // rendu seulement en vue 'config' : la valeur par défaut doit rester
-  // 'config' pour que cette étape de la visite guidée continue de trouver
-  // sa cible sans changement de sa part.
-  const [kpiView, setKpiView] = useState<'config' | 'graph'>('config')
+  // Bascule Configuration/Graphe/Valeur des missions de la section KPI
+  // (retour utilisateur : un onglet dédié plutôt que le graphe affiché en
+  // permanence au-dessus des cartes) — 'config' par défaut, l'édition
+  // reste le cas d'usage principal. TOUR_STEPS[1] (tourSteps.ts) cible
+  // '.product-kpi-table', rendu seulement en vue 'config' : la valeur par
+  // défaut doit rester 'config' pour que cette étape de la visite guidée
+  // continue de trouver sa cible sans changement de sa part. 'impact'
+  // (angle "Missions → Produit", plan Produit/KPI/Missions) charge à la
+  // demande les projets complets des missions rattachées — voir l'effet
+  // ci-dessous.
+  const [kpiView, setKpiView] = useState<'config' | 'graph' | 'impact'>('config')
+  // Projets complets des missions rattachées, pour KpiMissionImpact.tsx —
+  // même patron que ActorMissionsScreen.tsx (missionProjects/
+  // loadingMissions/missionsError), chargés seulement à l'ouverture de la
+  // vue 'impact' (jamais pour Configuration/Graphe, qui n'en ont pas
+  // besoin) plutôt qu'au chargement du produit.
+  const [missionProjects, setMissionProjects] = useState<Project[]>([])
+  const [loadingMissions, setLoadingMissions] = useState(false)
+  const [missionsError, setMissionsError] = useState<string | null>(null)
   // Vue agrandie du graphe (retour utilisateur : voir tous les KPI d'un
   // coup, sans être limité à la largeur de la colonne principale) — une
   // modale plutôt qu'un panneau intégré, sur le modèle déjà établi
@@ -202,6 +214,31 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     // chaque rendu — même choix que ProjectShell.tsx.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft])
+
+  // Charge les projets complets des missions rattachées au produit
+  // sélectionné, pour KpiMissionImpact.tsx (vue 'impact' du bascule KPI
+  // ci-dessus) — voir le commentaire sur missionProjects/loadingMissions/
+  // missionsError. Se redéclenche à l'entrée sur la vue 'impact', à un
+  // changement de produit sélectionné pendant que cette vue est déjà
+  // active, ou si la liste des missions change (lier/délier une mission
+  // depuis la section plus bas) — jamais en dehors de la vue 'impact',
+  // qui est la seule à en avoir besoin. `missions` vient de `selectedId`
+  // plutôt que de `draft`/`linkedMissions` (calculés après les retours
+  // anticipés ci-dessous, donc indisponibles ici — règle des hooks).
+  useEffect(() => {
+    if (kpiView !== 'impact' || !selectedId) return
+    const ids = missions.filter((m) => m.productId === selectedId).map((m) => m.id)
+    if (ids.length === 0) {
+      setMissionProjects([])
+      return
+    }
+    setLoadingMissions(true)
+    setMissionsError(null)
+    Promise.all(ids.map((id) => api.getProject(id)))
+      .then(setMissionProjects)
+      .catch((e) => setMissionsError(String(e)))
+      .finally(() => setLoadingMissions(false))
+  }, [kpiView, selectedId, missions])
 
   // Marque le brouillon "sale" avant de l'appliquer — à utiliser pour
   // toute modification déclenchée par l'utilisateur (ajout/retrait de
@@ -501,6 +538,16 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                     <span className="variant-toggle-dot" aria-hidden="true" />
                     Graphe
                   </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={kpiView === 'impact'}
+                    className={`variant-toggle-option${kpiView === 'impact' ? ' active' : ''}`}
+                    onClick={() => setKpiView('impact')}
+                  >
+                    <span className="variant-toggle-dot" aria-hidden="true" />
+                    Valeur des missions
+                  </button>
                 </div>
               </div>
             </div>
@@ -510,6 +557,14 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
                 <p className="placeholder">Aucun KPI pour l'instant.</p>
               ) : (
                 <KpiTreeDiagram kpis={draft.kpis} onSelectKpi={handleSelectKpi} />
+              )
+            ) : kpiView === 'impact' ? (
+              loadingMissions ? (
+                <p>Chargement des missions…</p>
+              ) : missionsError ? (
+                <p className="error">{missionsError}</p>
+              ) : (
+                <KpiMissionImpact kpis={draft.kpis} missionProjects={missionProjects} />
               )
             ) : draft.kpis.length === 0 ? (
               <p className="placeholder">Aucun KPI pour l'instant.</p>

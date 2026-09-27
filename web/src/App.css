@@ -2127,6 +2127,80 @@
   font-weight: 500;
 }
 
+/* KPI liés d'une activité (ActorDetail.tsx, angle "Produit → Persona" du
+   plan Produit/KPI/Missions) — même famille visuelle que .spec-chip/
+   .test-chip, couleur distincte (warning/or) pour rester identifiable au
+   premier regard comme "valeur", pas "traçabilité". */
+.actor-kpis {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.kpi-chip {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border-radius: 4px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+/* Bloc "Valeur apportée par <Produit>" en tête de ActorDetail.tsx — KPI
+   dédupliqués sur toutes les activités de la persona dans cette mission,
+   chacun avec son cadrage de valeur (formatKpiValue, kpiTree.ts). */
+.actor-kpi-value {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.actor-kpi-value h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-warning);
+}
+
+.actor-kpi-value-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.actor-kpi-value-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+}
+
+.actor-kpi-value-name {
+  font-weight: 600;
+}
+
+.actor-kpi-value-target {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.actor-kpi-value-pillar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 0.02rem 0.4rem;
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+}
+
 /* ---------- Écran transverse "Personas" (toutes missions) ---------- */
 
 /* Remplit exactement l'espace disponible dans .shell-main (flex: 1 dans
@@ -2411,6 +2485,79 @@
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   transition: outline-color 0.2s var(--ease);
+}
+
+/* KpiMissionImpact.tsx — angle "Missions → Produit" du plan Produit/KPI/
+   Missions : une carte par KPI, même langage visuel que .product-kpi-card
+   (fond/bordure/rayon), le cadrage de valeur (actuel → cible) en tête
+   plutôt que la liste des missions, qui vient ensuite comme preuve. */
+.kpi-mission-impact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.kpi-impact-card {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.7rem;
+  padding-left: calc(0.7rem + var(--kpi-depth, 0) * 1.25rem);
+  font-size: 0.85rem;
+}
+
+.kpi-impact-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.kpi-impact-name {
+  font-weight: 600;
+}
+
+.kpi-impact-value {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border-radius: var(--radius-pill);
+  padding: 0.05rem 0.5rem;
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.kpi-impact-definition {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.kpi-impact-summary {
+  margin: 0.4rem 0 0.3rem;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.kpi-impact-missions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.kpi-impact-missions summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.kpi-impact-missions ul {
+  margin: 0.3rem 0 0.2rem 1.1rem;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
 }
 
 /* Visualisation de l'arbre de KPI (KpiTreeDiagram.tsx), au-dessus des

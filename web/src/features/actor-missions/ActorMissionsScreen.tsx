@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
-import type { ActorSummary, Project } from '../../api/types'
+import type { ActorSummary, Product, Project } from '../../api/types'
 import { ActorDetail } from '../actor-view/ActorDetail'
 import { ActorProfileModal } from '../actor-view/ActorProfileModal'
 
@@ -16,6 +16,12 @@ interface Props {
   // acteur, avec cet acteur présélectionné) — remonté par le bouton
   // "Ouvrir cette mission" de chaque section.
   onOpenProject: (projectId: string, actorId: string) => void
+  // Tous les produits (ProjectShell.tsx) — chaque mission où cette
+  // persona apparaît peut être rattachée à un produit DIFFÉRENT (ou
+  // aucun) : résolu par mission ci-dessous, jamais un seul produit global
+  // pour tout l'écran (angle "Produit → Persona", plan Produit/KPI/
+  // Missions). null tant que le premier chargement n'a pas répondu.
+  products?: Product[] | null
 }
 
 // Écran indépendant de tout projet ouvert (voir ProjectShell.tsx, état
@@ -24,7 +30,7 @@ interface Props {
 // ADR-041, aucun catalogue d'acteurs global), et pour l'acteur
 // sélectionné, rappelle son implication dans chacune en réutilisant
 // ActorDetail (même rendu que l'onglet Vue par acteur d'un projet).
-export function ActorMissionsScreen({ actors, error, onOpenProject }: Props) {
+export function ActorMissionsScreen({ actors, error, onOpenProject, products }: Props) {
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [missionProjects, setMissionProjects] = useState<Record<string, Project>>({})
   const [loadingMissions, setLoadingMissions] = useState(false)
@@ -147,7 +153,11 @@ export function ActorMissionsScreen({ actors, error, onOpenProject }: Props) {
                     </header>
                     {ref.description && <p className="actor-mission-description">{ref.description}</p>}
                     {project ? (
-                      <ActorDetail project={project} actorId={ref.actorId} />
+                      <ActorDetail
+                        project={project}
+                        actorId={ref.actorId}
+                        product={products?.find((p) => p.id === project.productId)}
+                      />
                     ) : (
                       <p className="placeholder">— indisponible —</p>
                     )}

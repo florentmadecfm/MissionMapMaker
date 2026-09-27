@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Project } from '../../api/types'
+import type { Product, Project } from '../../api/types'
 import { ActorDetail } from './ActorDetail'
 import { ActorProfileModal } from './ActorProfileModal'
 
@@ -11,11 +11,17 @@ interface Props {
   // (ActorMissionsScreen.tsx), pour continuer sur le même acteur plutôt
   // que de retomber sur le premier de la liste.
   initialActorId?: string
+  // Tous les produits (ProjectShell.tsx, déjà chargés pour l'ensemble de
+  // l'app) — résolu ci-dessous en LE produit de cette mission
+  // (project.productId) pour ActorDetail.tsx (angle "Produit → Persona",
+  // plan Produit/KPI/Missions). null tant que le premier chargement n'a
+  // pas répondu, comme partout ailleurs où `products` est reçu.
+  products?: Product[] | null
 }
 
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function ActorView({ project, onChange, initialActorId }: Props) {
+export function ActorView({ project, onChange, initialActorId, products }: Props) {
   const [actorId, setActorId] = useState<string | null>(initialActorId ?? project.actors[0]?.id ?? null)
   const [profileOpen, setProfileOpen] = useState(false)
 
@@ -24,6 +30,7 @@ export function ActorView({ project, onChange, initialActorId }: Props) {
   }
 
   const actor = project.actors.find((a) => a.id === actorId) ?? project.actors[0]
+  const product = products?.find((p) => p.id === project.productId)
 
   return (
     <div className="actor-view">
@@ -52,7 +59,7 @@ export function ActorView({ project, onChange, initialActorId }: Props) {
         </button>
       </nav>
 
-      <ActorDetail project={project} actorId={actor.id} />
+      <ActorDetail project={project} actorId={actor.id} product={product} />
 
       {profileOpen && (
         <ActorProfileModal
