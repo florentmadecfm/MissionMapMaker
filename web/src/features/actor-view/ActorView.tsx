@@ -41,23 +41,22 @@ export function ActorView({ project, onChange, initialActorId, products }: Props
         </p>
       </header>
 
-      <nav className="actor-chips">
-        {project.actors.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            className={`actor-chip${a.id === actor.id ? ' active' : ''}`}
-            style={{ borderColor: a.color }}
-            onClick={() => setActorId(a.id)}
-          >
-            <span className="actor-dot" style={{ background: a.color }} />
-            {a.name}
-          </button>
-        ))}
+      <div className="actor-select-row">
+        <select
+          className="actor-select"
+          value={actor.id}
+          onChange={(e) => setActorId(e.target.value)}
+        >
+          {project.actors.map((a) => (
+            <option key={a.id} value={a.id} style={{ color: a.color }}>
+              {a.name}
+            </option>
+          ))}
+        </select>
         <button type="button" className="actor-profile-button" onClick={() => setProfileOpen(true)}>
           Voir la fiche
         </button>
-      </nav>
+      </div>
 
       <ActorDetail project={project} actorId={actor.id} product={product} />
 

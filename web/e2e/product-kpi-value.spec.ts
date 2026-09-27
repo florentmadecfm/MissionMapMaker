@@ -53,7 +53,7 @@ test('angle Produit → Persona : le cadrage de valeur apparaît dans la Vue par
   try {
     await openMission(page, missionName)
     await page.getByRole('button', { name: 'Vue par persona' }).click()
-    await page.locator('.actor-chip', { hasText: 'Serveur' }).click()
+    await page.locator('.actor-select').selectOption({ label: 'Serveur' })
 
     // Scopé au bloc résumé (.actor-kpi-value) : le nom du KPI apparaît
     // AUSSI dans la chip par activité juste en dessous (granularité plus
