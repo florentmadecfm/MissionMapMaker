@@ -50,21 +50,22 @@ test('créer une interaction par glisser-déposer et déplacer une activité fon
     await page.waitForTimeout(1200)
 
     // Déplacement d'activité : glisser la carte "Entrer" vers une autre
-    // case — par son coin bas-gauche, pas son centre géométrique.
-    // Découverte en écrivant ce test (document.elementFromPoint) : la
-    // zone interactive (invisible) de la flèche tout juste créée, dont
-    // l'un des bouts touche cette carte, recouvre la majeure partie de sa
-    // surface (centre ET titre inclus) depuis que les flèches sont
-    // rendues au-dessus des cartes (voir process-diagram.css, commit
-    // caeaf74) — un mousedown y saisit la FLÈCHE, pas la carte. Seul un
-    // coin reste fiablement hors de cette zone (vérifié via
-    // elementFromPoint) ; le chevauchement lui-même est un bug produit
-    // distinct à corriger séparément (voir le message de fin de session).
+    // case, en saisissant son centre géométrique. Découvert en écrivant
+    // ce test (document.elementFromPoint) puis corrigé : le tracé
+    // invisible de 20px (.react-flow__edge-interaction, ajouté par React
+    // Flow pour faciliter le clic sur une flèche fine) de l'interaction
+    // tout juste créée recouvrait la majeure partie de la carte dès que
+    // les flèches sont passées au-dessus des cartes (voir
+    // process-diagram.css, commit caeaf74) — un mousedown au centre y
+    // saisissait la FLÈCHE, pas la carte. Corrigé en désactivant
+    // pointer-events sur ce tracé invisible spécifiquement (voir
+    // process-diagram.css, règle .react-flow__edge-interaction) : le
+    // centre de la carte redevient fiable, plus besoin de viser un coin.
     const card = page.locator('.react-flow__node-activity[data-id="a_entrer"]').first()
     const cb = await card.boundingBox()
     if (!cb) throw new Error('carte "Entrer" introuvable')
-    const px = cb.x + cb.width * 0.05
-    const py = cb.y + cb.height * 0.95
+    const px = cb.x + cb.width * 0.5
+    const py = cb.y + cb.height * 0.5
     await page.mouse.move(px, py)
     await page.mouse.down()
     await page.mouse.move(px + 200, py + 130, { steps: 10 })
