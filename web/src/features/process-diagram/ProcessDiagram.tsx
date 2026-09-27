@@ -471,6 +471,16 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   const [updateNotConfigured, setUpdateNotConfigured] = useState(false)
   const [updateRateLimited, setUpdateRateLimited] = useState(false)
   const [updateNoEffect, setUpdateNoEffect] = useState(false)
+  // Erreur survenue dans un GESTIONNAIRE D'ÉVÉNEMENT (glisser-déposer,
+  // création d'interaction...), donc invisible pour un ErrorBoundary React
+  // (qui n'intercepte que les erreurs de RENDU, jamais celles levées dans
+  // un event handler) — voir signalement utilisateur "le diagramme
+  // disparaît" : sans ce filet, une exception ici serait seulement logguée
+  // en console, sans aucun signe visible, ce qui rend le symptôme
+  // impossible à diagnostiquer depuis un simple retour utilisateur.
+  // Affichée juste au-dessus du canevas (voir plus bas), effacée à la
+  // prochaine action réussie plutôt qu'au montage seulement.
+  const [actionError, setActionError] = useState<string | null>(null)
 
   // Annuler/rétablir une action du diagramme — pile locale d'états
   // précédents, indépendante de la sauvegarde automatique (ProjectShell.tsx) :
@@ -607,12 +617,31 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   // onChange et sera sauvegardé automatiquement (ProjectShell.tsx).
   function handleNodeDragStop(_event: unknown, node: Node) {
     setDragTarget(null)
+    setActionError(null)
     const activity = project.activities.find((a) => a.id === node.id)
     if (!activity) return // pas une carte d'activité (les en-têtes ne sont pas déplaçables)
 
     const target = computeDropTarget(project, nodes, node.position, activity.actorId, activity.phaseId)
     if (!target) return
 
+    // Voir le commentaire sur actionError (déclaration de l'état,
+    // ci-dessus) : ce bloc s'exécute dans un gestionnaire d'événement React
+    // Flow (onNodeDragStop), jamais intercepté par un ErrorBoundary — une
+    // exception non rattrapée ici resterait invisible pour l'utilisateur
+    // (juste une ligne en console), ce qui correspond exactement au
+    // signalement "le diagramme disparaît sans message".
+    try {
+      handleActivityDrop(activity, target, node)
+    } catch (e) {
+      console.error('[Diagramme] erreur pendant le glisser-déposer d\'une activité :', e, {
+        activityId: activity.id,
+        target,
+      })
+      setActionError(String(e instanceof Error ? e.message : e))
+    }
+  }
+
+  function handleActivityDrop(activity: Activity, target: DropTarget, node: Node) {
     const targetSubRow = Math.max(target.subRowIndex, 0)
     const siblings = project.activities
       .filter(
@@ -700,15 +729,24 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
   // gauche/droite) à partir de la topologie à chaque rendu, comme pour
   // toute autre interaction du projet.
   function handleConnect(connection: Connection) {
-    const { source, target } = connection
-    if (!source || !target || source === target) return
-    const interaction: Interaction = {
-      id: newId('int'),
-      fromActivityId: source,
-      toActivityId: target,
-      information: 'Information échangée',
+    // Voir le commentaire sur actionError (déclaration de l'état) et sur
+    // handleNodeDragStop ci-dessus : même garde, ce gestionnaire n'est pas
+    // couvert par un ErrorBoundary.
+    setActionError(null)
+    try {
+      const { source, target } = connection
+      if (!source || !target || source === target) return
+      const interaction: Interaction = {
+        id: newId('int'),
+        fromActivityId: source,
+        toActivityId: target,
+        information: 'Information échangée',
+      }
+      commitChange({ ...project, interactions: [...project.interactions, interaction] })
+    } catch (e) {
+      console.error('[Diagramme] erreur pendant la création d\'une interaction :', e, connection)
+      setActionError(String(e instanceof Error ? e.message : e))
     }
-    commitChange({ ...project, interactions: [...project.interactions, interaction] })
   }
 
   // Bouton "+ Phase" de la colonne ajoutée après la dernière phase : même
@@ -886,6 +924,16 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
         </div>
       )}
       {updateError && <p className="error">{updateError}</p>}
+      {actionError && (
+        <div className="nl-warning diagram-action-error">
+          Une erreur est survenue pendant la dernière action sur le diagramme (glisser-déposer ou création
+          d'interaction) : {actionError} — vos autres modifications restent enregistrées. Réessayez l'action, ou
+          signalez ce message si le problème persiste.
+          <button type="button" className="diagram-action-error-dismiss" onClick={() => setActionError(null)}>
+            Fermer
+          </button>
+        </div>
+      )}
       <div className="process-diagram">
         {/* Défini une fois, référencé par les styles/markers des flèches
             ci-dessus : dégradé par flèche (couleur départ -> arrivée) et un

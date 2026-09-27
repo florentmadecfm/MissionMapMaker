@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { Project } from '../../api/types'
+import { DiagramErrorBoundary } from '../process-diagram/DiagramErrorBoundary'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { fromWorkingProject, toWorkingProject } from './activeVariant'
 import { DiffList } from './DiffList'
@@ -237,15 +238,16 @@ function VariantPanel({ label, project, onChange, isTargetActive, rootProject, w
         {stats.painPoints > 1 ? 's' : ''} de friction
       </p>
       <div className="variant-comparison-diagram">
-        <ProcessDiagram
-          key={isTargetActive ? 'target' : 'current'}
-          project={project}
-          onChange={onChange}
-          diff={diff}
-          focusedDiff={focusedDiff}
-          isTargetActive={isTargetActive}
-          rootProject={rootProject}
-        />
+        <DiagramErrorBoundary key={isTargetActive ? 'target' : 'current'}>
+          <ProcessDiagram
+            project={project}
+            onChange={onChange}
+            diff={diff}
+            focusedDiff={focusedDiff}
+            isTargetActive={isTargetActive}
+            rootProject={rootProject}
+          />
+        </DiagramErrorBoundary>
       </div>
     </section>
   )
