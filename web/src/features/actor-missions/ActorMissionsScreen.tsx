@@ -107,36 +107,31 @@ export function ActorMissionsScreen({ actors, error, onOpenProject, products }: 
 
   return (
     <div className="actor-missions-screen">
-      <aside className="actor-missions-list">
-        {actors.map((a) => (
-          <button
-            key={a.name}
-            type="button"
-            className={`actor-missions-list-item${a.name === selectedName ? ' active' : ''}`}
-            onClick={() => setSelectedName(a.name)}
-          >
-            <span className="actor-missions-list-name">{a.name}</span>
-            <span className="actor-missions-list-count">
-              {a.projects.length} mission{a.projects.length > 1 ? 's' : ''}
-            </span>
-          </button>
-        ))}
-      </aside>
+      <div className="actor-select-row">
+        <select
+          className="actor-select"
+          value={selectedName ?? ''}
+          onChange={(e) => setSelectedName(e.target.value)}
+        >
+          {actors.map((a) => (
+            <option key={a.name} value={a.name}>
+              {a.name} ({a.projects.length} mission{a.projects.length > 1 ? 's' : ''})
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="actor-profile-button"
+          onClick={() => setProfileOpen(true)}
+          disabled={!primaryProject}
+        >
+          Voir la fiche
+        </button>
+      </div>
 
       <div className="actor-missions-detail">
         {selected && (
           <>
-            <div className="actor-missions-header">
-              <h2 className="panel-title">{selected.name}</h2>
-              <button
-                type="button"
-                className="actor-profile-button"
-                onClick={() => setProfileOpen(true)}
-                disabled={!primaryProject}
-              >
-                Voir la fiche
-              </button>
-            </div>
             {loadingMissions && <p>Chargement des missions…</p>}
             {missionsError && <p className="error">{missionsError}</p>}
             {!loadingMissions &&
