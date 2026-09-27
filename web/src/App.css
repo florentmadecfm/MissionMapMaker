@@ -2199,61 +2199,24 @@
    hauteur gâchée qui coupait la liste de missions d'une persona à une
    seule section visible sur un écran bas, sans indice visuel qu'il en
    restait d'autres à faire défiler (même anti-pattern que
-   .variant-comparison-screen, voir plus bas). */
+   .variant-comparison-screen, voir plus bas).
+
+   Plus de master-detail (liste de personas à gauche, .actor-missions-list
+   jusqu'ici) : un persona à la fois, choisi depuis un dropdown d'en-tête
+   (.actor-select-row, réutilisée depuis ActorView.tsx) — même demande
+   utilisateur et même arbitrage que .products-screen ci-dessous (une
+   liste prend une colonne entière pour peu d'usage). Porte donc
+   elle-même la mise en page verticale à un seul flux que fournissait la
+   colonne .actor-missions-detail avant ce changement. */
 .actor-missions-screen {
   display: flex;
-  gap: 1.5rem;
+  flex-direction: column;
+  gap: 1.1rem;
   height: 100%;
-}
-
-.actor-missions-list {
-  width: 220px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
   overflow-y: auto;
-}
-
-.actor-missions-list-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.6rem;
-}
-
-.actor-missions-list-item:hover {
-  background: var(--color-surface-muted);
-}
-
-.actor-missions-list-item.active {
-  background: var(--color-primary-bg);
-}
-
-.actor-missions-list-name {
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.actor-missions-list-item.active .actor-missions-list-name {
-  color: var(--color-primary);
-}
-
-.actor-missions-list-count {
-  font-size: 0.76rem;
-  color: var(--color-text-muted);
 }
 
 .actor-missions-detail {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
@@ -2299,10 +2262,11 @@
 
 /* Plus de master-detail (liste à gauche) : un produit à la fois, choisi
    depuis un dropdown d'en-tête (.products-header) — retour utilisateur,
-   la liste prenait une colonne entière pour peu d'usage. Porte donc
-   elle-même la mise en page verticale qu'.actor-missions-detail (classe
-   PARTAGÉE avec ActorMissionsScreen.tsx, non touchée) fournissait avant,
-   plutôt que de composer avec elle. */
+   la liste prenait une colonne entière pour peu d'usage (même arbitrage
+   depuis fait pour ActorMissionsScreen.tsx, voir .actor-missions-screen
+   plus haut). Porte donc elle-même la mise en page verticale qu'.actor-
+   missions-detail (classe partagée avec ActorMissionsScreen.tsx)
+   fournissait déjà, plutôt que de composer avec elle. */
 .products-screen {
   display: flex;
   flex-direction: column;
