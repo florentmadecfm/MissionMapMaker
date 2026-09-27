@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDownLeft, ArrowUpRight, TriangleAlert } from 'lucide-react'
-import type { Project } from '../../api/types'
+import { ArrowDownLeft, ArrowUpRight, Target, TriangleAlert } from 'lucide-react'
+import type { Product, Project } from '../../api/types'
+import { formatKpiValue } from '../products/kpiTree'
 
 interface Props {
   project: Project
   actorId: string
+  // Produit associé à CETTE mission (Project.productId), résolu par
+  // ActorView.tsx/ActorMissionsScreen.tsx — undefined si aucun (état
+  // explicite, comme KpiLinksSection.tsx : le bloc "Valeur apportée" et
+  // les chips KPI par activité sont alors simplement absents, jamais une
+  // erreur). Angle "Produit → Persona" du plan Produit/KPI/Missions :
+  // exprime la VALEUR (cadrage actuel → cible, voir formatKpiValue)
+  // gagnée par cette persona grâce au produit, pas seulement une
+  // traçabilité de noms.
+  product?: Product
 }
 
 // Rendu détaillé d'un acteur donné au sein d'un projet : résumé (nombre
@@ -13,7 +23,7 @@ interface Props {
 // sélection par chips au sein d'un seul projet) pour être réutilisé tel
 // quel par l'écran transverse "Acteurs" (ActorMissionsScreen.tsx), qui
 // l'affiche une fois par mission où l'acteur sélectionné apparaît.
-export function ActorDetail({ project, actorId }: Props) {
+export function ActorDetail({ project, actorId, product }: Props) {
   // Ombres de bord de la timeline (voir plus bas, .actor-timeline-fade) :
   // affichées seulement là où il reste vraiment du contenu hors champ,
   // recalculé à chaque défilement/redimensionnement — jamais un simple
@@ -72,6 +82,16 @@ export function ActorDetail({ project, actorId }: Props) {
       !project.testScenarios.some((t) => act.traceLinks.includes(t.specificationId)),
   ).length
 
+  // Angle "Produit → Persona" (plan Produit/KPI/Missions) : KPI DÉDUPLIQUÉS
+  // touchés par au moins une activité de cette persona dans cette mission
+  // — un id qui ne correspond plus à aucun KPI du produit (supprimé
+  // entretemps) est ici simplement omis plutôt qu'affiché
+  // "(KPI supprimé)" comme au niveau de chaque activité ci-dessous : ce
+  // bloc est un récit de valeur, pas une liste de traçabilité à
+  // assainir.
+  const kpiIds = [...new Set(actorActivities.flatMap((act) => act.kpiLinks))]
+  const contributedKpis = product ? kpiIds.map((id) => product.kpis.find((k) => k.id === id)).filter((k): k is NonNullable<typeof k> => Boolean(k)) : []
+
   return (
     <>
       <div className="actor-summary">
@@ -83,6 +103,26 @@ export function ActorDetail({ project, actorId }: Props) {
         {' · '}
         <span className={noTestCount > 0 ? 'summary-warn' : ''}>{noTestCount} sans test lié</span>
       </div>
+
+      {product && contributedKpis.length > 0 && (
+        <div className="actor-kpi-value">
+          <h3>
+            <Target size={14} aria-hidden="true" /> Valeur apportée par {product.name}
+          </h3>
+          <ul className="actor-kpi-value-list">
+            {contributedKpis.map((kpi) => {
+              const value = formatKpiValue(kpi)
+              return (
+                <li key={kpi.id}>
+                  <span className="actor-kpi-value-name">{kpi.name || '(sans nom)'}</span>
+                  {value && <span className="actor-kpi-value-target">{value}</span>}
+                  {kpi.pillar && <span className="actor-kpi-value-pillar">{kpi.pillar}</span>}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Enveloppe non scrollable portant les ombres de bord (voir
           .actor-timeline-fade, App.css) : contrairement à un fond en
@@ -189,6 +229,21 @@ export function ActorDetail({ project, actorId }: Props) {
                       ) : (
                         <p className="actor-warning">Aucun test lié.</p>
                       ))}
+
+                    {product && act.kpiLinks.length > 0 && (
+                      <div className="actor-kpis">
+                        {act.kpiLinks.map((id) => {
+                          const kpi = product.kpis.find((k) => k.id === id)
+                          const value = kpi ? formatKpiValue(kpi) : ''
+                          return (
+                            <span key={id} className="kpi-chip">
+                              {kpi ? kpi.name || '(sans nom)' : '(KPI supprimé)'}
+                              {value && ` — ${value}`}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )
               })}

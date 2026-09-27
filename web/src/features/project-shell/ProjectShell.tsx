@@ -691,7 +691,12 @@ export function ProjectShell() {
 
       <main className="shell-main">
         {view === 'actors' ? (
-          <ActorMissionsScreen actors={actors} error={actorsError} onOpenProject={handleOpenFromActorMissions} />
+          <ActorMissionsScreen
+            actors={actors}
+            error={actorsError}
+            onOpenProject={handleOpenFromActorMissions}
+            products={products}
+          />
         ) : view === 'products' ? (
           <ProductsScreen
             products={products}
@@ -813,7 +818,13 @@ export function ProjectShell() {
               />
             )}
             {tab === 'acteur' && (
-              <ActorView key={project.id} project={workingProject} onChange={handleWorkingChange} initialActorId={initialActorId} />
+              <ActorView
+                key={project.id}
+                project={workingProject}
+                onChange={handleWorkingChange}
+                initialActorId={initialActorId}
+                products={products}
+              />
             )}
           </>
         ) : (
