@@ -79,7 +79,7 @@ export const TOUR_STEPS: TourStep[] = [
     icon: Users,
     title: 'Personas partagés & points de friction',
     body: 'Chaque persona (à propos, bio, objectifs) est partagé par nom entre toutes vos missions. Un point de friction relevé peut être résolu en un clic : spécification et scénario de test générés automatiquement.',
-    target: '.actor-chips',
+    target: '.actor-select-row',
     tab: 'acteur',
   },
   {

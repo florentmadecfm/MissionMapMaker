@@ -1709,37 +1709,25 @@
   height: calc(100vh - 160px);
 }
 
-.actor-chips {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.actor-chip {
+/* Sélecteur de persona en dropdown plutôt qu'une rangée de chips (un par
+   persona) : même repli que .products-header/.products-select
+   (ProductsScreen.tsx, voir son commentaire plus bas) — une rangée de
+   chips prend de la place et ne scroll pas horizontalement au-delà de
+   quelques personas, un dropdown reste compact quel que soit leur
+   nombre. */
+.actor-select-row {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.85rem;
-  border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-  font-size: 0.85rem;
-  font-weight: 500;
+  gap: 0.6rem;
 }
 
-.actor-chip:hover:not(.active) {
-  background: var(--color-surface-muted);
-}
-
-.actor-chip.active,
-.actor-chip.active:hover {
-  background: var(--color-text);
-  border-color: var(--color-text);
-  color: white;
+.actor-select {
+  flex: 1;
+  min-width: 0;
 }
 
 .actor-profile-button {
-  margin-left: auto;
+  flex-shrink: 0;
   padding: 0.4rem 0.85rem;
   border: 1.5px solid var(--color-primary);
   border-radius: var(--radius-pill);
