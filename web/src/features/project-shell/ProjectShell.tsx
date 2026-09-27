@@ -6,6 +6,7 @@ import { Logo } from '../../components/Logo'
 import { ActorView } from '../actor-view/ActorView'
 import { ActorMissionsScreen } from '../actor-missions/ActorMissionsScreen'
 import { NlInput } from '../nl-input/NlInput'
+import { DiagramErrorBoundary } from '../process-diagram/DiagramErrorBoundary'
 import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { WelcomeTour } from '../onboarding/WelcomeTour'
 import { TOUR_DEMO_PRODUCT, TOUR_DEMO_PROJECT } from '../onboarding/tourDemoProject'
@@ -793,14 +794,15 @@ export function ProjectShell() {
               <ProjectEditor key={project.id} project={workingProject} onChange={handleWorkingChange} products={products} />
             )}
             {tab === 'diagramme' && (
-              <ProcessDiagram
-                key={project.id}
-                project={workingProject}
-                onChange={handleWorkingChange}
-                isTargetActive={activeVariant === 'target'}
-                rootProject={project}
-                product={products?.find((p) => p.id === project.productId)}
-              />
+              <DiagramErrorBoundary key={project.id}>
+                <ProcessDiagram
+                  project={workingProject}
+                  onChange={handleWorkingChange}
+                  isTargetActive={activeVariant === 'target'}
+                  rootProject={project}
+                  product={products?.find((p) => p.id === project.productId)}
+                />
+              </DiagramErrorBoundary>
             )}
             {tab === 'specifications' && (
               <SpecificationsPanel
