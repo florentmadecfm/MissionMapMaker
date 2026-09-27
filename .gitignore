@@ -7,3 +7,8 @@
 # Éditeurs
 .vscode/
 .idea/
+
+# Sorties Playwright (suite E2E, web/e2e/) — rapports/traces locaux,
+# jamais committés (voir web/playwright.config.ts).
+/web/test-results/
+/web/playwright-report/

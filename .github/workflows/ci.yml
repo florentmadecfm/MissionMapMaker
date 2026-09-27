@@ -1,0 +1,75 @@
+# Vérification continue sur chaque push/PR vers main — jusqu'ici, seule
+# release-binaries.yml existait (déclenché sur tag/manuel uniquement) :
+# rien ne tournait automatiquement, toute la vérification reposait sur
+# des scripts manuels par session (voir le plan tests/CI). Trois jobs :
+# backend (Go), frontend (TypeScript/lint/build/Vitest), et une suite
+# bout en bout (Playwright) qui construit puis lance le vrai binaire
+# embarquant le frontend (go:embed), sans clé LLM configurée (couvre la
+# dégradation gracieuse "non configuré", jamais un vrai appel — voir
+# generation-not-configured.spec.ts).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npx tsc -b --force
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+  e2e:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - working-directory: web
+        run: npm ci
+      # Ordre impératif : le frontend AVANT le binaire Go, qui embarque
+      # web/dist via go:embed (voir le README, "Empaqueter en binaire
+      # autonome").
+      - working-directory: web
+        run: npm run build
+      - run: go build -o bin/pulse-missionmap-e2e ./cmd/server
+      - working-directory: web
+        run: npx playwright install --with-deps chromium
+      - working-directory: web
+        run: npm run e2e
+      - name: Rapport Playwright (si échec)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 14
