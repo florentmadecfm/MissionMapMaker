@@ -141,14 +141,42 @@
    de cibler le seul libellé : un z-index CSS n'a d'effet fiable sur un
    élément interne à un <svg> que s'il forme lui-même un contexte
    d'empilement, ce que .react-flow__edges (un simple conteneur <div>, pas
-   le <svg>) permet directement. Le trait d'une flèche reste fin
-   (pointer-events: visibleStroke, style React Flow par défaut) : le
-   passer au-dessus d'une carte ne gêne donc pas le clic/glisser sur la
-   carte elle-même, sauf exactement sur le pixel du trait — cohérent avec
-   le fait de pouvoir cliquer une flèche visible pour l'éditer
-   (InteractionDetailModal). */
+   le <svg>) permet directement.
+
+   ATTENTION (bug corrigé après coup, voir la règle .react-flow__edge-
+   interaction juste en dessous) : le raisonnement d'origine — "le trait
+   d'une flèche reste fin (pointer-events: visibleStroke, style React Flow
+   par défaut), le passer au-dessus d'une carte ne gêne donc pas le clic/
+   glisser sur la carte elle-même, sauf exactement sur le pixel du trait"
+   — était FAUX en pratique. Chaque <BaseEdge> de React Flow rend DEUX
+   tracés : le trait visible (.react-flow__edge-path) ET un second tracé
+   invisible mais large de 20px par défaut (.react-flow__edge-interaction,
+   strokeOpacity: 0, voir @xyflow/react/dist/esm/index.js, BaseEdge) —
+   uniquement là pour agrandir la zone cliquable d'une ligne fine. Or
+   pointer-events: visibleStroke considère ce tracé comme "peint" dès lors
+   qu'il a un stroke (même à opacité 0) : élever tout .react-flow__edges
+   élève donc aussi cette bande de 20px invisible au-dessus des cartes,
+   qui interceptait alors le clic/glisser sur environ la moitié de
+   n'importe quelle carte connectée à une interaction (bug remonté par
+   l'utilisateur : "je manipule un diagramme... j'ai des crash, le
+   diagramme disparaît" — en réalité pas un crash mais un glisser qui
+   déplaçait/sélectionnait l'arête au lieu de la carte visée dessous,
+   déstabilisant le canevas). */
 .react-flow__edges {
   z-index: 5;
+}
+
+/* Corrige le bug ci-dessus : désactive le tracé large invisible
+   (.react-flow__edge-interaction, 20px, voir BaseEdge dans @xyflow/react)
+   spécifiquement, plutôt que de revenir sur le z-index ci-dessus (ce qui
+   ferait réapparaître le bug d'origine, libellés de flèche illisibles
+   sous les cartes). Le trait VISIBLE (.react-flow__edge-path) garde lui
+   pointer-events: visibleStroke, hérité de .react-flow__edge — cliquer
+   une flèche pour l'ouvrir (InteractionDetailModal) reste donc possible,
+   mais seulement sur le pixel réellement affiché, plus sur les 20px
+   invisibles autour qui recouvraient les cartes. */
+.react-flow__edge-interaction {
+  pointer-events: none;
 }
 
 /* Quadrillage de repère (LaneGridNode, ADR-077) : posé derrière tout le
