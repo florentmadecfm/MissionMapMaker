@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -94,6 +95,10 @@ var ErrInvalidProduct = errors.New("invalid product")
 // normal ; cette vérification serveur reste la ligne de défense qui ne
 // dépend pas de l'UI (ex. appel direct à l'API).
 func (p *Product) Validate() error {
+	if strings.TrimSpace(p.Name) == "" {
+		return fmt.Errorf("%w: name is required", ErrInvalidProduct)
+	}
+
 	kpiIDs := make(map[string]bool, len(p.Kpis))
 	for _, k := range p.Kpis {
 		kpiIDs[k.ID] = true

@@ -62,6 +62,10 @@ export async function apiSaveProduct(product: any): Promise<any> {
   return json(res)
 }
 
+export async function apiGetProduct(id: string): Promise<any> {
+  return json(await fetch(`${API_BASE}/products/${id}`))
+}
+
 export async function apiDeleteProduct(id: string): Promise<void> {
   await fetch(`${API_BASE}/products/${id}`, { method: 'DELETE' })
 }
