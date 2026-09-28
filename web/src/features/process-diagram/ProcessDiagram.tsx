@@ -5,6 +5,7 @@ import {
   Background,
   Controls,
   Panel,
+  useNodesState,
   useReactFlow,
   useViewport,
   type Connection,
@@ -448,6 +449,32 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
       }
     })
   }, [nodes, diff, focusNodeIds, focusedDiff])
+  // `<ReactFlow nodes={...}>` DOIT être accompagné d'un onNodesChange dès
+  // que le glisser-déposer de nœud est activé (nodesConnectable/draggable
+  // ci-dessous) : React Flow suit en interne des informations que ce
+  // composant ne connaît pas lui-même (position en cours de glisser avant
+  // le lâcher, dimensions mesurées de chaque carte via ResizeObserver...),
+  // et sans onNodesChange pour les faire redescendre dans un état React
+  // que ce composant contrôle, un rendu déclenché PENDANT un glisser (ex.
+  // handleNodeDrag ci-dessous, qui appelle setDragTarget à chaque
+  // déplacement) réinjecte le tableau `nodes` tel qu'il était AVANT le
+  // geste — désynchronisant le suivi interne de React Flow de ce qui est
+  // réellement affiché. Correspond exactement au signalement "le
+  // diagramme disparaît, aucune erreur" : les nœuds restent présents dans
+  // le DOM (React Flow ne les démonte pas) mais leurs dimensions mesurées
+  // ne sont plus fiables, laissant le canevas visuellement vide sans
+  // qu'aucune exception ne soit levée (c'est un anti-pattern documenté de
+  // la librairie, pas un bug applicatif à proprement parler). `flowNodes`
+  // ci-dessous est donc le SEUL tableau passé à <ReactFlow>, synchronisé
+  // sur `displayNodes` à chaque changement de la donnée source (l'effet
+  // ne se redéclenche pas pendant un glisser, puisque `project` — et donc
+  // `displayNodes` — ne change qu'au lâcher, voir handleActivityDrop), et
+  // par ailleurs tenu à jour par onNodesChange pour tout ce que React Flow
+  // gère lui-même (glisser en cours, sélection, mesure).
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<Node>(displayNodes as unknown as Node[])
+  useEffect(() => {
+    setFlowNodes(displayNodes as unknown as Node[])
+  }, [displayNodes, setFlowNodes])
   // Astuces d'utilisation du diagramme (glisser-déposer, boutons "+"...) :
   // repliées par défaut plutôt qu'un paragraphe dense toujours affiché en
   // haut de l'écran — trouvé lors de l'audit UX/UI (ADR-068), c'était le
@@ -970,7 +997,8 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           </defs>
         </svg>
         <ReactFlow
-          nodes={displayNodes as unknown as Node[]}
+          nodes={flowNodes}
+          onNodesChange={onNodesChange}
           edges={edges.map((e) =>
             toFlowEdge(
               e,
