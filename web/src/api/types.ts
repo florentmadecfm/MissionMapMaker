@@ -37,6 +37,11 @@ export interface ActorPainPoint {
   text: string
 }
 
+// Criticité d'une phase/activité pour le succès de la mission — mêmes 3
+// valeurs pour les deux (voir Phase.criticality/Activity.criticality
+// ci-dessous), '' = non renseigné.
+export type Criticality = '' | 'fort' | 'moyen' | 'faible'
+
 export interface Phase {
   id: string
   name: string
@@ -57,6 +62,9 @@ export interface Phase {
   // neutre (3) : n'apparaît alors pas dans la courbe de satisfaction
   // (ADR-065).
   satisfactionScore?: number
+  // Importance de cette étape pour le succès de la mission — absente/''
+  // par défaut (non renseignée, aucun badge dans le diagramme).
+  criticality?: Criticality
   // KPI (Product.kpis[].id, produit associé via Project.productId) que
   // cette phase permet de mesurer (Phase 3 du plan Produit/Vision/KPI) —
   // voir KpiLinksSection.tsx/PhaseDetailModal.tsx.
@@ -96,6 +104,13 @@ export interface Activity {
   offsetY: number
   description: string
   sourceText?: string
+  // Durée/satisfaction/criticité au niveau de l'activité — mêmes champs
+  // que Phase ci-dessus, à un grain plus fin (une activité précise d'une
+  // phase peut être bien plus critique/longue/insatisfaisante que les
+  // autres de la même phase). Absents/0/'' par défaut.
+  duration?: string
+  satisfactionScore?: number
+  criticality?: Criticality
   userStories: UserStory[]
   traceLinks: string[]
   // Points de friction constatés pour cette activité (texte libre,

@@ -86,6 +86,9 @@ function activityChangedFields(a: Activity, b: Activity): string[] {
   // (l'activité a réellement changé de place dans le récit).
   if (a.order !== b.order && !samePersonaAndPhase) fields.push('ordre')
   if (a.description !== b.description) fields.push('description')
+  if ((a.duration || '') !== (b.duration || '')) fields.push('durée')
+  if ((a.satisfactionScore || 0) !== (b.satisfactionScore || 0)) fields.push('satisfaction')
+  if ((a.criticality || '') !== (b.criticality || '')) fields.push('criticité')
   if (JSON.stringify(a.userStories) !== JSON.stringify(b.userStories)) fields.push('user stories')
   if (painPointTexts(a.painPoints) !== painPointTexts(b.painPoints)) fields.push('points de friction')
   return fields
@@ -113,6 +116,7 @@ function phaseChangedFields(a: Phase, b: Phase): string[] {
   if (a.icon !== b.icon) fields.push('icône')
   if ((a.duration || '') !== (b.duration || '')) fields.push('durée')
   if ((a.satisfactionScore || 0) !== (b.satisfactionScore || 0)) fields.push('satisfaction')
+  if ((a.criticality || '') !== (b.criticality || '')) fields.push('criticité')
   return fields
 }
 

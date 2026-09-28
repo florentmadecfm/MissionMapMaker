@@ -126,6 +126,32 @@ describe('computeLayout', () => {
     const act1 = nodes.find((n) => n.id === 'act1')!
     expect(act1.data.kpiCount).toBe(0)
   })
+
+  it("transmet durée/satisfaction/criticité d'une activité au nœud du diagramme", () => {
+    const p = project({
+      actors: [actor({ id: 'a1', name: 'Serveur' })],
+      phases: [phase({ id: 'ph1', name: 'Commande', order: 0 })],
+      activities: [
+        activity({ id: 'act1', actorId: 'a1', phaseId: 'ph1', duration: '5 min', satisfactionScore: 4, criticality: 'fort' }),
+      ],
+    })
+    const { nodes } = computeLayout(p)
+    const act1 = nodes.find((n) => n.id === 'act1')!
+    expect(act1.data.duration).toBe('5 min')
+    expect(act1.data.satisfactionScore).toBe(4)
+    expect(act1.data.criticality).toBe('fort')
+  })
+
+  it("transmet la criticité d'une phase au nœud d'en-tête de phase", () => {
+    const p = project({
+      actors: [actor({ id: 'a1', name: 'Serveur' })],
+      phases: [phase({ id: 'ph1', name: 'Commande', order: 0, criticality: 'moyen' })],
+      activities: [],
+    })
+    const { nodes } = computeLayout(p)
+    const phaseHeader = nodes.find((n) => n.id === 'phase-header-ph1')!
+    expect(phaseHeader.data.criticality).toBe('moyen')
+  })
 })
 
 describe('computeDropTarget', () => {

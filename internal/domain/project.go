@@ -158,6 +158,16 @@ type Phase struct {
 	// serait 3) : une phase sans score n'apparaît pas dans la courbe
 	// (ADR-065).
 	SatisfactionScore int `json:"satisfactionScore,omitempty"`
+	// Criticality qualifie l'importance de cette étape pour le succès de
+	// la mission ("fort", "moyen" ou "faible") — texte libre plutôt qu'un
+	// type énuméré strict côté serveur, même choix qu'UserStory.Priority
+	// (must/should/could/wont) : le frontend contraint déjà les valeurs
+	// possibles (menu déroulant, ProjectEditor.tsx), aucune validation
+	// serveur ne s'impose davantage ici que pour ce champ voisin. Vide par
+	// défaut, y compris pour les phases enregistrées avant l'introduction
+	// de ce champ : NON RENSEIGNÉ, pas "faible" par défaut — une phase
+	// sans criticité n'affiche aucun badge dans le diagramme.
+	Criticality string `json:"criticality,omitempty"`
 	// KpiLinks référence les KPI (Product.Kpis[].ID, de premier niveau ou
 	// sous-KPI) du produit associé à la mission (Project.ProductID) que
 	// cette phase permet de mesurer (Phase 3 du plan Produit/Vision/KPI).
@@ -208,6 +218,20 @@ type Activity struct {
 	OffsetY     float64 `json:"offsetY"`
 	Description string  `json:"description"`
 	SourceText  string  `json:"sourceText,omitempty"`
+	// Duration/SatisfactionScore/Criticality reprennent, au niveau de
+	// l'activité, les mêmes champs déjà portés par Phase ci-dessus (texte
+	// libre pour la durée, échelle 1-5 pour la satisfaction — 0 signifie
+	// NON RENSEIGNÉ, distinct d'un score neutre — texte libre pour la
+	// criticité, même raisonnement que Phase.Criticality) : une phase
+	// résume déjà l'étape dans son ensemble, mais une seule activité de
+	// cette phase peut être bien plus critique/longue/insatisfaisante que
+	// les autres (ex. "Payer" dans une phase "Commande" qui contient aussi
+	// "Choisir les plats") — un niveau de granularité que la seule donnée
+	// de phase ne peut pas représenter. Vides/à 0 par défaut, y compris
+	// pour les activités enregistrées avant l'introduction de ces champs.
+	Duration          string `json:"duration,omitempty"`
+	SatisfactionScore int    `json:"satisfactionScore,omitempty"`
+	Criticality       string `json:"criticality,omitempty"`
 
 	UserStories []UserStory `json:"userStories"`
 	TraceLinks  []string    `json:"traceLinks"` // specification IDs

@@ -1281,6 +1281,24 @@
   flex: 0 0 10.5rem;
 }
 
+.editor li select.phase-criticality-select {
+  flex: 0 0 8rem;
+}
+
+/* Mêmes largeurs que leurs homologues phase-* ci-dessus — voir le
+   commentaire dans ProjectEditor.tsx (section Activités). */
+.editor li input.activity-duration-input {
+  flex: 0 0 7rem;
+}
+
+.editor li select.activity-satisfaction-select {
+  flex: 0 0 10.5rem;
+}
+
+.editor li select.activity-criticality-select {
+  flex: 0 0 8rem;
+}
+
 /* Information échangée reçoit deux fois plus de largeur que Condition/
    Preuve physique (voir le commentaire dans ProjectEditor.tsx) — même
    sélecteur qualifié par type que .phase-icon-input ci-dessus, pour la
@@ -1345,6 +1363,11 @@
 
 .col-headers .col-satisfaction {
   width: 10.5rem;
+  flex-shrink: 0;
+}
+
+.col-headers .col-criticality {
+  width: 8rem;
   flex-shrink: 0;
 }
 
