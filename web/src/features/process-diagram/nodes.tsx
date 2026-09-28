@@ -33,6 +33,24 @@ function diffSelectionClass(selection: DiffSelection | undefined): string {
   return selection ? ` diff-selection-${selection}` : ''
 }
 
+// Étiquette lisible + pastille colorée pour Phase.criticality/
+// Activity.criticality ('fort'/'moyen'/'faible', voir project.go) — même
+// couleur sémantique que les statuts de comparaison Actuel/Cible juste
+// en dessous (danger/warning/success), réutilisée ici pour un sens
+// différent (urgence plutôt que type de changement) mais cohérente avec
+// le reste du diagramme : rouge = à surveiller en priorité, vert = pas
+// d'inquiétude.
+const CRITICALITY_LABELS: Record<string, string> = { fort: 'Fort', moyen: 'Moyen', faible: 'Faible' }
+
+function CriticalityBadge({ criticality }: { criticality: string }) {
+  if (!criticality || !CRITICALITY_LABELS[criticality]) return null
+  return (
+    <span className={`criticality-badge criticality-badge-${criticality}`} title="Criticité">
+      {CRITICALITY_LABELS[criticality]}
+    </span>
+  )
+}
+
 // Points d'ancrage répartis verticalement (25/50/75% par défaut pour 3
 // poignées) plutôt qu'un unique point central, pour que plusieurs liens
 // entrant/sortant sur la même carte ne partent pas tous du même pixel.
@@ -74,6 +92,7 @@ export function PhaseHeaderNode({ data }: NodeProps) {
   const diffStatus = data.diffStatus as DiffStatus | undefined
   const diffSelection = data.diffSelection as DiffSelection | undefined
   const kpiCount = data.kpiCount as number
+  const criticality = data.criticality as string
   return (
     <div
       className={`lane-node phase-header${diffStatus ? ` lane-node-diff-${diffStatus}` : ''}${diffSelectionClass(diffSelection)}`}
@@ -100,6 +119,7 @@ export function PhaseHeaderNode({ data }: NodeProps) {
           <ChartNoAxesColumn size={12} aria-hidden="true" /> {kpiCount}
         </span>
       )}
+      <CriticalityBadge criticality={criticality} />
       {/* Étiquette de comparaison (voir DIFF_LABELS ci-dessus) — même
           patron que .actor-header-backstage-tag, couleur selon le statut. */}
       {diffStatus && <span className={`lane-node-diff-tag lane-node-diff-tag-${diffStatus}`}>{DIFF_LABELS[diffStatus]}</span>}
@@ -250,6 +270,9 @@ export function ActivityNode({ data }: NodeProps) {
   const color = data.color as string
   const diffStatus = data.diffStatus as DiffStatus | undefined
   const diffSelection = data.diffSelection as DiffSelection | undefined
+  const duration = data.duration as string
+  const satisfactionScore = data.satisfactionScore as number
+  const criticality = data.criticality as string
   return (
     <div
       className={`activity-card${diffStatus ? ` activity-card-diff-${diffStatus}` : ''}${diffSelectionClass(diffSelection)}`}
@@ -322,15 +345,31 @@ export function ActivityNode({ data }: NodeProps) {
         <Handle key={`bottom-out-h${i}`} id={`bottom-out-h${i}`} type="source" position={Position.Bottom} style={{ left }} />
       ))}
       <div className="activity-card-title">{data.label as string}</div>
-      {(storyCount > 0 || specCount > 0 || kpiCount > 0) && (
+      {(storyCount > 0 || specCount > 0 || kpiCount > 0 || duration || satisfactionScore > 0) && (
         <div className="activity-card-meta">
           {storyCount > 0 && <span>{storyCount} {storyCount > 1 ? 'stories' : 'story'}</span>}
           {specCount > 0 && <span>{specCount} spec{specCount > 1 ? 's' : ''}</span>}
           {/* KPI liés (Phase 3 du plan Produit/Vision/KPI) — même ligne de
               méta que stories/specs ci-dessus. */}
           {kpiCount > 0 && <span>{kpiCount} KPI</span>}
+          {/* Durée/satisfaction de CETTE activité (distinct de la ligne
+              combinée durée/satisfaction par PHASE au-dessus du diagramme,
+              SatisfactionRowNode) — un simple texte/emoji dans la même
+              ligne de méta que stories/specs/KPI plutôt qu'un badge dédié,
+              cohérent avec le niveau d'importance visuelle des autres
+              informations de cette ligne. */}
+          {duration && <span>⏱ {duration}</span>}
+          {satisfactionScore > 0 && (
+            <span title={SATISFACTION_LABELS[satisfactionScore - 1]}>{SATISFACTION_EMOJI[satisfactionScore - 1]}</span>
+          )}
         </div>
       )}
+      {/* Criticité de cette activité — pastille colorée plutôt qu'un texte
+          dans la ligne de méta ci-dessus : contrairement à
+          durée/satisfaction (une info parmi d'autres), la criticité doit
+          rester repérable d'un simple coup d'œil sur un diagramme dense
+          (même intention que CriticalityBadge sur PhaseHeaderNode). */}
+      <CriticalityBadge criticality={criticality} />
     </div>
   )
 }

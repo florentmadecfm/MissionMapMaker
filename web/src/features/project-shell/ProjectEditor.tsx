@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { Activity, Actor, Interaction, Phase, Product, Project } from '../../api/types'
+import type { Activity, Actor, Criticality, Interaction, Phase, Project } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
 
 function newId(prefix: string) {
@@ -35,16 +35,11 @@ function suggestionsFor<T>(items: T[], fields: (item: T) => string[]): string[] 
 interface Props {
   project: Project
   onChange: (project: Project) => void
-  // Produits disponibles (écran Produits, ProjectShell.tsx) — pour le
-  // sélecteur "Produit associé" ci-dessous. null tant que le premier
-  // chargement n'a pas répondu : le sélecteur reste alors désactivé
-  // plutôt que de proposer une liste vide trompeuse.
-  products: Product[] | null
 }
 
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function ProjectEditor({ project, onChange, products }: Props) {
+export function ProjectEditor({ project, onChange }: Props) {
   const [actorFilter, setActorFilter] = useState('')
   const [phaseFilter, setPhaseFilter] = useState('')
   const [activityFilter, setActivityFilter] = useState('')
@@ -94,6 +89,7 @@ export function ProjectEditor({ project, onChange, products }: Props) {
       icon: '',
       duration: '',
       satisfactionScore: 0,
+      criticality: '',
       kpiLinks: [],
     }
     onChange({ ...project, phases: [...project.phases, phase] })
@@ -156,6 +152,9 @@ export function ProjectEditor({ project, onChange, products }: Props) {
       offsetX: 0,
       offsetY: 0,
       description: '',
+      duration: '',
+      satisfactionScore: 0,
+      criticality: '',
       userStories: [],
       traceLinks: [],
       painPoints: [],
@@ -272,21 +271,6 @@ export function ProjectEditor({ project, onChange, products }: Props) {
           value={project.name}
           onChange={(e) => onChange({ ...project, name: e.target.value })}
         />
-        <label className="editor-product-select">
-          Produit associé
-          <select
-            value={project.productId ?? ''}
-            onChange={(e) => onChange({ ...project, productId: e.target.value || undefined })}
-            disabled={!products}
-          >
-            <option value="">— aucun —</option>
-            {products?.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
       </header>
 
       <section>
@@ -351,6 +335,7 @@ export function ProjectEditor({ project, onChange, products }: Props) {
           <span className="col-name">Nom</span>
           <span className="col-duration">Durée</span>
           <span className="col-satisfaction">Satisfaction</span>
+          <span className="col-criticality">Criticité</span>
           {/* Étiquette du groupe de boutons ‹/› ci-dessous — auparavant de
               simples icônes sans aucun texte au-dessus, seul un `title` au
               survol expliquait leur rôle (repéré peu clair à l'usage) :
@@ -409,6 +394,17 @@ export function ProjectEditor({ project, onChange, products }: Props) {
                 <option value={4}>🙂 Satisfait</option>
                 <option value={5}>😄 Très satisfait</option>
               </select>
+              <select
+                className="phase-criticality-select"
+                value={p.criticality ?? ''}
+                onChange={(e) => updatePhase(p.id, { criticality: e.target.value as Criticality })}
+                title="Importance de cette étape pour le succès de la mission"
+              >
+                <option value="">— criticité —</option>
+                <option value="fort">Fort</option>
+                <option value="moyen">Moyen</option>
+                <option value="faible">Faible</option>
+              </select>
               {/* Réordonnancement du backbone (ADR-069) : déplace la phase
                   dans la séquence chronologique du diagramme, qui en
                   découle directement (Phase.order pilote l'ordre des
@@ -463,6 +459,9 @@ export function ProjectEditor({ project, onChange, products }: Props) {
           <span className="col-name">Nom</span>
           <span className="col-select">Persona</span>
           <span className="col-select">Phase</span>
+          <span className="col-duration">Durée</span>
+          <span className="col-satisfaction">Satisfaction</span>
+          <span className="col-criticality">Criticité</span>
           {/* Voir le commentaire équivalent dans la section Phases
               ci-dessus : même correction d'alignement. */}
           <button type="button" className="danger col-headers-ghost" aria-hidden="true" tabIndex={-1}>
@@ -489,6 +488,43 @@ export function ProjectEditor({ project, onChange, products }: Props) {
                     {p.name}
                   </option>
                 ))}
+              </select>
+              {/* Durée/satisfaction/criticité au niveau de l'activité —
+                  mêmes champs et mêmes classes que la section Phases
+                  ci-dessus (phase-duration-input/-satisfaction-select),
+                  qualifiées "activity-" pour une largeur indépendante si
+                  besoin plus tard, mais partageant aujourd'hui les mêmes
+                  colonnes .col-duration/.col-satisfaction/.col-criticality. */}
+              <input
+                className="activity-duration-input"
+                value={act.duration ?? ''}
+                onChange={(e) => updateActivity(act.id, { duration: e.target.value })}
+                placeholder="ex. 5 min"
+                title="Durée typique de cette activité (texte libre)"
+              />
+              <select
+                className="activity-satisfaction-select"
+                value={act.satisfactionScore ?? 0}
+                onChange={(e) => updateActivity(act.id, { satisfactionScore: Number(e.target.value) })}
+                title="Ressenti client typique lors de cette activité"
+              >
+                <option value={0}>— satisfaction —</option>
+                <option value={1}>😞 Très insatisfait</option>
+                <option value={2}>😕 Insatisfait</option>
+                <option value={3}>😐 Neutre</option>
+                <option value={4}>🙂 Satisfait</option>
+                <option value={5}>😄 Très satisfait</option>
+              </select>
+              <select
+                className="activity-criticality-select"
+                value={act.criticality ?? ''}
+                onChange={(e) => updateActivity(act.id, { criticality: e.target.value as Criticality })}
+                title="Importance de cette activité pour le succès de la mission"
+              >
+                <option value="">— criticité —</option>
+                <option value="fort">Fort</option>
+                <option value="moyen">Moyen</option>
+                <option value="faible">Faible</option>
               </select>
               <button type="button" className="danger" onClick={() => removeActivity(act.id, act.name)}>
                 supprimer

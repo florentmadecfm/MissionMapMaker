@@ -984,19 +984,6 @@
   border-color: var(--color-border);
 }
 
-.editor-product-select {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.editor-product-select select {
-  font-size: 0.85rem;
-}
-
 .project-name:focus {
   border-color: var(--color-primary);
   box-shadow: var(--shadow-focus);
@@ -1281,6 +1268,24 @@
   flex: 0 0 10.5rem;
 }
 
+.editor li select.phase-criticality-select {
+  flex: 0 0 8rem;
+}
+
+/* Mêmes largeurs que leurs homologues phase-* ci-dessus — voir le
+   commentaire dans ProjectEditor.tsx (section Activités). */
+.editor li input.activity-duration-input {
+  flex: 0 0 7rem;
+}
+
+.editor li select.activity-satisfaction-select {
+  flex: 0 0 10.5rem;
+}
+
+.editor li select.activity-criticality-select {
+  flex: 0 0 8rem;
+}
+
 /* Information échangée reçoit deux fois plus de largeur que Condition/
    Preuve physique (voir le commentaire dans ProjectEditor.tsx) — même
    sélecteur qualifié par type que .phase-icon-input ci-dessus, pour la
@@ -1348,6 +1353,11 @@
   flex-shrink: 0;
 }
 
+.col-headers .col-criticality {
+  width: 8rem;
+  flex-shrink: 0;
+}
+
 .col-arrow-spacer {
   width: 1.2rem;
   flex-shrink: 0;
@@ -1395,7 +1405,9 @@
 /* Champ de recherche d'une liste longue (ListFilterInput.tsx) — n'affiché
    que par les sections dont la liste dépasse un seuil (voir
    FILTER_THRESHOLD, ProjectEditor.tsx/SpecificationsPanel.tsx/
-   TestScenariosPanel.tsx), jamais en permanence sur une petite liste. */
+   TestScenariosPanel.tsx ; MISSION_FILTER_THRESHOLD, ProjectShell.tsx
+   pour la liste de missions de la sidebar), jamais en permanence sur une
+   petite liste. */
 .list-filter {
   display: flex;
   align-items: center;

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CircleHelp, Map, Menu, Package, Settings, Users } from 'lucide-react'
 import { api } from '../../api/client'
 import type { ActorSummary, Product, Project, ProjectSummary } from '../../api/types'
+import { ListFilterInput } from '../../components/ListFilterInput'
 import { Logo } from '../../components/Logo'
 import { ActorView } from '../actor-view/ActorView'
 import { ActorMissionsScreen } from '../actor-missions/ActorMissionsScreen'
@@ -50,6 +51,12 @@ const WELCOME_TOUR_SEEN_KEY = 'mmm-welcome-tour-seen'
 // court pour que rien ne se perde en cas de fermeture accidentelle de
 // l'onglet, assez long pour ne pas envoyer une requête à chaque frappe.
 const AUTOSAVE_DEBOUNCE_MS = 900
+// Le champ de recherche de la liste de missions ne s'affiche qu'au-delà
+// de ce nombre de missions — même seuil et même raisonnement que
+// FILTER_THRESHOLD dans ProjectEditor.tsx : sur un compte avec peu de
+// missions (le cas le plus courant), il n'aurait rien à filtrer et ne
+// ferait qu'encombrer la sidebar.
+const MISSION_FILTER_THRESHOLD = 8
 
 function loadSidebarCollapsed(): boolean {
   try {
@@ -69,6 +76,7 @@ function loadWelcomeTourSeen(): boolean {
 
 export function ProjectShell() {
   const [summaries, setSummaries] = useState<ProjectSummary[]>([])
+  const [missionFilter, setMissionFilter] = useState('')
   const [actors, setActors] = useState<ActorSummary[] | null>(null)
   const [actorsError, setActorsError] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[] | null>(null)
@@ -482,6 +490,13 @@ export function ProjectShell() {
   const linkedMissionNames = currentProduct
     ? summaries.filter((s) => s.productId === currentProduct.id && s.id !== workingProject?.id).map((s) => s.name)
     : []
+  // Filtre de la sidebar (voir MISSION_FILTER_THRESHOLD) — ne filtre que
+  // l'AFFICHAGE de la liste, jamais les missions elles-mêmes : même
+  // principe que ListFilterInput partout ailleurs dans l'app.
+  const missionFilterQuery = missionFilter.trim().toLowerCase()
+  const filteredSummaries = missionFilterQuery
+    ? summaries.filter((s) => s.name.toLowerCase().includes(missionFilterQuery))
+    : summaries
   // Ignore toute modification pendant la visite guidée : le projet affiché
   // est alors TOUR_DEMO_PROJECT (tourDemoProject.ts), jamais persisté —
   // un onglet reste monté et câblé normalement (aucune complexité en plus
@@ -556,8 +571,15 @@ export function ProjectShell() {
             {loading && <p>Chargement…</p>}
             {error && <p className="error">{error}</p>}
 
+            {summaries.length > MISSION_FILTER_THRESHOLD && (
+              <ListFilterInput value={missionFilter} onChange={setMissionFilter} placeholder="Rechercher une mission…" />
+            )}
+
             <ul className="project-list">
-              {summaries.map((s) => (
+              {filteredSummaries.length === 0 && missionFilterQuery && (
+                <li className="empty">Aucune mission ne correspond à « {missionFilter} ».</li>
+              )}
+              {filteredSummaries.map((s) => (
                 <li key={s.id} className={view === 'project' && s.id === project?.id ? 'active' : ''}>
                   <button type="button" onClick={() => handleOpen(s.id)}>
                     <span className="project-name-text">{s.name}</span>
@@ -715,15 +737,15 @@ export function ProjectShell() {
                 <button type="button" className={tab === 'generer' ? 'active' : ''} onClick={() => setTab('generer')}>
                   Générer (langage naturel)
                 </button>
+                <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
+                  Édition
+                </button>
                 <button
                   type="button"
                   className={tab === 'diagramme' ? 'active' : ''}
                   onClick={() => setTab('diagramme')}
                 >
                   Diagramme de processus
-                </button>
-                <button type="button" className={tab === 'edition' ? 'active' : ''} onClick={() => setTab('edition')}>
-                  Édition
                 </button>
                 <button
                   type="button"
@@ -796,7 +818,7 @@ export function ProjectShell() {
               <NlInput key={project.id} project={workingProject} onChange={handleWorkingChange} onGenerated={() => setTab('edition')} />
             )}
             {tab === 'edition' && (
-              <ProjectEditor key={project.id} project={workingProject} onChange={handleWorkingChange} products={products} />
+              <ProjectEditor key={project.id} project={workingProject} onChange={handleWorkingChange} />
             )}
             {tab === 'diagramme' && (
               <DiagramErrorBoundary key={project.id}>
