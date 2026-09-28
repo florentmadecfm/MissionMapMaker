@@ -180,6 +180,15 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
   async function runSave() {
     const current = draftRef.current
     if (!current || !dirtyRef.current || savingRef.current) return
+    // Nom vidé par l'utilisateur (voir l'input dans le rendu ci-dessous,
+    // et le message d'erreur inline déjà affiché tant qu'il l'est) :
+    // n'envoie rien plutôt que de laisser le serveur rejeter (name is
+    // required, Product.Validate) à chaque frappe intermédiaire pendant
+    // que l'utilisateur retape un nom — dirtyRef reste true, l'effet de
+    // debounce se redéclenchera de lui-même au prochain changement de
+    // `draft` (ex. une lettre retapée), aucune boucle de nouvelle tentative
+    // nécessaire ici puisque rien n'a été perdu ni envoyé.
+    if (current.name.trim() === '') return
     savingRef.current = true
     dirtyRef.current = false
     setSaving(true)
@@ -429,11 +438,17 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
       {draft && (
         <>
           <div className="actor-missions-header">
-            <h2 className="panel-title">{draft.name}</h2>
+            <input
+              className="product-name-input"
+              value={draft.name}
+              onChange={(e) => setDraftDirty({ ...draft, name: e.target.value })}
+              placeholder="Nom du produit"
+            />
             <button type="button" className="danger" onClick={() => handleDelete(draft.id, draft.name)}>
               Supprimer
             </button>
           </div>
+          {draft.name.trim() === '' && <p className="error">Le nom du produit ne peut pas être vide.</p>}
 
           <section className="actor-mission-section">
             <h3>Vision</h3>
@@ -702,7 +717,12 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           </section>
 
           <div className="products-save-row">
-            <button type="button" className="btn-primary" onClick={() => void runSave()} disabled={saving}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => void runSave()}
+              disabled={saving || draft.name.trim() === ''}
+            >
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
             {savedAt && <span className="autosave-status">Enregistré à {savedAt}</span>}

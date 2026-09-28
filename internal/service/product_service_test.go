@@ -88,3 +88,52 @@ func TestProductService_UpdateRejectsInvalidKpiParent(t *testing.T) {
 		t.Fatalf("Update avec un ParentID inconnu devrait échouer avec ErrInvalidProduct, obtenu %v", err)
 	}
 }
+
+// Renommer un produit (CRUD complet sur le nom, pas seulement à la
+// création) est le seul champ jusqu'ici SANS moyen d'édition côté UI
+// (ProductsScreen.tsx affichait juste draft.name en lecture seule) —
+// couvre le chemin service qui rend cette édition possible.
+func TestProductService_UpdateRenamesProduct(t *testing.T) {
+	dir := t.TempDir()
+	svc := NewProductService(storage.NewProductStore(dir))
+
+	created, err := svc.Create("Pulse.MissionMap")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	created.Name = "Pulse.MissionMap v2"
+	updated, err := svc.Update(created.ID, created)
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if updated.Name != "Pulse.MissionMap v2" {
+		t.Fatalf("Update devrait persister le nouveau nom, obtenu %q", updated.Name)
+	}
+
+	fetched, err := svc.Get(created.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if fetched.Name != "Pulse.MissionMap v2" {
+		t.Fatalf("Get après Update devrait renvoyer le nouveau nom, obtenu %q", fetched.Name)
+	}
+}
+
+// Symétrique de TestProductService_CreateRequiresName : Update ne doit pas
+// laisser passer un nom vidé après coup (un produit sans nom deviendrait
+// une option de dropdown illisible dans ProductsScreen.tsx/ActorView.tsx).
+func TestProductService_UpdateRejectsEmptyName(t *testing.T) {
+	dir := t.TempDir()
+	svc := NewProductService(storage.NewProductStore(dir))
+
+	created, err := svc.Create("Pulse.MissionMap")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	created.Name = "   "
+	if _, err := svc.Update(created.ID, created); !errors.Is(err, domain.ErrInvalidProduct) {
+		t.Fatalf("Update avec un nom vide devrait échouer avec ErrInvalidProduct, obtenu %v", err)
+	}
+}

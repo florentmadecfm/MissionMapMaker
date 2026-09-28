@@ -2228,6 +2228,37 @@
   gap: 1rem;
 }
 
+/* Nom du produit, éditable — remplace l'ancien <h2 className="panel-
+   title"> en lecture seule (ProductsScreen.tsx) : le nom était jusqu'ici
+   le seul champ du produit sans moyen d'édition après sa création
+   (demande utilisateur : CRUD complet sur le nom). Reprend la taille/
+   graisse de .panel-title pour continuer à se lire comme un titre
+   d'écran, bordure transparente au repos (rien ne distingue un champ
+   éditable d'un titre tant qu'on ne le survole/focus pas) et un fond au
+   focus pour signaler l'édition sans intervention permanente sur la mise
+   en page. */
+.product-name-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+}
+
+.product-name-input:hover {
+  border-color: var(--color-border);
+}
+
+.product-name-input:focus {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  outline: none;
+}
+
 .actor-mission-section {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
