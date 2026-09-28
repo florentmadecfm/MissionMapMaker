@@ -340,11 +340,12 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     })
   }
 
-  // Lie une mission DÉJÀ EXISTANTE à ce produit, depuis l'écran Produits
-  // (sens inverse du sélecteur "Produit associé" de ProjectEditor.tsx,
-  // qui reste l'unique façon de faire ce lien jusqu'ici). Pas d'endpoint
-  // PATCH dédié : même aller-retour complet get/save que ProjectEditor
-  // utilise déjà via son autosave (aucune nouvelle route API).
+  // Lie une mission DÉJÀ EXISTANTE à ce produit, depuis l'écran Produits —
+  // désormais l'UNIQUE façon de faire ce lien (l'ancien sélecteur "Produit
+  // associé" de l'onglet Édition d'une mission a été retiré, retour
+  // utilisateur : hors de propos à cet endroit). Pas d'endpoint PATCH
+  // dédié : même aller-retour complet get/save que le reste de cet écran
+  // (autosave, runSave ci-dessus), aucune nouvelle route API.
   async function handleLinkMission() {
     if (!linkTargetId || !draft) return
     setLinking(true)

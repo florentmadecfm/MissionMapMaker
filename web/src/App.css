@@ -984,19 +984,6 @@
   border-color: var(--color-border);
 }
 
-.editor-product-select {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.82rem;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.editor-product-select select {
-  font-size: 0.85rem;
-}
-
 .project-name:focus {
   border-color: var(--color-primary);
   box-shadow: var(--shadow-focus);
@@ -1418,7 +1405,9 @@
 /* Champ de recherche d'une liste longue (ListFilterInput.tsx) — n'affiché
    que par les sections dont la liste dépasse un seuil (voir
    FILTER_THRESHOLD, ProjectEditor.tsx/SpecificationsPanel.tsx/
-   TestScenariosPanel.tsx), jamais en permanence sur une petite liste. */
+   TestScenariosPanel.tsx ; MISSION_FILTER_THRESHOLD, ProjectShell.tsx
+   pour la liste de missions de la sidebar), jamais en permanence sur une
+   petite liste. */
 .list-filter {
   display: flex;
   align-items: center;

@@ -54,11 +54,12 @@ export function fromWorkingProject(original: Project, working: Project, active: 
     testScenarios: working.testScenarios,
   }
   // productId est un champ de la MISSION (pas propre à une variante) : le
-  // reporter depuis `working` même en vue Cible, sinon un changement du
-  // sélecteur "Produit associé" (ProjectEditor.tsx) pendant que la Cible
-  // est affichée serait silencieusement perdu (working.productId ignoré
+  // reporter depuis `working` même en vue Cible, pour ne jamais perdre
+  // silencieusement une valeur plus récente (working.productId ignoré
   // par le spread de `original` ci-dessous, qui ne porte que l'ancienne
-  // valeur).
+  // valeur) — même si, en pratique, seul l'écran Produits (ProductsScreen.
+  // tsx, "Lier une mission…") modifie ce champ aujourd'hui, en dehors de
+  // ce flux actif/cible.
   return { ...original, target: variant, productId: working.productId }
 }
 

@@ -256,9 +256,10 @@ export interface Project {
   // première résolution de point de friction, voir mergePainPointResolution.ts).
   target?: ProjectVariant
   // Produit (vision, différenciateurs, piliers, KPI) auquel cette mission
-  // est rattachée — absent tant qu'aucun produit n'a été choisi
-  // (sélecteur "Produit associé", onglet Édition). Référence par id vers
-  // un Product (voir api/client.ts, listProducts) — jamais dupliqué ici.
+  // est rattachée — absent tant qu'aucun produit n'a été choisi (écran
+  // Produits, ProductsScreen.tsx : "Lier une mission…"). Référence par id
+  // vers un Product (voir api/client.ts, listProducts) — jamais dupliqué
+  // ici.
   productId?: string
 }
 
