@@ -13,7 +13,15 @@ interface Props {
   // Produit associé à la mission (Project.productId), résolu par
   // ProjectShell.tsx — undefined si aucun (voir KpiLinksSection.tsx pour
   // l'état affiché dans ce cas), Phase 3 du plan Produit/Vision/KPI.
+  // Depuis le déplacement des spécifications/tests vers le produit (voir
+  // api/types.ts), sert aussi de source pour "Spécifications liées"/
+  // "Tests V&V liés" ci-dessous (plus project.specifications/
+  // testScenarios) et est transmis à PainPointSolutionsModal.
   product: Product | undefined
+  // Transmis tel quel à PainPointSolutionsModal — voir ce fichier. Absent
+  // quand `product` l'est aussi (ProcessDiagram.tsx) : sans conséquence,
+  // PainPointSolutionsModal n'appelle jamais cette fonction sans produit.
+  onProductChange?: (product: Product) => void
 }
 
 const SPEC_TYPE_LABELS: Record<string, string> = {
@@ -40,7 +48,7 @@ function sameText(a: string, b: string) {
 // voir ProjectShell.tsx). Un point de friction peut être repris depuis la liste déjà
 // connue de l'acteur (sa fiche persona, ADR-055/056) plutôt que retapé, et
 // un point réellement nouveau enrichit cette même fiche au passage.
-export function ActivityDetailModal({ project, activityId, onChange, onClose, isTargetActive, product }: Props) {
+export function ActivityDetailModal({ project, activityId, onChange, onClose, isTargetActive, product, onProductChange }: Props) {
   const [newPainPoint, setNewPainPoint] = useState('')
   const [knownPainPointId, setKnownPainPointId] = useState('')
   // Point de friction en cours de résolution (ADR-066) — ouvre
@@ -118,12 +126,14 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose, is
   const phase = project.phases.find((p) => p.id === activity.phaseId)
 
   const specs = activity.traceLinks
-    .map((specId) => project.specifications.find((s) => s.id === specId))
+    .map((specId) => product?.specifications.find((s) => s.id === specId))
     .filter((s): s is NonNullable<typeof s> => Boolean(s))
 
   const specIds = new Set(specs.map((s) => s.id))
   const tests = [
-    ...new Map(project.testScenarios.filter((t) => specIds.has(t.specificationId)).map((t) => [t.id, t])).values(),
+    ...new Map(
+      (product?.testScenarios ?? []).filter((t) => specIds.has(t.specificationId)).map((t) => [t.id, t]),
+    ).values(),
   ]
 
   return (
@@ -147,7 +157,7 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose, is
           <ul className="item-list item-list-warning">
             {activity.painPoints.map((p) => {
               const resolvedSpec = p.resolvedBySpecId
-                ? project.specifications.find((s) => s.id === p.resolvedBySpecId)
+                ? product?.specifications.find((s) => s.id === p.resolvedBySpecId)
                 : undefined
               return (
                 <li key={p.id}>
@@ -205,7 +215,8 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose, is
         <h3>Spécifications liées</h3>
         {specs.length === 0 ? (
           <p className="actor-warning">
-            Aucune spécification liée pour l'instant — générez-les ou ajoutez-les depuis l'onglet Spécifications.
+            Aucune spécification liée pour l'instant — générez-les ou ajoutez-les depuis l'écran Produits, onglet
+            « Spécification et VV ».
           </p>
         ) : (
           <ul className="spec-list">
@@ -225,12 +236,13 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose, is
         <h3>Tests V&V liés</h3>
         {specs.length === 0 ? null : tests.length === 0 ? (
           <p className="actor-warning">
-            Aucun test lié pour l'instant — générez-les ou ajoutez-les depuis l'onglet Spécifications.
+            Aucun test lié pour l'instant — générez-les ou ajoutez-les depuis l'écran Produits, onglet « Spécification
+            et VV ».
           </p>
         ) : (
           <ul className="spec-list">
             {tests.map((t) => {
-              const linkedSpec = project.specifications.find((s) => s.id === t.specificationId)
+              const linkedSpec = product?.specifications.find((s) => s.id === t.specificationId)
               return (
                 <li key={t.id} className="spec-view-card">
                   <div className="spec-view-meta">
@@ -277,6 +289,8 @@ export function ActivityDetailModal({ project, activityId, onChange, onClose, is
               onChange={onChange}
               onClose={() => setSolvingPainPointId(null)}
               isTargetActive={isTargetActive}
+              product={product}
+              onProductChange={onProductChange}
             />
           )
         })()}

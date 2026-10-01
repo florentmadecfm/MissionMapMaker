@@ -10,7 +10,8 @@ import {
   Workflow,
   type LucideIcon,
 } from 'lucide-react'
-import type { SubTab } from '../specifications/SpecificationsPanel'
+import type { SubTab } from '../products/ProductSpecVVPanel'
+import type { ProductTab } from '../products/ProductsScreen'
 import type { Tab, View } from '../project-shell/ProjectShell'
 
 export interface TourStep {
@@ -32,11 +33,18 @@ export interface TourStep {
   // Onglet à activer pour cette étape — absent pour l'étape 1, qui pointe
   // un élément de la barre latérale (visible quel que soit l'onglet).
   tab?: Tab
-  // Sous-onglet à activer au sein de l'onglet Spécifications (SSS/V&V/
-  // matrice, SpecificationsPanel.tsx) — sans quoi une étape ciblant les
-  // scénarios de test se retrouverait à chercher .spec-card dans le
-  // sous-onglet Spécifications (SSS) resté actif par défaut. Sans effet
-  // pour un `tab` différent de 'specifications'.
+  // Onglet à activer au sein de l'écran Produits (Stratégie/Spécification
+  // et VV, ProductsScreen.tsx) — sans effet pour une étape dont `view`
+  // n'est pas 'products'. Spécifications/tests ayant été déplacés depuis
+  // l'onglet mission "Spécifications" vers l'écran Produits, les étapes
+  // qui les ciblent y pointent désormais (view: 'products', productTab:
+  // 'specs') plutôt que vers la mission.
+  productTab?: ProductTab
+  // Sous-onglet à activer au sein de "Spécification et VV"
+  // (SSS/V&V/matrice, ProductSpecVVPanel.tsx) — sans quoi une étape
+  // ciblant les scénarios de test se retrouverait à chercher .spec-card
+  // dans le sous-onglet Spécifications (SSS) resté actif par défaut. Sans
+  // effet pour un `productTab` différent de 'specs'.
   specSubTab?: SubTab
 }
 
@@ -53,6 +61,13 @@ export const TOUR_STEPS: TourStep[] = [
     body: "Avant même une mission, définissez la vision de votre produit et un arbre de KPI (indicateurs et sous-indicateurs) pour mesurer les progrès — l'IA peut vous aider à les affiner ou à les suggérer.",
     target: '.product-kpi-table',
     view: 'products',
+    // Explicite (plutôt que laisser productTab absent) : une étape
+    // ultérieure de la visite (Spécifications/Tests V&V) bascule sur
+    // 'specs' — sans valeur explicite ici, revenir en arrière ("Précédent")
+    // depuis l'une d'elles laisserait ProductsScreen sur 'specs' au lieu de
+    // 'strategie' (l'effet de bascule ne réagit qu'à un productTab défini,
+    // voir ProjectShell.tsx).
+    productTab: 'strategie',
   },
   {
     icon: Sparkles,
@@ -92,9 +107,10 @@ export const TOUR_STEPS: TourStep[] = [
   {
     icon: ClipboardCheck,
     title: 'Spécifications, tracées à vos activités',
-    body: 'Chaque activité peut se relier à une ou plusieurs spécifications (SSS) : la traçabilité vers vos exigences reste visible d’un coup d’œil, ici comme sur la matrice dédiée.',
+    body: 'Depuis la fiche produit (onglet « Spécification et VV »), chaque activité Cible de vos missions peut se relier à une ou plusieurs spécifications (SSS) : la traçabilité vers vos exigences reste visible d’un coup d’œil, ici comme sur la matrice dédiée — sur toutes les missions de ce produit à la fois.',
     target: '.spec-card',
-    tab: 'specifications',
+    view: 'products',
+    productTab: 'specs',
     specSubTab: 'specifications',
   },
   {
@@ -102,7 +118,8 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Scénarios de test (V&V)',
     body: 'Chaque spécification peut être vérifiée par un ou plusieurs scénarios de test, avec leurs étapes détaillées — la vérification et validation, au même endroit que le reste.',
     target: '.spec-card',
-    tab: 'specifications',
+    view: 'products',
+    productTab: 'specs',
     specSubTab: 'tests',
   },
   {
@@ -110,7 +127,6 @@ export const TOUR_STEPS: TourStep[] = [
     title: 'Exportez et personnalisez',
     body: 'Exportez l’ensemble en Excel ou en PNG depuis ce menu, et personnalisez les prompts de génération depuis Paramètres.',
     target: '.header-menu-trigger',
-    tab: 'specifications',
-    specSubTab: 'specifications',
+    tab: 'edition',
   },
 ]

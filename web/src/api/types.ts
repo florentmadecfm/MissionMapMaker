@@ -246,14 +246,17 @@ export interface Project {
   phases: Phase[]
   activities: Activity[]
   interactions: Interaction[]
-  specifications: Specification[]
-  testScenarios: TestScenario[]
   // Second état ("cible"/to-be) du diagramme de CETTE mission, distinct de
   // l'état "actuel" ci-dessus (une copie indépendante complète : ses
-  // propres acteurs/phases/activités/interactions/specs/tests) — jamais
-  // une mission séparée dans le panneau de gauche. Absent tant qu'aucune
-  // cible n'a été créée (bouton Actuel/Cible, ou automatiquement à la
-  // première résolution de point de friction, voir mergePainPointResolution.ts).
+  // propres acteurs/phases/activités/interactions) — jamais une mission
+  // séparée dans le panneau de gauche. Absent tant qu'aucune cible n'a été
+  // créée (bouton Actuel/Cible, ou automatiquement à la première
+  // résolution de point de friction, voir mergePainPointResolution.ts).
+  // Specifications/testScenarios ne font PLUS partie de ces 4 collections
+  // (voir Product.specifications/testScenarios ci-dessous) : une exigence
+  // qualifie le produit, pas une mission — seule la variante CIBLE d'une
+  // mission porte encore des liens de traçabilité (Activity.traceLinks)
+  // vers ces spécifications.
   target?: ProjectVariant
   // Produit (vision, différenciateurs, piliers, KPI) auquel cette mission
   // est rattachée — absent tant qu'aucun produit n'a été choisi (écran
@@ -263,7 +266,7 @@ export interface Project {
   productId?: string
 }
 
-// ProjectVariant est le contenu de la cible d'un projet — mêmes 6
+// ProjectVariant est le contenu de la cible d'un projet — mêmes 4
 // collections qu'un Project, plus un label affiché dans le sélecteur
 // Actuel/Cible (ex. "Cible", éditable).
 export interface ProjectVariant {
@@ -272,8 +275,6 @@ export interface ProjectVariant {
   phases: Phase[]
   activities: Activity[]
   interactions: Interaction[]
-  specifications: Specification[]
-  testScenarios: TestScenario[]
 }
 
 export interface ProjectSummary {
@@ -335,6 +336,16 @@ export interface Product {
   // ProductKpi.pillar ci-dessous.
   pillars: string[]
   kpis: ProductKpi[]
+  // Spécifications/scénarios de test V&V du produit (onglet "Spécification
+  // et VV", ProductsScreen.tsx) — déplacés ici depuis Project/
+  // ProjectVariant (où ils vivaient par mission, dupliqués par variante
+  // Actuel/Cible) : une exigence qualifie le PRODUIT, pas une mission, et
+  // doit pouvoir tracer des activités réparties sur plusieurs missions
+  // rattachées au même produit. Seule la variante CIBLE de chaque mission
+  // participe à la traçabilité (Activity.traceLinks, inchangé) : un
+  // produit vise l'état futur du processus.
+  specifications: Specification[]
+  testScenarios: TestScenario[]
 }
 
 export interface ProductKpi {

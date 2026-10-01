@@ -63,18 +63,20 @@ function normalizeProject(project: Project): Project {
       kpiLinks: a.kpiLinks ?? [],
     })),
     interactions: project.interactions ?? [],
-    specifications: project.specifications ?? [],
-    testScenarios: (project.testScenarios ?? []).map((t) => ({ ...t, steps: t.steps ?? [] })),
   }
 }
 
-// Même filet de sécurité que normalizeProject ci-dessus, pour un produit.
+// Même filet de sécurité que normalizeProject ci-dessus, pour un produit —
+// specifications/testScenarios inclus depuis leur déplacement ici depuis
+// Project (voir types.ts).
 function normalizeProduct(product: Product): Product {
   return {
     ...product,
     differentiators: product.differentiators ?? [],
     pillars: product.pillars ?? [],
     kpis: product.kpis ?? [],
+    specifications: product.specifications ?? [],
+    testScenarios: (product.testScenarios ?? []).map((t) => ({ ...t, steps: t.steps ?? [] })),
   }
 }
 

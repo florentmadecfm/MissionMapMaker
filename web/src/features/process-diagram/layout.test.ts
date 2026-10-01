@@ -37,8 +37,6 @@ function project(overrides: Partial<Project> = {}): Project {
     phases: [],
     activities: [],
     interactions: [],
-    specifications: [],
-    testScenarios: [],
     ...overrides,
   }
 }

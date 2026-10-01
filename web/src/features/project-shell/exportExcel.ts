@@ -55,7 +55,11 @@ interface Column {
 // téléchargement du classeur. `product` (le produit associé à cette
 // mission, ou null) et `linkedMissionNames` (les AUTRES missions liées à
 // ce même produit, à titre indicatif) sont fournis par ProjectShell.tsx —
-// voir la feuille "Produit" ci-dessous.
+// voir la feuille "Produit" ci-dessous. Les feuilles Spécifications/Tests
+// V&V/Traçabilité sont désormais sourcées depuis `product` (plus
+// `project`, voir api/types.ts : les spécifications/tests qualifient le
+// produit, pas une mission précise) — vides si aucun produit n'est
+// associé.
 export async function exportProjectToExcel(project: Project, product: Product | null, linkedMissionNames: string[]) {
   const ExcelJS = (await import('exceljs')).default
 
@@ -156,7 +160,7 @@ export async function exportProjectToExcel(project: Project, product: Product | 
       description: act.description,
       texteSource: act.sourceText ?? '',
       specs: act.traceLinks
-        .map((specId) => project.specifications.find((s) => s.id === specId)?.code)
+        .map((specId) => product?.specifications.find((s) => s.id === specId)?.code)
         .filter(Boolean)
         .join(', '),
       kpis: kpiNames(product, act.kpiLinks),
@@ -204,7 +208,7 @@ export async function exportProjectToExcel(project: Project, product: Product | 
         texte: pp.text,
         // Code de la SSS générée pour la solution choisie (ADR-066) —
         // vide tant qu'aucune solution n'a été retenue.
-        resolu: project.specifications.find((s) => s.id === pp.resolvedBySpecId)?.code ?? '',
+        resolu: product?.specifications.find((s) => s.id === pp.resolvedBySpecId)?.code ?? '',
       })),
     ),
   )
@@ -240,12 +244,12 @@ export async function exportProjectToExcel(project: Project, product: Product | 
       { header: 'Statut', key: 'statut', width: 12 },
       { header: 'Priorité', key: 'priorite', width: 12 },
     ],
-    project.specifications.map((s) => ({
+    (product?.specifications ?? []).map((s) => ({
       code: s.code,
       type: SPEC_TYPE_LABELS[s.type] ?? s.type,
       texte: s.text,
       justification: s.rationale ?? '',
-      parent: project.specifications.find((p) => p.id === s.parentId)?.code ?? '',
+      parent: product?.specifications.find((p) => p.id === s.parentId)?.code ?? '',
       statut: s.status,
       priorite: s.priority,
     })),
@@ -261,10 +265,10 @@ export async function exportProjectToExcel(project: Project, product: Product | 
       { header: 'Étapes', key: 'etapes', width: 60 },
       { header: 'Statut', key: 'statut', width: 12 },
     ],
-    project.testScenarios.map((t) => ({
+    (product?.testScenarios ?? []).map((t) => ({
       code: t.code,
       titre: t.title,
-      specification: project.specifications.find((s) => s.id === t.specificationId)?.code ?? '',
+      specification: product?.specifications.find((s) => s.id === t.specificationId)?.code ?? '',
       preconditions: t.preconditions ?? '',
       etapes: t.steps.map((s, i) => `${i + 1}. ${s.action} → ${s.expectedResult}`).join('\n'),
       statut: t.status,
@@ -282,8 +286,8 @@ export async function exportProjectToExcel(project: Project, product: Product | 
     ],
     project.activities.flatMap((act) =>
       act.traceLinks.map((specId) => {
-        const spec = project.specifications.find((s) => s.id === specId)
-        const testedBy = project.testScenarios
+        const spec = product?.specifications.find((s) => s.id === specId)
+        const testedBy = (product?.testScenarios ?? [])
           .filter((t) => t.specificationId === specId)
           .map((t) => t.code)
           .join(', ')

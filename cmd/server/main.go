@@ -18,6 +18,15 @@ func main() {
 	addr := envOr("MMM_ADDR", ":8080")
 	dataDir := envOr("MMM_DATA_DIR", "data")
 
+	// Migration ponctuelle (une seule fois par dataDir, voir
+	// migrate_specs.go) : déplace les spécifications/tests de la variante
+	// Cible de chaque mission déjà rattachée à un produit vers ce produit
+	// — AVANT toute ouverture de la base par le reste du serveur, pour
+	// qu'un chargement normal ne passe jamais par un état intermédiaire.
+	if err := storage.MigrateSpecsToProducts(dataDir); err != nil {
+		log.Fatal(err)
+	}
+
 	repo := storage.NewRepository(dataDir)
 	profiles := storage.NewActorProfileStore(dataDir)
 	projects := service.NewProjectService(repo, profiles)

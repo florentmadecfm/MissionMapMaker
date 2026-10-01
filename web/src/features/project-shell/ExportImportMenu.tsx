@@ -15,6 +15,11 @@ interface Props {
   // missions : l'Excel de l'une ne doit pas pouvoir modifier le produit
   // partagé par les autres).
   product: Product | null
+  // Persiste le produit mis à jour après un import Excel (feuilles
+  // Spécifications/Tests V&V, voir importExcel.ts) — absent quand
+  // `product` l'est aussi (aucun import de ces feuilles n'est alors
+  // possible, voir handleImportFile ci-dessous).
+  onProductChange: (product: Product) => void
   linkedMissionNames: string[]
   onChange: (project: Project) => void
   onShowHistory: () => void
@@ -26,7 +31,7 @@ interface Props {
 // avant ADR-046) : disponible depuis n'importe quel onglet, pas seulement
 // quand on y est déjà. La création de la cible d'une mission n'est plus
 // ici : voir VariantToggle, affiché en permanence au-dessus des onglets.
-export function ExportImportMenu({ project, product, linkedMissionNames, onChange, onShowHistory }: Props) {
+export function ExportImportMenu({ project, product, onProductChange, linkedMissionNames, onChange, onShowHistory }: Props) {
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -45,21 +50,33 @@ export function ExportImportMenu({ project, product, linkedMissionNames, onChang
     }
   }
 
-  // Remplace les 6 collections du projet OUVERT par le contenu du fichier,
-  // y compris les liens KPI des activités/phases résolus contre le
-  // produit ACTUELLEMENT associé (voir importExcel.ts — le produit
-  // lui-même n'est jamais modifié ni réassigné par cet import). Comme
-  // toute autre modification, remonte par onChange et sera sauvegardé
-  // automatiquement (voir ProjectShell.tsx) — mais la confirmation reste
-  // nécessaire, l'opération étant un remplacement complet plutôt qu'un
-  // ajout (contrairement à la fusion additive des ébauches générées par LLM).
+  // Remplace les 4 collections du projet OUVERT (personas, phases,
+  // activités, interactions) par le contenu du fichier, y compris les
+  // liens KPI des activités/phases résolus contre le produit ACTUELLEMENT
+  // associé (voir importExcel.ts). Les feuilles Spécifications/Tests V&V,
+  // elles, remplacent intégralement celles du PRODUIT associé (déplacées
+  // depuis le projet, voir api/types.ts) — PARTAGÉ par d'éventuelles
+  // AUTRES missions (linkedMissionNames), d'où l'avertissement explicite
+  // dans la confirmation ci-dessous, plus appuyé que pour le reste
+  // (propre à cette seule mission). Sans produit associé, ces deux
+  // feuilles sont silencieusement ignorées (pas de mission → pas de
+  // produit où les ranger). Comme toute autre modification, le projet
+  // remonte par onChange et sera sauvegardé automatiquement (voir
+  // ProjectShell.tsx) ; le produit, lui, est sauvegardé immédiatement ici
+  // (onProductChange, pas de debounce) — mais la confirmation reste
+  // nécessaire dans tous les cas, l'opération étant un remplacement
+  // complet plutôt qu'un ajout (contrairement à la fusion additive des
+  // ébauches générées par LLM).
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = '' // permet de resélectionner le même fichier après un échec
     if (!file) return
+    const specWarning = product
+      ? ` et les spécifications/tests du produit « ${product.name} »${linkedMissionNames.length > 0 ? ' (partagé avec ' + linkedMissionNames.join(', ') + ')' : ''}`
+      : ''
     if (
       !window.confirm(
-        "Importer ce fichier Excel va remplacer les personas, phases, activités, interactions, spécifications, tests et liens KPI du projet ouvert (sauvegardé automatiquement juste après). Continuer ?",
+        `Importer ce fichier Excel va remplacer les personas, phases, activités, interactions et liens KPI du projet ouvert${specWarning} (sauvegardé automatiquement juste après). Continuer ?`,
       )
     ) {
       return
@@ -67,7 +84,11 @@ export function ExportImportMenu({ project, product, linkedMissionNames, onChang
     setImporting(true)
     setImportError(null)
     try {
-      onChange(await importProjectFromExcel(file, project, product))
+      const result = await importProjectFromExcel(file, project, product)
+      onChange(result.project)
+      if (product) {
+        onProductChange({ ...product, specifications: result.specifications, testScenarios: result.testScenarios })
+      }
     } catch (err) {
       setImportError(String(err))
     } finally {

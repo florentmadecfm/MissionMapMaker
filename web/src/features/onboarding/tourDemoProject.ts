@@ -50,6 +50,35 @@ export const TOUR_DEMO_PRODUCT: Product = {
       parentId: TOUR_KPI_ROOT_ID,
     },
   ],
+  // Spécifications/tests du produit (déplacés depuis Project.target lors
+  // du passage des spécifications/tests au niveau du produit, voir
+  // api/types.ts) — même contenu que la SSS/le test visés par les étapes
+  // "Spécifications, tracées à vos activités"/"Scénarios de test (V&V)"
+  // de la visite guidée (tourSteps.ts), reliés à l'activité "Commander
+  // depuis la table (QR code)" de la CIBLE ci-dessous (seule variante qui
+  // participe désormais à la traçabilité).
+  specifications: [
+    {
+      id: SPEC_ID,
+      code: 'SYS-001',
+      type: 'SystemRequirement',
+      text: 'Le client doit pouvoir commander directement depuis la table via un QR code, sans attendre le serveur.',
+      rationale: "Supprime le temps d'attente pour passer commande.",
+      status: 'approved',
+      priority: 'Must',
+    },
+  ],
+  testScenarios: [
+    {
+      id: 'tour-test-1',
+      code: 'TS-001',
+      title: 'Commande en ligne depuis la table',
+      specificationId: SPEC_ID,
+      preconditions: 'Le client est installé et scanne le QR code',
+      steps: [{ action: 'Le client valide sa commande sur son téléphone', expectedResult: 'Le cuisinier reçoit le bon de commande instantanément' }],
+      status: 'approved',
+    },
+  ],
 }
 
 export const TOUR_DEMO_PROJECT: Project = {
@@ -170,28 +199,6 @@ export const TOUR_DEMO_PROJECT: Project = {
     { id: 'tour-int-1', fromActivityId: 'tour-act-commander', toActivityId: 'tour-act-preparer', information: 'Commande transmise' },
     { id: 'tour-int-2', fromActivityId: 'tour-act-preparer', toActivityId: 'tour-act-servir', information: 'Plat prêt' },
   ],
-  specifications: [
-    {
-      id: SPEC_ID,
-      code: 'SYS-001',
-      type: 'SystemRequirement',
-      text: 'Le système doit permettre de transmettre la commande en cuisine en moins de 30 secondes.',
-      rationale: "Réduit le temps d'attente perçu par le client entre la commande et le service.",
-      status: 'approved',
-      priority: 'Must',
-    },
-  ],
-  testScenarios: [
-    {
-      id: 'tour-test-1',
-      code: 'TS-001',
-      title: 'Transmission rapide de la commande en cuisine',
-      specificationId: SPEC_ID,
-      preconditions: 'Le serveur a pris la commande du client',
-      steps: [{ action: 'Le serveur valide la commande', expectedResult: 'Le cuisinier reçoit le bon de commande instantanément' }],
-      status: 'approved',
-    },
-  ],
   target: {
     label: 'Cible',
     actors: [
@@ -303,28 +310,6 @@ export const TOUR_DEMO_PROJECT: Project = {
     interactions: [
       { id: 'tour-int-1', fromActivityId: 'tour-act-commander', toActivityId: 'tour-act-preparer', information: 'Commande transmise automatiquement' },
       { id: 'tour-int-2', fromActivityId: 'tour-act-preparer', toActivityId: 'tour-act-servir', information: 'Plat prêt' },
-    ],
-    specifications: [
-      {
-        id: SPEC_ID,
-        code: 'SYS-001',
-        type: 'SystemRequirement',
-        text: 'Le client doit pouvoir commander directement depuis la table via un QR code, sans attendre le serveur.',
-        rationale: "Supprime le temps d'attente pour passer commande.",
-        status: 'approved',
-        priority: 'Must',
-      },
-    ],
-    testScenarios: [
-      {
-        id: 'tour-test-1',
-        code: 'TS-001',
-        title: 'Commande en ligne depuis la table',
-        specificationId: SPEC_ID,
-        preconditions: 'Le client est installé et scanne le QR code',
-        steps: [{ action: 'Le client valide sa commande sur son téléphone', expectedResult: 'Le cuisinier reçoit le bon de commande instantanément' }],
-        status: 'approved',
-      },
     ],
   },
 }

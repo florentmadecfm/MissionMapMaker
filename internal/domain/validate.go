@@ -9,14 +9,13 @@ var ErrInvalidProject = errors.New("invalid project")
 
 // Validate checks referential integrity between a project's collections
 // (an activity must reference an existing actor/phase, an interaction must
-// reference existing activities, a trace link must reference an existing
-// specification). It does not mutate the project.
+// reference existing activities). It does not mutate the project.
 func (p *Project) Validate() error {
 	if p.Name == "" {
 		return fmt.Errorf("%w: name is required", ErrInvalidProject)
 	}
 
-	if err := validateCollections(p.Actors, p.Phases, p.Activities, p.Interactions, p.Specifications, p.TestScenarios); err != nil {
+	if err := validateCollections(p.Actors, p.Phases, p.Activities, p.Interactions); err != nil {
 		return err
 	}
 
@@ -24,7 +23,7 @@ func (p *Project) Validate() error {
 	// propres collections doivent être référentiellement cohérentes entre
 	// elles, indépendamment de celles de l'état actuel ci-dessus.
 	if p.Target != nil {
-		if err := validateCollections(p.Target.Actors, p.Target.Phases, p.Target.Activities, p.Target.Interactions, p.Target.Specifications, p.Target.TestScenarios); err != nil {
+		if err := validateCollections(p.Target.Actors, p.Target.Phases, p.Target.Activities, p.Target.Interactions); err != nil {
 			return fmt.Errorf("target: %w", err)
 		}
 	}
@@ -33,15 +32,15 @@ func (p *Project) Validate() error {
 }
 
 // validateCollections applique les mêmes règles d'intégrité référentielle
-// qu'un Project (activité -> acteur/phase, interaction -> activités, lien
-// de traçabilité -> spécification, parent de spécification, scénario de
-// test -> spécification) à n'importe quel jeu de 6 collections — partagé
-// entre l'état actuel d'un Project et sa cible (ProjectVariant), qui ont
-// exactement la même forme.
-func validateCollections(
-	actors []Actor, phases []Phase, activities []Activity,
-	interactions []Interaction, specifications []Specification, testScenarios []TestScenario,
-) error {
+// qu'un Project (activité -> acteur/phase, interaction -> activités) à
+// n'importe quel jeu de 4 collections — partagé entre l'état actuel d'un
+// Project et sa cible (ProjectVariant), qui ont exactement la même forme.
+// Activity.TraceLinks n'est PLUS validé ici (référence un Product.
+// Specification, structurellement inatteignable depuis ce package — même
+// raisonnement que KpiLinks, voir le commentaire sur TraceLinks dans
+// project.go) ; la cohérence des spécifications/tests eux-mêmes est
+// désormais vérifiée par Product.Validate() (product.go).
+func validateCollections(actors []Actor, phases []Phase, activities []Activity, interactions []Interaction) error {
 	actorIDs := make(map[string]bool, len(actors))
 	for _, a := range actors {
 		actorIDs[a.ID] = true
@@ -54,10 +53,6 @@ func validateCollections(
 	for _, act := range activities {
 		activityIDs[act.ID] = true
 	}
-	specIDs := make(map[string]bool, len(specifications))
-	for _, s := range specifications {
-		specIDs[s.ID] = true
-	}
 
 	for _, act := range activities {
 		if !actorIDs[act.ActorID] {
@@ -65,11 +60,6 @@ func validateCollections(
 		}
 		if !phaseIDs[act.PhaseID] {
 			return fmt.Errorf("%w: activity %q references unknown phase %q", ErrInvalidProject, act.ID, act.PhaseID)
-		}
-		for _, specID := range act.TraceLinks {
-			if !specIDs[specID] {
-				return fmt.Errorf("%w: activity %q references unknown specification %q", ErrInvalidProject, act.ID, specID)
-			}
 		}
 	}
 
@@ -79,18 +69,6 @@ func validateCollections(
 		}
 		if !activityIDs[in.ToActivityID] {
 			return fmt.Errorf("%w: interaction %q references unknown activity %q", ErrInvalidProject, in.ID, in.ToActivityID)
-		}
-	}
-
-	for _, s := range specifications {
-		if s.ParentID != "" && !specIDs[s.ParentID] {
-			return fmt.Errorf("%w: specification %q references unknown parent %q", ErrInvalidProject, s.ID, s.ParentID)
-		}
-	}
-
-	for _, ts := range testScenarios {
-		if !specIDs[ts.SpecificationID] {
-			return fmt.Errorf("%w: test scenario %q references unknown specification %q", ErrInvalidProject, ts.ID, ts.SpecificationID)
 		}
 	}
 

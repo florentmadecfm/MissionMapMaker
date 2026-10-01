@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
 import { classifyGenerationError } from '../../api/generationErrors'
-import type { Project, TestScenario, TestStep } from '../../api/types'
+import type { Specification, TestScenario, TestStep } from '../../api/types'
 import { ListFilterInput } from '../../components/ListFilterInput'
 import { Spinner } from '../../components/Spinner'
 import { mergeTestScenarioDrafts } from './mergeTestScenarioDrafts'
@@ -32,18 +32,24 @@ function suggestionsFor<T>(items: T[], fields: (item: T) => string[]): string[] 
 }
 
 interface Props {
-  project: Project
-  onChange: (project: Project) => void
+  specifications: Specification[]
+  testScenarios: TestScenario[]
+  onTestScenariosChange: (next: TestScenario[]) => void
 }
 
-// Sous-onglet "Tests V&V" de l'onglet Spécifications : scénarios de test
-// de vérification/validation, au format V&V générique inspiré de
-// Polarion (titre, préconditions, étapes numérotées action / résultat
-// attendu), chacun lié à la spécification (typiquement une SSS) qu'il
-// vérifie. Un scénario peut être proposé par le LLM (à la génération des
-// SSS, voir SpecificationsPanel.handleGenerateSss, ou ici à la demande
-// pour des SSS existantes) ou saisi à la main.
-export function TestScenariosPanel({ project, onChange }: Props) {
+// Sous-onglet "Tests V&V" de ProductSpecVVPanel.tsx : scénarios de test de
+// vérification/validation, au format V&V générique inspiré de Polarion
+// (titre, préconditions, étapes numérotées action / résultat attendu),
+// chacun lié à la spécification (typiquement une SSS) qu'il vérifie. Un
+// scénario peut être proposé par le LLM (à la génération des SSS, voir
+// ProductSpecVVPanel.handleGenerateSss, ou ici à la demande pour des SSS
+// existantes) ou saisi à la main. Déplacé depuis features/specifications
+// (où il opérait sur un Project de mission) : les spécifications/tests
+// vivent désormais au niveau du produit, jamais d'une mission précise —
+// ce composant ne modifie donc plus que `testScenarios`, jamais
+// `specifications` (en lecture seule ici, pour le libellé/la sélection de
+// la spécification liée).
+export function TestScenariosPanel({ specifications, testScenarios, onTestScenariosChange }: Props) {
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
@@ -51,17 +57,17 @@ export function TestScenariosPanel({ project, onChange }: Props) {
   const [generateInfo, setGenerateInfo] = useState<string | null>(null)
   const [testFilter, setTestFilter] = useState('')
 
-  const sssSpecs = project.specifications.filter((s) => s.type === 'StakeholderNeed')
-  const specsWithoutTest = sssSpecs.filter((s) => !project.testScenarios.some((t) => t.specificationId === s.id))
-  const filteredScenarios = filterByQuery(project.testScenarios, testFilter, (t) => {
-    const linkedSpec = project.specifications.find((s) => s.id === t.specificationId)
+  const sssSpecs = specifications.filter((s) => s.type === 'StakeholderNeed')
+  const specsWithoutTest = sssSpecs.filter((s) => !testScenarios.some((t) => t.specificationId === s.id))
+  const filteredScenarios = filterByQuery(testScenarios, testFilter, (t) => {
+    const linkedSpec = specifications.find((s) => s.id === t.specificationId)
     return [t.code, t.title, linkedSpec?.code ?? '', linkedSpec?.text ?? '']
   })
   // Suggestions plus courtes que le filtre (code/titre/code de spec liée,
   // jamais le texte complet de l'exigence liée) — voir la même remarque
-  // dans SpecificationsPanel.tsx.
-  const testSuggestions = suggestionsFor(project.testScenarios, (t) => {
-    const linkedSpec = project.specifications.find((s) => s.id === t.specificationId)
+  // dans ProductSpecVVPanel.tsx.
+  const testSuggestions = suggestionsFor(testScenarios, (t) => {
+    const linkedSpec = specifications.find((s) => s.id === t.specificationId)
     return [t.code, t.title, linkedSpec?.code ?? '']
   })
 
@@ -75,8 +81,8 @@ export function TestScenariosPanel({ project, onChange }: Props) {
     try {
       const specRefs = specsWithoutTest.map((s) => ({ code: s.code, text: s.text }))
       const drafts = await api.generateTestScenarios(specRefs)
-      const result = mergeTestScenarioDrafts(project, drafts)
-      onChange(result.project)
+      const result = mergeTestScenarioDrafts(specifications, testScenarios, drafts)
+      onTestScenariosChange(result.testScenarios)
       const parts = [`${result.addedCount} scénario${result.addedCount > 1 ? 's' : ''} de test proposé${result.addedCount > 1 ? 's' : ''}`]
       if (result.unmatchedSpecifications.length > 0) {
         parts.push(`${result.unmatchedSpecifications.length} spécification(s) non reconnue(s) : ${result.unmatchedSpecifications.join(', ')}`)
@@ -102,41 +108,38 @@ export function TestScenariosPanel({ project, onChange }: Props) {
     if (sssSpecs.length === 0) return
     const scenario: TestScenario = {
       id: newId('test'),
-      code: `TC-${String(project.testScenarios.length + 1).padStart(3, '0')}`,
+      code: `TC-${String(testScenarios.length + 1).padStart(3, '0')}`,
       title: 'Nouveau scénario de test',
       specificationId: sssSpecs[0].id,
       steps: [{ action: '', expectedResult: '' }],
       status: 'draft',
     }
-    onChange({ ...project, testScenarios: [...project.testScenarios, scenario] })
+    onTestScenariosChange([...testScenarios, scenario])
   }
 
   function updateScenario(id: string, patch: Partial<TestScenario>) {
-    onChange({
-      ...project,
-      testScenarios: project.testScenarios.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    })
+    onTestScenariosChange(testScenarios.map((t) => (t.id === id ? { ...t, ...patch } : t)))
   }
 
   function removeScenario(id: string) {
-    onChange({ ...project, testScenarios: project.testScenarios.filter((t) => t.id !== id) })
+    onTestScenariosChange(testScenarios.filter((t) => t.id !== id))
   }
 
   function updateStep(scenarioId: string, stepIndex: number, patch: Partial<TestStep>) {
-    const scenario = project.testScenarios.find((t) => t.id === scenarioId)
+    const scenario = testScenarios.find((t) => t.id === scenarioId)
     if (!scenario) return
     const steps = scenario.steps.map((s, i) => (i === stepIndex ? { ...s, ...patch } : s))
     updateScenario(scenarioId, { steps })
   }
 
   function addStep(scenarioId: string) {
-    const scenario = project.testScenarios.find((t) => t.id === scenarioId)
+    const scenario = testScenarios.find((t) => t.id === scenarioId)
     if (!scenario) return
     updateScenario(scenarioId, { steps: [...scenario.steps, { action: '', expectedResult: '' }] })
   }
 
   function removeStep(scenarioId: string, stepIndex: number) {
-    const scenario = project.testScenarios.find((t) => t.id === scenarioId)
+    const scenario = testScenarios.find((t) => t.id === scenarioId)
     if (!scenario) return
     updateScenario(scenarioId, { steps: scenario.steps.filter((_, i) => i !== stepIndex) })
   }
@@ -178,7 +181,7 @@ export function TestScenariosPanel({ project, onChange }: Props) {
       {generateError && <p className="error">{generateError}</p>}
       {generateInfo && <p className="generate-info">{generateInfo}</p>}
 
-      {project.testScenarios.length > FILTER_THRESHOLD && (
+      {testScenarios.length > FILTER_THRESHOLD && (
         <ListFilterInput
           value={testFilter}
           onChange={setTestFilter}
@@ -191,7 +194,7 @@ export function TestScenariosPanel({ project, onChange }: Props) {
           <li className="empty">Aucun scénario ne correspond à « {testFilter} ».</li>
         )}
         {filteredScenarios.map((scenario) => {
-          const linkedSpec = project.specifications.find((s) => s.id === scenario.specificationId)
+          const linkedSpec = specifications.find((s) => s.id === scenario.specificationId)
           return (
             <li key={scenario.id} className="spec-card">
               <div className="spec-card-meta">
@@ -210,7 +213,7 @@ export function TestScenariosPanel({ project, onChange }: Props) {
                   value={scenario.specificationId}
                   onChange={(e) => updateScenario(scenario.id, { specificationId: e.target.value })}
                 >
-                  {project.specifications.map((s) => (
+                  {specifications.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.code}
                     </option>
@@ -279,7 +282,7 @@ export function TestScenariosPanel({ project, onChange }: Props) {
             </li>
           )
         })}
-        {project.testScenarios.length === 0 && <li className="empty">Aucun scénario de test pour l'instant.</li>}
+        {testScenarios.length === 0 && <li className="empty">Aucun scénario de test pour l'instant.</li>}
       </ul>
       <button type="button" onClick={addScenario} disabled={sssSpecs.length === 0}>
         + Ajouter un scénario de test

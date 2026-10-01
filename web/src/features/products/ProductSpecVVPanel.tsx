@@ -1,0 +1,464 @@
+import { useEffect, useState } from 'react'
+import { api } from '../../api/client'
+import { classifyGenerationError } from '../../api/generationErrors'
+import type { Product, ProjectSummary, Project, Specification, SpecificationType } from '../../api/types'
+import { ListFilterInput } from '../../components/ListFilterInput'
+import { Spinner } from '../../components/Spinner'
+import type { ActivityRow } from './mergeSpecDraftsAcrossMissions'
+import { mergeSpecDraftsAcrossMissions } from './mergeSpecDraftsAcrossMissions'
+import { mergeTestScenarioDrafts } from './mergeTestScenarioDrafts'
+import { TestScenariosPanel } from './TestScenariosPanel'
+import { TraceabilityMatrix } from './TraceabilityMatrix'
+
+function newId(prefix: string) {
+  return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
+}
+
+// Voir la même constante dans ProjectEditor.tsx : n'affiche le champ de
+// recherche qu'au-delà de ce nombre de spécifications.
+const FILTER_THRESHOLD = 8
+
+function filterByQuery<T>(items: T[], query: string, fields: (item: T) => string[]): T[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return items
+  return items.filter((item) => fields(item).some((f) => f.toLowerCase().includes(q)))
+}
+
+function suggestionsFor<T>(items: T[], fields: (item: T) => string[]): string[] {
+  const values = new Set<string>()
+  for (const item of items) {
+    for (const f of fields(item)) {
+      const trimmed = f.trim()
+      if (trimmed) values.add(trimmed)
+    }
+  }
+  return [...values].sort((a, b) => a.localeCompare(b))
+}
+
+const SPEC_TYPES: { value: SpecificationType; label: string }[] = [
+  { value: 'StakeholderNeed', label: 'Besoin partie prenante (SSS)' },
+  { value: 'SystemRequirement', label: 'Exigence système' },
+  { value: 'SubsystemRequirement', label: 'Exigence sous-système' },
+  { value: 'VerificationCriterion', label: 'Critère de vérification' },
+]
+
+export type SubTab = 'specifications' | 'tests' | 'matrix'
+
+interface Props {
+  product: Product
+  // Marque le brouillon du produit "sale" avant de l'appliquer — mêmes
+  // garanties que setDraftDirty dans ProductsScreen.tsx (qui fournit cette
+  // fonction), autosave débouncée gérée là-bas.
+  onChange: (product: Product) => void
+  // Missions déjà filtrées sur CE produit (ProductsScreen.tsx) — la
+  // traçabilité/génération de ce panneau porte sur leur variante CIBLE
+  // (ADR : décision utilisateur lors du déplacement des specs/tests vers
+  // le produit, seule la Cible participe désormais à la traçabilité).
+  linkedMissions: ProjectSummary[]
+  // Rafraîchit la liste de missions du shell après une sauvegarde directe
+  // d'une mission depuis ce panneau (toggle de la matrice, génération,
+  // suppression d'une spécification) — même rôle que onMissionsChanged
+  // dans ProductsScreen.tsx (ex. after handleLinkMission).
+  onMissionsChanged: () => void
+  // Sous-onglet imposé par la visite guidée (WelcomeTour.tsx) — undefined
+  // en usage normal, où subTab reste piloté uniquement par les clics
+  // ci-dessous. Même patron que l'ancien SpecificationsPanel.tsx.
+  forcedSubTab?: SubTab
+}
+
+// Onglet "Spécification et VV" de ProductsScreen.tsx — déplacé depuis
+// l'ancien onglet mission "Spécifications" (SpecificationsPanel.tsx,
+// features/specifications) lors du passage des spécifications/tests au
+// niveau du PRODUIT : une exigence qualifie le produit, pas une mission,
+// et doit pouvoir tracer des activités réparties sur plusieurs missions
+// rattachées au même produit. Charge le Project complet de chaque mission
+// liée (pour leur variante CIBLE uniquement, voir activityRows ci-dessous)
+// — même patron que KpiMissionImpact.tsx (ProductsScreen.tsx, vue
+// 'impact'), mais en état local indépendant : ce panneau sauvegarde
+// directement une mission dès qu'une de ses activités change (toggle de
+// la matrice, génération), jamais via l'autosave de ProductsScreen (qui ne
+// porte que sur le produit).
+export function ProductSpecVVPanel({ product, onChange, linkedMissions, onMissionsChanged, forcedSubTab }: Props) {
+  const [subTab, setSubTab] = useState<SubTab>('specifications')
+  useEffect(() => {
+    if (forcedSubTab) setSubTab(forcedSubTab)
+  }, [forcedSubTab])
+
+  const [missionProjects, setMissionProjects] = useState<Project[]>([])
+  const [loadingMissions, setLoadingMissions] = useState(false)
+  const [missionsError, setMissionsError] = useState<string | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
+
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const [generateNotConfigured, setGenerateNotConfigured] = useState(false)
+  const [generateRateLimited, setGenerateRateLimited] = useState(false)
+  const [generateInfo, setGenerateInfo] = useState<string | null>(null)
+  const [specFilter, setSpecFilter] = useState('')
+
+  // Clé stable (liste d'ids triée) plutôt que `linkedMissions` lui-même
+  // (un nouveau tableau à chaque rendu de ProductsScreen, qui le recalcule
+  // par filter()) : sans elle, cet effet se redéclencherait à CHAQUE
+  // rendu du parent, pas seulement quand l'ensemble de missions liées
+  // change réellement.
+  const linkedMissionIds = [...linkedMissions.map((m) => m.id)].sort().join(',')
+
+  useEffect(() => {
+    const ids = linkedMissions.map((m) => m.id)
+    if (ids.length === 0) {
+      setMissionProjects([])
+      return
+    }
+    setLoadingMissions(true)
+    setMissionsError(null)
+    Promise.all(ids.map((id) => api.getProject(id)))
+      .then(setMissionProjects)
+      .catch((e) => setMissionsError(String(e)))
+      .finally(() => setLoadingMissions(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedMissionIds])
+
+  // Activités CIBLE de toutes les missions liées, aplaties en une seule
+  // liste avec de quoi retrouver leur mission/acteur d'origine — une
+  // mission sans cible (target absent, jamais créée) ne contribue aucune
+  // ligne : seule la Cible participe à la traçabilité d'un produit.
+  const activityRows: ActivityRow[] = missionProjects.flatMap((mp) => {
+    if (!mp.target) return []
+    return mp.target.activities.map((activity) => ({
+      missionId: mp.id,
+      missionName: mp.name,
+      actorName: mp.target!.actors.find((a) => a.id === activity.actorId)?.name ?? '',
+      activity,
+    }))
+  })
+  const unspecifiedCount = activityRows.filter((r) => r.activity.traceLinks.length === 0).length
+
+  async function saveMissionProject(updated: Project) {
+    const saved = await api.saveProject(updated)
+    setMissionProjects((prev) => prev.map((p) => (p.id === saved.id ? saved : p)))
+    onMissionsChanged()
+    return saved
+  }
+
+  const specTypeLabel = (type: SpecificationType) => SPEC_TYPES.find((t) => t.value === type)?.label ?? type
+  const filteredSpecs = filterByQuery(product.specifications, specFilter, (s) => [
+    s.code,
+    s.text,
+    specTypeLabel(s.type),
+    s.status,
+  ])
+  const specSuggestions = suggestionsFor(product.specifications, (s) => [s.code, specTypeLabel(s.type)])
+
+  async function handleGenerateSss() {
+    if (unspecifiedCount === 0) return
+    setGenerating(true)
+    setGenerateError(null)
+    setGenerateNotConfigured(false)
+    setGenerateRateLimited(false)
+    setGenerateInfo(null)
+    setMutationError(null)
+    try {
+      // On ne redemande une proposition IA que pour les activités qui n'ont
+      // pas déjà de spécification liée, PARMI TOUTES LES MISSIONS liées au
+      // produit (pas une seule mission, voir le signalement "générer des
+      // spec et tests doit prendre en compte l'ensemble des missions liées
+      // au produit").
+      const unspecifiedRows = activityRows.filter((r) => r.activity.traceLinks.length === 0)
+      const activityRefs = unspecifiedRows.map((r) => ({ name: r.activity.name, actorName: r.actorName }))
+      const drafts = await api.generateSpecifications(activityRefs)
+      const result = mergeSpecDraftsAcrossMissions(product.specifications, activityRows, drafts)
+      const parts = [`${result.addedCount} SSS proposée${result.addedCount > 1 ? 's' : ''}`]
+      if (result.unmatchedActivities.length > 0) {
+        parts.push(`${result.unmatchedActivities.length} activité(s) non reconnue(s) : ${result.unmatchedActivities.join(', ')}`)
+      }
+
+      // Persiste chaque mission dont au moins une activité a reçu un
+      // nouveau lien — comparaison de longueur suffisante : traceLinks
+      // n'est jamais que complété ici, jamais retiré.
+      const changedMissionIds = new Set<string>()
+      result.activityRows.forEach((row, i) => {
+        if (row.activity.traceLinks.length !== activityRows[i].activity.traceLinks.length) changedMissionIds.add(row.missionId)
+      })
+      for (const missionId of changedMissionIds) {
+        const mp = missionProjects.find((p) => p.id === missionId)
+        if (!mp?.target) continue
+        const updatedActivities = mp.target.activities.map((a) => {
+          const updatedRow = result.activityRows.find((r) => r.missionId === missionId && r.activity.id === a.id)
+          return updatedRow ? updatedRow.activity : a
+        })
+        await saveMissionProject({ ...mp, target: { ...mp.target, activities: updatedActivities } })
+      }
+
+      // Génère aussi, dans la foulée, les scénarios de test V&V des SSS
+      // qui viennent d'être proposées — inutile d'attendre un second clic
+      // dans le sous-onglet "Tests V&V" (même enchaînement que l'ancien
+      // SpecificationsPanel.handleGenerateSss, mission-local).
+      const newlyAddedSpecs = result.specifications.slice(product.specifications.length)
+      let nextTestScenarios = product.testScenarios
+      if (newlyAddedSpecs.length > 0) {
+        try {
+          const specRefs = newlyAddedSpecs.map((s) => ({ code: s.code, text: s.text }))
+          const testDrafts = await api.generateTestScenarios(specRefs)
+          const testResult = mergeTestScenarioDrafts(result.specifications, product.testScenarios, testDrafts)
+          nextTestScenarios = testResult.testScenarios
+          parts.push(`${testResult.addedCount} scénario${testResult.addedCount > 1 ? 's' : ''} de test proposé${testResult.addedCount > 1 ? 's' : ''}`)
+        } catch (testErr) {
+          parts.push(`scénarios de test non générés (${String(testErr)})`)
+        }
+      }
+
+      onChange({ ...product, specifications: result.specifications, testScenarios: nextTestScenarios })
+      setGenerateInfo(parts.join(' — '))
+    } catch (e) {
+      switch (classifyGenerationError(e)) {
+        case 'not-configured':
+          setGenerateNotConfigured(true)
+          break
+        case 'rate-limited':
+          setGenerateRateLimited(true)
+          break
+        default:
+          setGenerateError(String(e))
+      }
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  function addSpec() {
+    const spec: Specification = {
+      id: newId('spec'),
+      code: `SPEC-${String(product.specifications.length + 1).padStart(3, '0')}`,
+      type: 'StakeholderNeed',
+      text: '',
+      status: 'draft',
+      priority: 'must',
+    }
+    onChange({ ...product, specifications: [...product.specifications, spec] })
+  }
+
+  function updateSpec(id: string, patch: Partial<Specification>) {
+    onChange({ ...product, specifications: product.specifications.map((s) => (s.id === id ? { ...s, ...patch } : s)) })
+  }
+
+  // Retire la spécification du produit ET nettoie les liens de
+  // traçabilité pendants dans CHAQUE mission liée (sa variante Cible) —
+  // contrairement à l'ancien SpecificationsPanel.tsx (une seule mission,
+  // un seul objet à mettre à jour dans le même onChange), ce nettoyage
+  // touche potentiellement plusieurs missions : sauvegardes directes,
+  // best-effort (une mission en échec n'empêche pas le retrait côté
+  // produit, déjà fait, ni le nettoyage des autres).
+  function removeSpec(id: string) {
+    onChange({
+      ...product,
+      specifications: product.specifications.filter((s) => s.id !== id),
+      testScenarios: product.testScenarios.filter((t) => t.specificationId !== id),
+    })
+    setMutationError(null)
+    for (const mp of missionProjects) {
+      if (!mp.target || !mp.target.activities.some((a) => a.traceLinks.includes(id))) continue
+      const updatedActivities = mp.target.activities.map((a) =>
+        a.traceLinks.includes(id) ? { ...a, traceLinks: a.traceLinks.filter((specId) => specId !== id) } : a,
+      )
+      saveMissionProject({ ...mp, target: { ...mp.target, activities: updatedActivities } }).catch((e) =>
+        setMutationError(String(e)),
+      )
+    }
+  }
+
+  // Mise à jour OPTIMISTE de missionProjects avant même l'envoi (plutôt que
+  // d'attendre la réponse de saveMissionProject, voir son commentaire) :
+  // la case cochée/décochée est une action ponctuelle d'un clic, pas une
+  // frappe continue — sans cet affichage immédiat, la case reviendrait
+  // visuellement en arrière le temps de l'aller-retour réseau (sauvegarde
+  // directe de CETTE mission, hors de l'autosave débouncée du produit)
+  // avant de se recocher d'elle-même une fois la réponse arrivée, un
+  // comportement déroutant pour un simple clic. Repli explicite sur l'état
+  // précédent si la sauvegarde échoue (mutationError déjà affiché).
+  function handleToggleTraceLink(missionId: string, activityId: string, specId: string) {
+    const mp = missionProjects.find((p) => p.id === missionId)
+    if (!mp?.target) return
+    setMutationError(null)
+    const updatedActivities = mp.target.activities.map((a) => {
+      if (a.id !== activityId) return a
+      const linked = a.traceLinks.includes(specId)
+      return { ...a, traceLinks: linked ? a.traceLinks.filter((id) => id !== specId) : [...a.traceLinks, specId] }
+    })
+    const optimistic: Project = { ...mp, target: { ...mp.target, activities: updatedActivities } }
+    setMissionProjects((prev) => prev.map((p) => (p.id === missionId ? optimistic : p)))
+    api
+      .saveProject(optimistic)
+      .then((saved) => {
+        setMissionProjects((prev) => prev.map((p) => (p.id === saved.id ? saved : p)))
+        onMissionsChanged()
+      })
+      .catch((e) => {
+        setMutationError(String(e))
+        setMissionProjects((prev) => prev.map((p) => (p.id === missionId ? mp : p)))
+      })
+  }
+
+  return (
+    <div className="editor">
+      {linkedMissions.length === 0 && (
+        <p className="placeholder">
+          Aucune mission rattachée à ce produit pour l'instant — rattachez-en au moins une (section « Missions
+          rattachées », onglet Stratégie) pour générer des spécifications ou utiliser la matrice de traçabilité.
+        </p>
+      )}
+      {missionsError && <p className="error">{missionsError}</p>}
+      {mutationError && <p className="error">{mutationError}</p>}
+
+      <nav className="tabs subtabs">
+        <button type="button" className={subTab === 'specifications' ? 'active' : ''} onClick={() => setSubTab('specifications')}>
+          Spécifications
+        </button>
+        <button type="button" className={subTab === 'tests' ? 'active' : ''} onClick={() => setSubTab('tests')}>
+          Tests V&V{product.testScenarios.length > 0 ? ` (${product.testScenarios.length})` : ''}
+        </button>
+        <button type="button" className={subTab === 'matrix' ? 'active' : ''} onClick={() => setSubTab('matrix')}>
+          Matrice de traçabilité
+          {product.specifications.length > 0
+            ? ` (${product.specifications.filter((s) => product.testScenarios.some((t) => t.specificationId === s.id)).length}/${product.specifications.length} couvertes)`
+            : ''}
+        </button>
+      </nav>
+
+      {subTab === 'specifications' && (
+        <section>
+          <div className="nl-actions">
+            <button
+              type="button"
+              className={`btn-primary${generating ? ' btn-loading' : ''}`}
+              onClick={handleGenerateSss}
+              disabled={generating || unspecifiedCount === 0 || loadingMissions}
+            >
+              {generating ? (
+                <>
+                  <Spinner /> Génération…
+                </>
+              ) : (
+                `Proposer les SSS pour les activités sans spécification (IA)${unspecifiedCount > 0 ? ` (${unspecifiedCount})` : ''}`
+              )}
+            </button>
+          </div>
+          {generateNotConfigured && (
+            <div className="nl-warning">
+              Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas
+              de la barre latérale pour en saisir une, ou ajoutez les spécifications manuellement ci-dessous.
+            </div>
+          )}
+          {generateRateLimited && (
+            <div className="nl-warning">
+              Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants,
+              ou changez de fournisseur depuis <strong>Paramètres</strong> si cela persiste.
+            </div>
+          )}
+          {!generateNotConfigured && !generateInfo && unspecifiedCount === 0 && activityRows.length > 0 && (
+            <p className="generate-info">Toutes les activités (Cible) des missions liées ont déjà une spécification liée.</p>
+          )}
+          {generateError && <p className="error">{generateError}</p>}
+          {generateInfo && <p className="generate-info">{generateInfo}</p>}
+
+          {product.specifications.length > FILTER_THRESHOLD && (
+            <ListFilterInput
+              value={specFilter}
+              onChange={setSpecFilter}
+              placeholder="Rechercher une spécification…"
+              suggestions={specSuggestions}
+            />
+          )}
+          <ul className="spec-list">
+            {filteredSpecs.length === 0 && specFilter.trim() && (
+              <li className="empty">Aucune spécification ne correspond à « {specFilter} ».</li>
+            )}
+            {filteredSpecs.map((spec) => (
+              <li key={spec.id} className="spec-card">
+                <div className="spec-card-meta">
+                  <input
+                    className="spec-code"
+                    value={spec.code}
+                    onChange={(e) => updateSpec(spec.id, { code: e.target.value })}
+                  />
+                  <select value={spec.type} onChange={(e) => updateSpec(spec.id, { type: e.target.value as SpecificationType })}>
+                    {SPEC_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select value={spec.parentId ?? ''} onChange={(e) => updateSpec(spec.id, { parentId: e.target.value || undefined })}>
+                    <option value="">— sans parent —</option>
+                    {product.specifications
+                      .filter((s) => s.id !== spec.id)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.code}
+                        </option>
+                      ))}
+                  </select>
+                  <select
+                    className="status-select"
+                    data-status={spec.status}
+                    value={spec.status}
+                    onChange={(e) => updateSpec(spec.id, { status: e.target.value as Specification['status'] })}
+                  >
+                    <option value="draft">brouillon</option>
+                    <option value="approved">approuvée</option>
+                    <option value="deprecated">obsolète</option>
+                  </select>
+                  <button type="button" className="danger" onClick={() => removeSpec(spec.id)}>
+                    supprimer
+                  </button>
+                </div>
+                <textarea
+                  className="spec-text"
+                  rows={2}
+                  placeholder="Texte de l'exigence"
+                  value={spec.text}
+                  onChange={(e) => updateSpec(spec.id, { text: e.target.value })}
+                />
+                {spec.rationale && (
+                  <textarea
+                    className="spec-rationale"
+                    rows={1}
+                    placeholder="Justification"
+                    value={spec.rationale}
+                    onChange={(e) => updateSpec(spec.id, { rationale: e.target.value })}
+                  />
+                )}
+              </li>
+            ))}
+            {product.specifications.length === 0 && <li className="empty">Aucune spécification pour l'instant.</li>}
+          </ul>
+          <button type="button" onClick={addSpec}>
+            + Ajouter une spécification
+          </button>
+        </section>
+      )}
+
+      {subTab === 'tests' && (
+        <TestScenariosPanel
+          specifications={product.specifications}
+          testScenarios={product.testScenarios}
+          onTestScenariosChange={(testScenarios) => onChange({ ...product, testScenarios })}
+        />
+      )}
+
+      {subTab === 'matrix' && (
+        <section>
+          {loadingMissions ? (
+            <p>Chargement des missions…</p>
+          ) : (
+            <TraceabilityMatrix
+              specifications={product.specifications}
+              testScenarios={product.testScenarios}
+              activityRows={activityRows}
+              onToggle={handleToggleTraceLink}
+            />
+          )}
+        </section>
+      )}
+    </div>
+  )
+}

@@ -8,38 +8,33 @@ import type { Project, ProjectVariant } from '../../api/types'
 // la même mission, jamais une entrée à part dans le panneau de gauche.
 export type ActiveVariant = 'current' | 'target'
 
-const VARIANT_COLLECTIONS = [
-  'actors',
-  'phases',
-  'activities',
-  'interactions',
-  'specifications',
-  'testScenarios',
-] as const
+const VARIANT_COLLECTIONS = ['actors', 'phases', 'activities', 'interactions'] as const
 
 type VariantCollections = Pick<Project, (typeof VARIANT_COLLECTIONS)[number]>
 
 // Projette le projet réel vers l'objet Project "de travail" que
-// consomment tous les onglets d'édition (Édition, Diagramme,
-// Spécifications, Vue par acteur, Générer) — inchangés : ils continuent à
-// lire/écrire actors/phases/.../testScenarios au premier niveau, sans
-// jamais savoir s'ils éditent l'état actuel ou la cible. Pour 'current',
-// le projet réel a déjà exactement cette forme (identité). Pour 'target',
-// les 6 collections de la cible sont recopiées au premier niveau — le
+// consomment tous les onglets d'édition (Édition, Diagramme, Vue par
+// acteur, Générer) — inchangés : ils continuent à lire/écrire
+// actors/phases/activities/interactions au premier niveau, sans jamais
+// savoir s'ils éditent l'état actuel ou la cible. Pour 'current', le
+// projet réel a déjà exactement cette forme (identité). Pour 'target',
+// les 4 collections de la cible sont recopiées au premier niveau — le
 // champ `target` original reste néanmoins présent (via le spread), pour
 // que la résolution de point de friction (qui doit toujours pouvoir
 // atteindre/créer la cible, même depuis la vue Actuel) le retrouve sans
-// prop dédiée.
+// prop dédiée. Specifications/testScenarios ne font plus partie de cette
+// projection (déplacés sur Product, voir api/types.ts) : les onglets
+// d'édition n'en ont plus jamais besoin.
 export function toWorkingProject(project: Project, active: ActiveVariant): Project {
   if (active === 'current' || !project.target) return project
   const t = project.target
-  return { ...project, actors: t.actors, phases: t.phases, activities: t.activities, interactions: t.interactions, specifications: t.specifications, testScenarios: t.testScenarios }
+  return { ...project, actors: t.actors, phases: t.phases, activities: t.activities, interactions: t.interactions }
 }
 
 // Opération inverse : reporte un projet "de travail" modifié par un onglet
 // (onChange) dans le vrai projet — en 'current', le projet de travail a
 // déjà la bonne forme (y compris un `target` à jour, voir toWorkingProject
-// ci-dessus) et peut être renvoyé tel quel. En 'target', ses 6 collections
+// ci-dessus) et peut être renvoyé tel quel. En 'target', ses 4 collections
 // de premier niveau sont réinjectées dans `target` (label conservé),
 // sans toucher à l'état actuel du vrai projet.
 export function fromWorkingProject(original: Project, working: Project, active: ActiveVariant): Project {
@@ -50,8 +45,6 @@ export function fromWorkingProject(original: Project, working: Project, active: 
     phases: working.phases,
     activities: working.activities,
     interactions: working.interactions,
-    specifications: working.specifications,
-    testScenarios: working.testScenarios,
   }
   // productId est un champ de la MISSION (pas propre à une variante) : le
   // reporter depuis `working` même en vue Cible, pour ne jamais perdre
@@ -72,8 +65,6 @@ export function createTargetFromCurrent(project: Project): Project {
     phases: project.phases,
     activities: project.activities,
     interactions: project.interactions,
-    specifications: project.specifications,
-    testScenarios: project.testScenarios,
   }
   return { ...project, target: variant }
 }

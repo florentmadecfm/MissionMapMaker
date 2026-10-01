@@ -55,6 +55,13 @@ interface Props {
   // Produit/Vision/KPI). Transmis à ActivityDetailModal/PhaseDetailModal
   // (section "KPI liés") et à computeLayout (compte de KPI liés du badge).
   product?: Product
+  // Persiste le produit mis à jour — transmis à ActivityDetailModal ->
+  // PainPointSolutionsModal, qui y ajoute la SSS/le test générés pour un
+  // point de friction résolu (specs/tests du produit, voir api/types.ts).
+  // Absent quand `product` l'est aussi : pas de garde-fou nécessaire côté
+  // appel, PainPointSolutionsModal n'appelle jamais cette fonction sans
+  // produit (voir son propre garde-fou).
+  onProductChange?: (product: Product) => void
   // Le vrai projet (Actuel + Cible), pour que l'export PNG puisse
   // proposer d'exporter l'autre variante que celle affichée à l'écran —
   // `project` ci-dessus, lui, porte déjà la CIBLE remplacée par l'ACTUEL
@@ -401,7 +408,7 @@ function DownloadPngButton({
 
 // Sauvegarde automatique (ProjectShell.tsx) : cet onglet ne persiste plus
 // lui-même, il se contente de remonter chaque changement via onChange.
-export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null, diff, focusedDiff, product }: Props) {
+export function ProcessDiagram({ project, onChange, isTargetActive = false, rootProject = null, diff, focusedDiff, product, onProductChange }: Props) {
   // Ensemble des ids de KPI réellement connus du produit lié — computeLayout
   // filtre Activity/Phase.kpiLinks contre cet ensemble pour le compte du
   // badge (jamais la longueur brute, voir layout.ts) : un id qui ne
@@ -1051,6 +1058,7 @@ export function ProcessDiagram({ project, onChange, isTargetActive = false, root
           onClose={() => setSelectedActivityId(null)}
           isTargetActive={isTargetActive}
           product={product}
+          onProductChange={onProductChange}
         />
       )}
       {selectedPhaseId && (

@@ -75,11 +75,14 @@ export function ActorDetail({ project, actorId, product }: Props) {
   const noSpecCount = actorActivities.filter((act) => act.traceLinks.length === 0).length
   // Une activité "sans test" a au moins une spécification liée, mais
   // aucune d'elles n'est vérifiée par un scénario de test — distinct de
-  // noSpecCount, qui n'a même pas de spécification à tester.
+  // noSpecCount, qui n'a même pas de spécification à tester. Lu depuis le
+  // PRODUIT (plus project.testScenarios, voir api/types.ts) : vide tant
+  // qu'aucun produit n'est rattaché, cohérent avec noSpecCount qui compte
+  // alors chaque activité comme non spécifiée.
   const noTestCount = actorActivities.filter(
     (act) =>
       act.traceLinks.length > 0 &&
-      !project.testScenarios.some((t) => act.traceLinks.includes(t.specificationId)),
+      !(product?.testScenarios ?? []).some((t) => act.traceLinks.includes(t.specificationId)),
   ).length
 
   // Angle "Produit → Persona" (plan Produit/KPI/Missions) : KPI DÉDUPLIQUÉS
@@ -152,14 +155,14 @@ export function ActorDetail({ project, actorId, product }: Props) {
                 const outgoing = project.interactions.filter((i) => i.fromActivityId === act.id)
                 const isolated = incoming.length === 0 && outgoing.length === 0
                 const specs = act.traceLinks
-                  .map((id) => project.specifications.find((s) => s.id === id))
+                  .map((id) => product?.specifications.find((s) => s.id === id))
                   .filter((s): s is NonNullable<typeof s> => Boolean(s))
                 // Scénarios de test vérifiant l'une des spécifications de
                 // cette activité (une spécification peut avoir plusieurs
                 // scénarios, d'où le dédoublonnage par id).
                 const specIds = new Set(specs.map((s) => s.id))
                 const tests = [...new Map(
-                  project.testScenarios.filter((t) => specIds.has(t.specificationId)).map((t) => [t.id, t]),
+                  (product?.testScenarios ?? []).filter((t) => specIds.has(t.specificationId)).map((t) => [t.id, t]),
                 ).values()]
 
                 return (
