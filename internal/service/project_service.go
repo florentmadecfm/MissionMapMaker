@@ -164,16 +164,14 @@ func (s *ProjectService) Create(name string) (*domain.Project, error) {
 
 	now := time.Now().UTC()
 	p := &domain.Project{
-		ID:             newProjectID(name),
-		Name:           name,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-		Actors:         []domain.Actor{},
-		Phases:         []domain.Phase{},
-		Activities:     []domain.Activity{},
-		Interactions:   []domain.Interaction{},
-		Specifications: []domain.Specification{},
-		TestScenarios:  []domain.TestScenario{},
+		ID:           newProjectID(name),
+		Name:         name,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+		Actors:       []domain.Actor{},
+		Phases:       []domain.Phase{},
+		Activities:   []domain.Activity{},
+		Interactions: []domain.Interaction{},
 	}
 
 	if err := s.repo.Save(p); err != nil {

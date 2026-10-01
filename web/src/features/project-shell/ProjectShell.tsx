@@ -12,9 +12,9 @@ import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { WelcomeTour } from '../onboarding/WelcomeTour'
 import { TOUR_DEMO_PRODUCT, TOUR_DEMO_PROJECT } from '../onboarding/tourDemoProject'
 import { TOUR_STEPS } from '../onboarding/tourSteps'
+import type { ProductTab } from '../products/ProductsScreen'
 import { ProductsScreen } from '../products/ProductsScreen'
 import { SettingsModal } from '../settings/SettingsModal'
-import { SpecificationsPanel } from '../specifications/SpecificationsPanel'
 import {
   type ActiveVariant,
   createTargetFromCurrent,
@@ -90,6 +90,13 @@ export function ProjectShell() {
   // Acteur à présélectionner dans ActorView quand on y arrive depuis
   // "Ouvrir cette mission" de l'écran Acteurs (voir handleOpenFromActorMissions).
   const [initialActorId, setInitialActorId] = useState<string | undefined>(undefined)
+  // Produit/onglet à présélectionner dans ProductsScreen quand on y arrive
+  // depuis le renvoi de l'onglet "Spécifications" d'une mission (voir le
+  // rendu de cet onglet plus bas) — undefined en navigation normale
+  // (bouton "Produits" de la sidebar), où ProductsScreen garde son propre
+  // état de sélection.
+  const [initialProductId, setInitialProductId] = useState<string | undefined>(undefined)
+  const [initialProductTab, setInitialProductTab] = useState<ProductTab | undefined>(undefined)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -288,6 +295,22 @@ export function ProjectShell() {
         if (tourOpenRef.current) return
         setProductsError(String(e))
       })
+  // Persiste un produit modifié hors de l'écran Produits (ProcessDiagram.
+  // tsx -> ActivityDetailModal.tsx -> PainPointSolutionsModal.tsx, qui y
+  // ajoute la SSS/le test générés pour un point de friction résolu — voir
+  // api/types.ts, les spécifications/tests vivent désormais sur Product)
+  // et ExportImportMenu.tsx (import Excel). Pas de debounce ici,
+  // contrairement à l'autosave de ProductsScreen.tsx : un geste ponctuel,
+  // pas une frappe continue.
+  async function handleProductChange(updated: Product) {
+    try {
+      await api.saveProduct(updated)
+      refreshProducts()
+    } catch (e) {
+      setProductsError(String(e))
+    }
+  }
+
   // Après toute sauvegarde d'un projet (Édition, Diagramme,
   // Spécifications) : la liste de projets ET l'index d'acteurs peuvent
   // tous deux avoir changé (nom de projet, acteurs ajoutés/renommés...) —
@@ -727,6 +750,10 @@ export function ProjectShell() {
             missions={summaries}
             onOpenMission={handleOpen}
             onMissionsChanged={refreshList}
+            initialProductId={initialProductId}
+            initialTab={tourOpen ? TOUR_STEPS[tourStep].productTab : initialProductTab}
+            initialSpecSubTab={tourOpen ? TOUR_STEPS[tourStep].specSubTab : undefined}
+            demoMissionProjects={tourOpen ? [TOUR_DEMO_PROJECT] : undefined}
           />
         ) : view === 'compare' && project ? (
           <VariantComparisonScreen project={project} onChange={handleComparisonChange} onClose={() => setView('project')} />
@@ -764,6 +791,7 @@ export function ProjectShell() {
               <ExportImportMenu
                 project={workingProject}
                 product={currentProduct}
+                onProductChange={handleProductChange}
                 linkedMissionNames={linkedMissionNames}
                 onChange={handleWorkingChange}
                 onShowHistory={() => setHistoryOpen(true)}
@@ -828,16 +856,44 @@ export function ProjectShell() {
                   isTargetActive={activeVariant === 'target'}
                   rootProject={project}
                   product={products?.find((p) => p.id === project.productId)}
+                  onProductChange={handleProductChange}
                 />
               </DiagramErrorBoundary>
             )}
             {tab === 'specifications' && (
-              <SpecificationsPanel
-                key={project.id}
-                project={workingProject}
-                onChange={handleWorkingChange}
-                forcedSubTab={tourOpen ? TOUR_STEPS[tourStep].specSubTab : undefined}
-              />
+              <div className="editor specifications-moved-notice">
+                <header className="editor-header">
+                  <h2 className="panel-title">Spécifications</h2>
+                </header>
+                <p className="placeholder">
+                  Les spécifications, les tests V&amp;V et la matrice de traçabilité se gèrent désormais depuis la
+                  fiche du <strong>produit</strong> (onglet « Spécification et VV »), pour couvrir d'un coup toutes
+                  les missions qui lui sont rattachées.
+                </p>
+                {project.productId ? (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      setInitialProductId(project.productId)
+                      setInitialProductTab('specs')
+                      setView('products')
+                    }}
+                  >
+                    Ouvrir dans Produits
+                  </button>
+                ) : (
+                  <>
+                    <p className="nl-warning">
+                      Cette mission n'est rattachée à aucun produit — rattachez-la depuis l'écran Produits (section «
+                      Missions rattachées ») pour y gérer ses spécifications.
+                    </p>
+                    <button type="button" className="btn-primary" onClick={() => setView('products')}>
+                      Ouvrir Produits
+                    </button>
+                  </>
+                )}
+              </div>
             )}
             {tab === 'acteur' && (
               <ActorView

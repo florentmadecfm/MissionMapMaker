@@ -5,7 +5,11 @@ import type { Product, ProductKpi, Project, ProjectSummary } from '../../api/typ
 import { buildKpiTree, excludeSelfAndDescendants } from './kpiTree'
 import { KpiMissionImpact } from './KpiMissionImpact'
 import { KpiTreeDiagram } from './KpiTreeDiagram'
+import type { SubTab as SpecVVSubTab } from './ProductSpecVVPanel'
+import { ProductSpecVVPanel } from './ProductSpecVVPanel'
 import { VisionRefinementModal } from './VisionRefinementModal'
+
+export type ProductTab = 'strategie' | 'specs'
 
 interface Props {
   // Tenu à jour par ProjectShell.tsx (rafraîchi après chaque création/
@@ -22,8 +26,23 @@ interface Props {
   onOpenMission: (projectId: string) => void
   // Rafraîchit `missions` (ProjectShell.refreshList) après avoir lié une
   // mission à ce produit — distinct de onProductsChanged, qui ne
-  // recharge que les produits.
+  // recharge que les produits. Aussi transmis à ProductSpecVVPanel.tsx,
+  // qui sauvegarde directement une mission (toggle de la matrice,
+  // génération) sans passer par le reste de cet écran.
   onMissionsChanged: () => void
+  // Produit/onglet à présélectionner (visite guidée, WelcomeTour.tsx, ou
+  // renvoi depuis l'onglet Spécifications d'une mission — voir
+  // ProjectShell.tsx) — undefined en usage normal, où la sélection reste
+  // pilotée uniquement par les clics. Un effet ci-dessous les applique
+  // dès qu'ils changent.
+  initialProductId?: string
+  initialTab?: ProductTab
+  initialSpecSubTab?: SpecVVSubTab
+  // Missions à afficher directement dans ProductSpecVVPanel sans passer
+  // par l'API (visite guidée, ProjectShell.tsx) — voir le commentaire sur
+  // ce même nom de prop dans ProductSpecVVPanel.tsx. undefined en usage
+  // normal.
+  demoMissionProjects?: Project[]
 }
 
 function newId(prefix: string) {
@@ -50,9 +69,25 @@ const AUTOSAVE_DEBOUNCE_MS = 900
 // runSave ci-dessous). Le bouton "Enregistrer" reste présent pour forcer
 // un envoi immédiat sans attendre le délai, mais n'est plus la seule
 // façon de persister une modification.
-export function ProductsScreen({ products, error, onProductsChanged, missions, onOpenMission, onMissionsChanged }: Props) {
+export function ProductsScreen({
+  products,
+  error,
+  onProductsChanged,
+  missions,
+  onOpenMission,
+  onMissionsChanged,
+  initialProductId,
+  initialTab,
+  initialSpecSubTab,
+  demoMissionProjects,
+}: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Product | null>(null)
+  // Bascule Stratégie (contenu historique : vision, différenciateurs,
+  // piliers, KPI, missions rattachées) / Spécification et VV (déplacé
+  // depuis l'onglet Spécifications d'une mission, ProductSpecVVPanel.tsx)
+  // — 'strategie' par défaut, le cas d'usage le plus courant.
+  const [productTab, setProductTab] = useState<ProductTab>('strategie')
   const [newName, setNewName] = useState('')
   const [creatingOpen, setCreatingOpen] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -116,6 +151,18 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
     if (!products) return
     setSelectedId((current) => (current && products.some((p) => p.id === current) ? current : products[0]?.id ?? null))
   }, [products])
+
+  // Applique la présélection demandée par le parent (initialProductId/
+  // initialTab) — visite guidée ou renvoi depuis l'onglet Spécifications
+  // d'une mission (ProjectShell.tsx). Se redéclenche à chaque changement
+  // de l'un ou l'autre plutôt qu'au montage seul : ProjectShell peut
+  // demander une nouvelle présélection sans démonter cet écran (ex. deux
+  // renvois successifs depuis deux missions différentes).
+  useEffect(() => {
+    if (initialProductId) setSelectedId(initialProductId)
+    if (initialTab) setProductTab(initialTab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialProductId, initialTab])
 
   // Le brouillon local se resynchronise avec le produit sélectionné à
   // chaque rafraîchissement de `products` (ex. juste après la création
@@ -451,6 +498,29 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
           </div>
           {draft.name.trim() === '' && <p className="error">Le nom du produit ne peut pas être vide.</p>}
 
+          <nav className="tabs">
+            <button type="button" className={productTab === 'strategie' ? 'active' : ''} onClick={() => setProductTab('strategie')}>
+              Stratégie
+            </button>
+            <button type="button" className={productTab === 'specs' ? 'active' : ''} onClick={() => setProductTab('specs')}>
+              Spécification et VV
+              {draft.specifications.length > 0 ? ` (${draft.specifications.length})` : ''}
+            </button>
+          </nav>
+
+          {productTab === 'specs' && (
+            <ProductSpecVVPanel
+              product={draft}
+              onChange={setDraftDirty}
+              linkedMissions={linkedMissions}
+              onMissionsChanged={onMissionsChanged}
+              forcedSubTab={initialSpecSubTab}
+              demoMissionProjects={demoMissionProjects}
+            />
+          )}
+
+          {productTab === 'strategie' && (
+            <>
           <section className="actor-mission-section">
             <h3>Vision</h3>
             <textarea
@@ -716,6 +786,8 @@ export function ProductsScreen({ products, error, onProductsChanged, missions, o
             )}
             {linkError && <p className="error">{linkError}</p>}
           </section>
+            </>
+          )}
 
           <div className="products-save-row">
             <button

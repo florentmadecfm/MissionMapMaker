@@ -126,24 +126,39 @@ function parseSteps(text: string): TestStep[] {
     .filter((s) => s.action !== '' || s.expectedResult !== '')
 }
 
+export interface ImportExcelResult {
+  // Les 4 collections de `base` (le projet actuellement ouvert) sont
+  // remplacées par le contenu du fichier — id/name/createdAt/updatedAt/
+  // productId de `base` conservés (le classeur ne porte pas ces champs).
+  project: Project
+  // Spécifications/scénarios de test du classeur — séparés de `project`
+  // depuis leur déplacement vers le produit (voir api/types.ts) : à
+  // charge de l'appelant (ExportImportMenu.tsx) de les fusionner dans le
+  // PRODUIT associé, le cas échéant (voir son propre commentaire sur le
+  // remplacement complet). `project.activities[*].traceLinks` référence
+  // déjà leurs id fraîchement générés, cohérents entre les deux — mais
+  // orphelins si l'appelant ne les persiste nulle part (aucun produit
+  // associé).
+  specifications: Specification[]
+  testScenarios: TestScenario[]
+}
+
 // Reconstruit un Project à partir d'un fichier .xlsx exporté par
-// exportProjectToExcel — remplace les 6 collections de `base` (le projet
-// actuellement ouvert) par le contenu du fichier, en conservant
-// id/name/createdAt/updatedAt/productId de `base` (le classeur ne porte
-// pas ces champs, et le produit associé n'est jamais réassigné par un
-// import — voir ExportImportMenu.tsx). `product` (le produit ACTUELLEMENT
-// associé à `base`, ou null) sert uniquement à résoudre la colonne "KPI
-// liés" des feuilles Activités/Phases : les noms qu'elle contient sont
-// comparés (insensible à la casse, comme les autres colonnes lues par
-// nom dans ce fichier) aux KPI de ce produit, jamais recréés depuis la
-// feuille "KPI produit" elle-même (purement informative, voir
-// exportExcel.ts) — un nom sans correspondance est silencieusement
-// ignoré plutôt que de planter, comme un code de spécification introuvable.
-// Comme toute autre modification de cet écran, le résultat remonte par
-// onChange puis est sauvegardé automatiquement après un court délai
-// d'inactivité (voir ProjectShell.tsx, runSave) — d'où la confirmation
-// demandée par ExportImportMenu.tsx avant d'appeler cette fonction.
-export async function importProjectFromExcel(file: File, base: Project, product: Product | null): Promise<Project> {
+// exportProjectToExcel. `product` (le produit ACTUELLEMENT associé à
+// `base`, ou null) sert à la fois à résoudre la colonne "KPI liés" des
+// feuilles Activités/Phases (les noms qu'elle contient sont comparés,
+// insensible à la casse, aux KPI de ce produit, jamais recréés depuis la
+// feuille "KPI produit" elle-même, purement informative, voir
+// exportExcel.ts — un nom sans correspondance est silencieusement ignoré
+// plutôt que de planter, comme un code de spécification introuvable) et à
+// numéroter les spécifications/tests importés à la suite de ceux déjà
+// existants sur ce produit (voir ExportImportMenu.tsx, qui décide de la
+// politique de remplacement). Comme toute autre modification de cet
+// écran, le résultat remonte par onChange puis est sauvegardé
+// automatiquement après un court délai d'inactivité (voir
+// ProjectShell.tsx, runSave) — d'où la confirmation demandée par
+// ExportImportMenu.tsx avant d'appeler cette fonction.
+export async function importProjectFromExcel(file: File, base: Project, product: Product | null): Promise<ImportExcelResult> {
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
   // exceljs type son argument comme un Buffer Node, mais accepte en
@@ -343,11 +358,7 @@ export async function importProjectFromExcel(file: File, base: Project, product:
   }))
 
   return {
-    ...base,
-    actors,
-    phases,
-    activities,
-    interactions,
+    project: { ...base, actors, phases, activities, interactions },
     specifications,
     testScenarios,
   }

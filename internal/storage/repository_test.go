@@ -23,9 +23,8 @@ func TestLoad_NormalizesMissingCollectionsFromLegacyFile(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	// Fichier JSON minimal, tel qu'un projet créé avant l'introduction de
-	// TestScenarios (et sans même specifications/interactions, pour
-	// couvrir aussi ces champs) l'aurait sur disque.
+	// Fichier JSON minimal, tel qu'un projet créé avant l'introduction
+	// d'interactions l'aurait sur disque.
 	legacyJSON := `{
 		"id": "legacy-project",
 		"name": "Projet historique",
@@ -45,14 +44,8 @@ func TestLoad_NormalizesMissingCollectionsFromLegacyFile(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if p.TestScenarios == nil {
-		t.Error("TestScenarios is nil, want empty slice")
-	}
 	if p.Interactions == nil {
 		t.Error("Interactions is nil, want empty slice")
-	}
-	if p.Specifications == nil {
-		t.Error("Specifications is nil, want empty slice")
 	}
 	if len(p.Activities) != 1 {
 		t.Fatalf("expected 1 activity, got %d", len(p.Activities))
@@ -75,7 +68,7 @@ func TestLoad_NormalizesMissingCollectionsFromLegacyFile(t *testing.T) {
 	if err := json.Unmarshal(out, &raw); err != nil {
 		t.Fatalf("Unmarshal raw: %v", err)
 	}
-	for _, field := range []string{"testScenarios", "interactions", "specifications"} {
+	for _, field := range []string{"interactions"} {
 		if string(raw[field]) == "null" {
 			t.Errorf("field %q serialized as null, want []", field)
 		}

@@ -14,11 +14,10 @@ function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`
 }
 
-// Dupliqués depuis mergeSpecDrafts.ts/mergeTestScenarioDrafts.ts (même
-// convention que newId ci-dessus, déjà répétée telle quelle dans chaque
-// fichier de fusion de ce dossier) plutôt que partagés : la numérotation
-// ne dépend que des specs/tests déjà présents dans LE projet passé en
-// paramètre, pas d'un état partagé entre les 3 flux de génération.
+// Dupliqués depuis mergeTestScenarioDrafts.ts (même convention que newId
+// ci-dessus) plutôt que partagés : la numérotation ne dépend que des
+// specs/tests déjà présents dans LE PRODUIT passé en paramètre, pas d'un
+// état partagé entre les flux de génération.
 function nextSssCode(existing: Specification[]) {
   const count = existing.filter((s) => s.code.startsWith('SSS-')).length
   return `SSS-${String(count + 1).padStart(3, '0')}`
@@ -29,68 +28,15 @@ function nextTestCode(existing: TestScenario[]) {
   return `TC-${String(count + 1).padStart(3, '0')}`
 }
 
-// Convertit la SSS + le scénario de test générés pour la solution choisie
-// d'un point de friction (ADR-066) en une vraie Specification + un vrai
-// TestScenario ajoutés au projet — reliés à l'activité porteuse du point
-// de friction (traceLinks, comme toute autre SSS) et au point de friction
-// lui-même (PainPoint.resolvedBySpecId), qui n'est alors plus proposé en
-// résolution (voir ActivityDetailModal.tsx). Comportement historique,
-// inchangé : s'applique toujours à la vue actuellement affichée/éditée
-// (voir applyPainPointResolution ci-dessous pour le changement structurel,
-// lui toujours dirigé vers la cible).
-function mergeSpecAndTest(project: Project, activityId: string, painPointId: string, resolution: PainPointResolution): Project {
-  const spec: Specification = {
-    id: newId('spec'),
-    code: nextSssCode(project.specifications),
-    type: 'StakeholderNeed',
-    text: resolution.specificationText,
-    rationale: resolution.specificationRationale,
-    status: 'draft',
-    priority: 'must',
-  }
-  const test: TestScenario = {
-    id: newId('test'),
-    code: nextTestCode(project.testScenarios),
-    title: resolution.testTitle,
-    specificationId: spec.id,
-    preconditions: resolution.testPreconditions,
-    steps: resolution.testSteps.map((s) => ({ action: s.action, expectedResult: s.expectedResult })),
-    status: 'draft',
-  }
-
-  return {
-    ...project,
-    specifications: [...project.specifications, spec],
-    testScenarios: [...project.testScenarios, test],
-    activities: project.activities.map((a) => {
-      if (a.id !== activityId) return a
-      return {
-        ...a,
-        traceLinks: [...a.traceLinks, spec.id],
-        painPoints: a.painPoints.map((p) => (p.id === painPointId ? { ...p, resolvedBySpecId: spec.id } : p)),
-      }
-    }),
-  }
-}
-
 interface VariantCollections {
   actors: ProjectVariant['actors']
   phases: ProjectVariant['phases']
   activities: Activity[]
   interactions: Interaction[]
-  specifications: Specification[]
-  testScenarios: TestScenario[]
 }
 
 function pickCollections(x: VariantCollections): VariantCollections {
-  return {
-    actors: x.actors,
-    phases: x.phases,
-    activities: x.activities,
-    interactions: x.interactions,
-    specifications: x.specifications,
-    testScenarios: x.testScenarios,
-  }
+  return { actors: x.actors, phases: x.phases, activities: x.activities, interactions: x.interactions }
 }
 
 // Insensible à la casse/aux accents/aux espaces de bord : le LLM reprend
@@ -103,7 +49,7 @@ function pickCollections(x: VariantCollections): VariantCollections {
 function normalizeName(s: string): string {
   return s
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // diacritiques combinants (accents), une fois décomposés par NFD
+    .replace(/[̀-ͯ]/g, '') // diacritiques combinants (accents), une fois décomposés par NFD
     .trim()
     .toLowerCase()
 }
@@ -117,9 +63,9 @@ function findByNormalizedName<T>(items: T[], name: string | undefined, getName: 
 // Résolution par NOM uniquement (jamais par ID) : le LLM ne connaît que
 // les noms déjà présents dans le contexte envoyé (voir PainPointContext,
 // PainPointSolutionsModal.buildContext) — cohérent avec le reste de
-// l'app (mergeDraft.ts, mergeSpecDrafts.ts...). Meilleur effort : un nom
-// qui ne correspond à rien renvoie undefined plutôt que de faire échouer
-// toute l'opération, voir applyDiagramChange.
+// l'app (mergeDraft.ts, mergeSpecDraftsAcrossMissions.ts...). Meilleur
+// effort : un nom qui ne correspond à rien renvoie undefined plutôt que
+// de faire échouer toute l'opération, voir applyDiagramChange.
 function findActivityByName(activities: Activity[], name: string | undefined): Activity | undefined {
   return findByNormalizedName(activities, name, (a) => a.name)
 }
@@ -128,8 +74,9 @@ function findActivityByName(activities: Activity[], name: string | undefined): A
 // changement structurel décrit par le LLM pour la solution CHOISIE — par
 // correspondance de noms au sein de CETTE cible (jamais l'état actuel).
 // Dégrade proprement (applied: false, cible inchangée) si les noms
-// fournis ne correspondent à rien : la SSS/le test, ajoutés séparément par
-// mergeSpecAndTest, restent de toute façon acquis même dans ce cas.
+// fournis ne correspondent à rien : la SSS/le test, créés séparément
+// (voir applyPainPointResolution), restent de toute façon acquis même
+// dans ce cas.
 function applyDiagramChange(
   collections: VariantCollections,
   sourceActivity: Activity,
@@ -242,58 +189,85 @@ function applyDiagramChange(
 
 export interface PainPointResolutionOutcome {
   project: Project
+  // Spécification/scénario de test créés pour cette résolution — à ajouter
+  // par l'appelant aux collections du PRODUIT (plus de Project.
+  // specifications/testScenarios, voir api/types.ts) : cette fonction ne
+  // touche jamais le produit elle-même, seulement la mission.
+  spec: Specification
+  test: TestScenario
   // false si le changement structurel n'a pas pu être déterminé/appliqué
   // (noms non trouvés dans la cible) — la SSS/le test sont eux toujours
-  // ajoutés, indépendamment de cette valeur.
+  // créés, indépendamment de cette valeur.
   diagramChangeApplied: boolean
 }
 
-// Applique la résolution complète d'un point de friction (ADR-066bis) :
-// (1) SSS + test + bookkeeping (PainPoint.resolvedBySpecId, traceLinks) —
-// TOUJOURS sur la vue actuellement affichée/éditée (project, tel que reçu
-// — actuel ou cible selon activeVariant côté ProjectShell) ; (2) le
-// changement structurel décrit par la solution choisie — TOUJOURS dirigé
-// vers la CIBLE de la mission, qu'elle soit ou non la vue actuellement
-// affichée : créée à la volée (copie de la vue actuelle) si c'est la
-// première fois. isTargetActive indique si `project` EST déjà la cible
-// (dans ce cas, pas de fork : le changement s'applique directement à ses
-// propres collections) — voir activeVariant.ts côté appelant.
+// Applique la résolution complète d'un point de friction (ADR-066bis,
+// révisé lors du déplacement des specs/tests vers le produit) : la SSS/le
+// test créés (à charge de l'appelant de les ajouter au produit, voir
+// PainPointSolutionsModal.tsx) ET le bookkeeping (PainPoint.
+// resolvedBySpecId, Activity.traceLinks) portent désormais TOUJOURS sur la
+// CIBLE de la mission — jamais sur l'état Actuel, qui ne participe plus à
+// la traçabilité (un produit vise l'état futur du processus) — créée à la
+// volée (copie de l'état actuel) si c'est la première fois. `sourceActivity`
+// est l'activité porteuse du point de friction telle qu'affichée (Actuel
+// ou Cible selon la vue active) ; `isTargetActive` indique si elle se
+// trouve déjà dans la cible (pas de recherche par nom nécessaire) — voir
+// activeVariant.ts côté appelant.
 export function applyPainPointResolution(
   project: Project,
-  activityId: string,
+  sourceActivity: Activity,
   painPointId: string,
+  productSpecifications: Specification[],
+  productTestScenarios: TestScenario[],
   resolution: PainPointResolution,
   changeType: PainPointChangeType,
   isTargetActive: boolean,
 ): PainPointResolutionOutcome {
-  const withSpecAndTest = mergeSpecAndTest(project, activityId, painPointId, resolution)
-  const sourceActivity = withSpecAndTest.activities.find((a) => a.id === activityId)
-  if (!sourceActivity) return { project: withSpecAndTest, diagramChangeApplied: false }
-
-  if (isTargetActive) {
-    const { collections, applied } = applyDiagramChange(
-      pickCollections(withSpecAndTest),
-      sourceActivity,
-      changeType,
-      resolution.diagramChange,
-    )
-    return { project: { ...withSpecAndTest, ...collections }, diagramChangeApplied: applied }
+  const spec: Specification = {
+    id: newId('spec'),
+    code: nextSssCode(productSpecifications),
+    type: 'StakeholderNeed',
+    text: resolution.specificationText,
+    rationale: resolution.specificationRationale,
+    status: 'draft',
+    priority: 'must',
+  }
+  const test: TestScenario = {
+    id: newId('test'),
+    code: nextTestCode(productTestScenarios),
+    title: resolution.testTitle,
+    specificationId: spec.id,
+    preconditions: resolution.testPreconditions,
+    steps: resolution.testSteps.map((s) => ({ action: s.action, expectedResult: s.expectedResult })),
+    status: 'draft',
   }
 
-  const targetBase: ProjectVariant = withSpecAndTest.target ?? {
+  const targetBase: ProjectVariant = project.target ?? {
     label: 'Cible',
-    ...pickCollections(withSpecAndTest),
+    ...pickCollections(project),
   }
   // Retrouve l'activité porteuse du point de friction AU SEIN de la
-  // cible : par id si elle vient d'être forkée à l'instant (mêmes ids que
-  // l'état actuel à cet instant précis), par nom si la cible existait déjà
-  // et a depuis divergé (ids propres) — repli sur l'activité de l'état
-  // actuel en dernier recours (place le nouveau contenu par défaut).
+  // cible : directement par id si la vue affichée EST déjà la cible, par
+  // id puis par nom sinon (cible existante ayant depuis divergé, ids
+  // propres) — repli sur l'activité affichée en dernier recours (place le
+  // nouveau contenu par défaut).
   const targetSourceActivity =
     targetBase.activities.find((a) => a.id === sourceActivity.id) ??
-    findActivityByName(targetBase.activities, sourceActivity.name) ??
+    (isTargetActive ? undefined : findActivityByName(targetBase.activities, sourceActivity.name)) ??
     sourceActivity
-  const { collections, applied } = applyDiagramChange(pickCollections(targetBase), targetSourceActivity, changeType, resolution.diagramChange)
+
+  const bookkeptActivities = targetBase.activities.map((a) =>
+    a.id === targetSourceActivity.id
+      ? {
+          ...a,
+          traceLinks: [...a.traceLinks, spec.id],
+          painPoints: a.painPoints.map((p) => (p.id === painPointId ? { ...p, resolvedBySpecId: spec.id } : p)),
+        }
+      : a,
+  )
+  const collectionsWithBookkeeping: VariantCollections = { ...pickCollections(targetBase), activities: bookkeptActivities }
+
+  const { collections, applied } = applyDiagramChange(collectionsWithBookkeeping, targetSourceActivity, changeType, resolution.diagramChange)
   const target: ProjectVariant = { label: targetBase.label, ...collections }
-  return { project: { ...withSpecAndTest, target }, diagramChangeApplied: applied }
+  return { project: { ...project, target }, spec, test, diagramChangeApplied: applied }
 }

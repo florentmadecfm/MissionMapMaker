@@ -1708,6 +1708,17 @@
   font-weight: 500;
 }
 
+/* Nom de la mission d'origine de chaque ligne (ProductSpecVVPanel.tsx,
+   matrice agrégée sur toutes les missions rattachées au produit) — en
+   retrait sous le nom de l'activité, jamais sur la même ligne (déjà
+   dense avec autant de colonnes que de spécifications). */
+.trace-matrix-mission {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
 .trace-matrix tbody tr:hover td {
   background: var(--color-primary-bg);
 }

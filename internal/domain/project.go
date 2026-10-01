@@ -1,6 +1,9 @@
 // Package domain définit le modèle métier de Pulse.MissionMap : un projet
-// regroupe des acteurs, des phases, des activités (avec leurs user stories
-// et leurs liens de traçabilité), des interactions et des spécifications.
+// (mission) regroupe des acteurs, des phases, des activités (avec leurs
+// user stories et leurs liens de traçabilité) et des interactions ; les
+// spécifications et scénarios de test V&V, eux, sont portés par le produit
+// (voir Product, product.go) auquel une ou plusieurs missions peuvent être
+// rattachées.
 package domain
 
 import "time"
@@ -11,23 +14,26 @@ type Project struct {
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 
-	Actors         []Actor         `json:"actors"`
-	Phases         []Phase         `json:"phases"`
-	Activities     []Activity      `json:"activities"`
-	Interactions   []Interaction   `json:"interactions"`
-	Specifications []Specification `json:"specifications"`
-	TestScenarios  []TestScenario  `json:"testScenarios"`
+	Actors       []Actor       `json:"actors"`
+	Phases       []Phase       `json:"phases"`
+	Activities   []Activity    `json:"activities"`
+	Interactions []Interaction `json:"interactions"`
 
 	// Target, quand renseigné, est un second état ("cible"/to-be) du
 	// diagramme de cette même mission, distinct de l'état "actuel" porté
-	// par les 6 collections ci-dessus — une copie indépendante complète
-	// (ses propres acteurs/phases/activités/interactions/specs/tests),
-	// mais qui reste PARTIE de ce projet plutôt qu'un second projet séparé
-	// lié par un groupe de variantes : la cible d'une mission n'apparaît
-	// jamais comme une entrée à part dans le panneau de gauche. nil tant
-	// qu'aucune cible n'a été créée (bouton Actuel/Cible, ou
-	// automatiquement à la première résolution de point de friction, voir
-	// mergePainPointResolution.ts).
+	// par les 4 collections ci-dessus — une copie indépendante complète
+	// (ses propres acteurs/phases/activités/interactions), mais qui reste
+	// PARTIE de ce projet plutôt qu'un second projet séparé lié par un
+	// groupe de variantes : la cible d'une mission n'apparaît jamais comme
+	// une entrée à part dans le panneau de gauche. nil tant qu'aucune
+	// cible n'a été créée (bouton Actuel/Cible, ou automatiquement à la
+	// première résolution de point de friction, voir
+	// mergePainPointResolution.ts). Specifications/TestScenarios ne font
+	// PLUS partie de ces collections dupliquées par variante (voir
+	// Product.Specifications/TestScenarios, product.go) : une exigence
+	// qualifie le produit, pas une mission ni l'une de ses variantes — la
+	// traçabilité (Activity.TraceLinks) ne porte plus que sur les
+	// activités de la variante CIBLE.
 	Target *ProjectVariant `json:"target,omitempty"`
 
 	// ProductID référence le Produit (storage.ProductStore, ID de
@@ -42,16 +48,14 @@ type Project struct {
 }
 
 // ProjectVariant est le contenu d'un second état ("cible") du diagramme
-// d'un projet — mêmes 6 collections qu'un Project, plus un Label affiché
+// d'un projet — mêmes 4 collections qu'un Project, plus un Label affiché
 // dans le sélecteur Actuel/Cible (ex. "Cible", éditable).
 type ProjectVariant struct {
-	Label          string          `json:"label"`
-	Actors         []Actor         `json:"actors"`
-	Phases         []Phase         `json:"phases"`
-	Activities     []Activity      `json:"activities"`
-	Interactions   []Interaction   `json:"interactions"`
-	Specifications []Specification `json:"specifications"`
-	TestScenarios  []TestScenario  `json:"testScenarios"`
+	Label        string        `json:"label"`
+	Actors       []Actor       `json:"actors"`
+	Phases       []Phase       `json:"phases"`
+	Activities   []Activity    `json:"activities"`
+	Interactions []Interaction `json:"interactions"`
 }
 
 type Actor struct {
@@ -234,7 +238,16 @@ type Activity struct {
 	Criticality       string `json:"criticality,omitempty"`
 
 	UserStories []UserStory `json:"userStories"`
-	TraceLinks  []string    `json:"traceLinks"` // specification IDs
+	// TraceLinks référence des Specification.ID du PRODUIT auquel la
+	// mission est rattachée (Project.ProductID), structurellement
+	// inatteignable depuis ici — même raisonnement déjà documenté pour
+	// KpiLinks ci-dessous : pas de validation référentielle dans
+	// Project.Validate(), un id qui ne correspond plus à aucune
+	// spécification du produit reste un lien orphelin sans conséquence
+	// côté serveur. Ne porte de sens que sur les activités de la variante
+	// CIBLE (ProjectVariant.Activities) : un produit vise l'état futur du
+	// processus, la traçabilité ne s'applique donc jamais à l'état Actuel.
+	TraceLinks []string `json:"traceLinks"`
 	// PainPoints liste les points de friction constatés pour cette
 	// activité (texte libre, ex. "le client attend souvent plusieurs
 	// minutes avant d'être servi") — distinct de Description (résumé de

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import { classifyGenerationError } from '../../api/generationErrors'
-import type { Activity, DraftPainPointSolution, PainPoint, PainPointChangeType, PainPointContext, Project } from '../../api/types'
+import type { Activity, DraftPainPointSolution, PainPoint, PainPointChangeType, PainPointContext, Product, Project } from '../../api/types'
 import { Spinner } from '../../components/Spinner'
 import { applyPainPointResolution } from '../specifications/mergePainPointResolution'
 
@@ -15,6 +15,17 @@ interface Props {
   // activeVariant.ts) — sinon le changement structurel de la solution
   // choisie est dirigé vers la cible de la mission, créée au besoin.
   isTargetActive: boolean
+  // Produit associé à la mission (Project.productId), résolu par
+  // ProcessDiagram.tsx — undefined si aucun. La SSS/le test proposés ici
+  // sont désormais créés au niveau du PRODUIT (plus de Project.
+  // specifications/testScenarios, voir api/types.ts) : sans produit lié,
+  // ce flux n'a nulle part où les ranger — voir le garde-fou ci-dessous.
+  product: Product | undefined
+  // Persiste le produit mis à jour (nouvelle SSS + nouveau test) — à
+  // charge de l'appelant (ProjectShell.tsx) d'appeler l'API et de
+  // rafraîchir son propre état. Optionnel comme `product` ci-dessus :
+  // jamais appelée sans produit (voir le garde-fou dans chooseSolution).
+  onProductChange?: (product: Product) => void
 }
 
 const CHANGE_TYPE_LABELS: Record<PainPointChangeType, string> = {
@@ -36,7 +47,7 @@ type Status = 'loading' | 'ready' | 'resolving' | 'done' | 'not-configured' | 'r
 // une solution choisie, une SSS + un scénario de test qui la formalisent,
 // ajoutés au projet et reliés à l'activité ET au point de friction
 // (PainPoint.resolvedBySpecId) via mergePainPointResolution.
-export function PainPointSolutionsModal({ project, activity, painPoint, onChange, onClose, isTargetActive }: Props) {
+export function PainPointSolutionsModal({ project, activity, painPoint, onChange, onClose, isTargetActive, product, onProductChange }: Props) {
   const [status, setStatus] = useState<Status>('loading')
   const [solutions, setSolutions] = useState<DraftPainPointSolution[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -102,28 +113,38 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
 
   // Chargement au montage uniquement (une solution choisie ne redéclenche
   // pas une nouvelle liste de propositions) — tableau de dépendances
-  // volontairement vide.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(fetchSolutions, [])
+  // volontairement vide. Sauté sans produit lié (voir le garde-fou dans le
+  // rendu ci-dessous) : la SSS/le test proposés n'auraient de toute façon
+  // nulle part où être enregistrés, inutile de dépenser un appel LLM.
+  useEffect(() => {
+    if (!product) return
+    fetchSolutions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function chooseSolution(solution: DraftPainPointSolution) {
+    if (!product) return // garde-fou déjà affiché à la place de la liste, voir le rendu ci-dessous
     setStatus('resolving')
     setError(null)
     try {
       const resolution = await api.generatePainPointResolution(buildContext(), solution)
-      const { project: updated, diagramChangeApplied } = applyPainPointResolution(
+      const { project: updated, spec, test, diagramChangeApplied } = applyPainPointResolution(
         project,
-        activity.id,
+        activity,
         painPoint.id,
+        product.specifications,
+        product.testScenarios,
         resolution,
         solution.changeType,
         isTargetActive,
       )
       onChange(updated)
-      setAddedCodes({
-        spec: updated.specifications[updated.specifications.length - 1].code,
-        test: updated.testScenarios[updated.testScenarios.length - 1].code,
+      onProductChange?.({
+        ...product,
+        specifications: [...product.specifications, spec],
+        testScenarios: [...product.testScenarios, test],
       })
+      setAddedCodes({ spec: spec.code, test: test.code })
       setDiagramChangeApplied(diagramChangeApplied)
       setChosenDescription(solution.description)
       setStatus('done')
@@ -158,72 +179,83 @@ export function PainPointSolutionsModal({ project, activity, painPoint, onChange
         </header>
         <p className="nl-hint">« {painPoint.text} »</p>
 
-        {status === 'not-configured' && (
+        {!product && (
           <div className="nl-warning">
-            Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas de
-            la barre latérale pour en saisir une.
+            Cette mission doit être rattachée à un produit pour résoudre un point de friction par une spécification —
+            ouvrez l'écran <strong>Produits</strong> pour la rattacher, puis réessayez.
           </div>
         )}
-        {status === 'rate-limited' && (
-          <div className="nl-warning">
-            Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants, ou
-            changez de fournisseur depuis <strong>Paramètres</strong> si cela persiste.
-          </div>
-        )}
-        {error && <p className="error">{error}</p>}
-        {status === 'loading' && (
-          <p className="loading-row">
-            <Spinner /> Génération de solutions…
-          </p>
-        )}
-        {status === 'ready' && solutions.length === 0 && !error && (
-          <p className="actor-warning">Aucune solution proposée.</p>
-        )}
 
-        {(status === 'ready' || status === 'resolving') && solutions.length > 0 && (
-          <ul className="painpoint-solutions-list">
-            {solutions.map((s, i) => (
-              <li key={i} className="painpoint-solution-card">
-                <span className={`painpoint-solution-type painpoint-solution-type-${s.changeType}`}>
-                  {CHANGE_TYPE_LABELS[s.changeType] ?? s.changeType}
-                </span>
-                <p>{s.description}</p>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => chooseSolution(s)}
-                  disabled={status === 'resolving'}
-                >
-                  Choisir cette solution
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {status === 'resolving' && (
-          <p className="loading-row">
-            <Spinner /> Génération de la spécification et du test…
-          </p>
-        )}
-
-        {status === 'done' && addedCodes && (
-          <div className="painpoint-solution-done">
-            <p className="saved-at">
-              Ajoutés au projet : <strong>{addedCodes.spec}</strong> et <strong>{addedCodes.test}</strong>.
-            </p>
-            {diagramChangeApplied ? (
-              <p className="saved-at">Le changement structurel a été intégré au diagramme cible.</p>
-            ) : (
-              <p className="nl-warning">
-                Le changement structurel n'a pas pu être identifié automatiquement dans le diagramme cible — à
-                appliquer manuellement si besoin : « {chosenDescription} »
+        {product && (
+          <>
+            {status === 'not-configured' && (
+              <div className="nl-warning">
+                Génération indisponible : aucune clé API n'est configurée. Ouvrez <strong>Paramètres</strong> en bas
+                de la barre latérale pour en saisir une.
+              </div>
+            )}
+            {status === 'rate-limited' && (
+              <div className="nl-warning">
+                Le fournisseur LLM limite temporairement le nombre d'appels (429) — réessayez dans quelques instants,
+                ou changez de fournisseur depuis <strong>Paramètres</strong> si cela persiste.
+              </div>
+            )}
+            {error && <p className="error">{error}</p>}
+            {status === 'loading' && (
+              <p className="loading-row">
+                <Spinner /> Génération de solutions…
               </p>
             )}
-            <button type="button" className="btn-primary" onClick={onClose}>
-              Fermer
-            </button>
-          </div>
+            {status === 'ready' && solutions.length === 0 && !error && (
+              <p className="actor-warning">Aucune solution proposée.</p>
+            )}
+
+            {(status === 'ready' || status === 'resolving') && solutions.length > 0 && (
+              <ul className="painpoint-solutions-list">
+                {solutions.map((s, i) => (
+                  <li key={i} className="painpoint-solution-card">
+                    <span className={`painpoint-solution-type painpoint-solution-type-${s.changeType}`}>
+                      {CHANGE_TYPE_LABELS[s.changeType] ?? s.changeType}
+                    </span>
+                    <p>{s.description}</p>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => chooseSolution(s)}
+                      disabled={status === 'resolving'}
+                    >
+                      Choisir cette solution
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {status === 'resolving' && (
+              <p className="loading-row">
+                <Spinner /> Génération de la spécification et du test…
+              </p>
+            )}
+
+            {status === 'done' && addedCodes && (
+              <div className="painpoint-solution-done">
+                <p className="saved-at">
+                  Ajoutés au produit : <strong>{addedCodes.spec}</strong> et <strong>{addedCodes.test}</strong>.
+                </p>
+                {diagramChangeApplied ? (
+                  <p className="saved-at">Le changement structurel a été intégré au diagramme cible.</p>
+                ) : (
+                  <p className="nl-warning">
+                    Le changement structurel n'a pas pu être identifié automatiquement dans le diagramme cible — à
+                    appliquer manuellement si besoin : « {chosenDescription} »
+                  </p>
+                )}
+                <button type="button" className="btn-primary" onClick={onClose}>
+                  Fermer
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

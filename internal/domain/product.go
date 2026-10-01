@@ -38,6 +38,20 @@ type Product struct {
 	// une entité qui n'a pas besoin d'identité propre).
 	Pillars []string     `json:"pillars"`
 	Kpis    []ProductKpi `json:"kpis"`
+
+	// Specifications/TestScenarios portent les exigences et tests V&V du
+	// produit — déplacés ici depuis Project/ProjectVariant (où ils
+	// vivaient par mission, avec une copie indépendante par variante
+	// Actuel/Cible) : une exigence qualifie le PRODUIT dans son ensemble,
+	// pas une mission précise, et doit pouvoir tracer des activités
+	// réparties sur PLUSIEURS missions rattachées au même produit — ce
+	// qu'un stockage par mission ne permettait pas. Seule la variante
+	// CIBLE de chaque mission participe désormais à la traçabilité
+	// (Activity.TraceLinks, inchangé) : un produit vise l'état futur du
+	// processus, pas son état actuel. Pas de copie par variante ici :
+	// une seule liste, partagée par toutes les missions du produit.
+	Specifications []Specification `json:"specifications"`
+	TestScenarios  []TestScenario  `json:"testScenarios"`
 }
 
 // ProductKpi est un indicateur cible du produit — rattaché ou non à un
@@ -79,6 +93,17 @@ func (p *Product) Normalize() {
 	if p.Kpis == nil {
 		p.Kpis = []ProductKpi{}
 	}
+	if p.Specifications == nil {
+		p.Specifications = []Specification{}
+	}
+	if p.TestScenarios == nil {
+		p.TestScenarios = []TestScenario{}
+	}
+	for i := range p.TestScenarios {
+		if p.TestScenarios[i].Steps == nil {
+			p.TestScenarios[i].Steps = []TestStep{}
+		}
+	}
 }
 
 var ErrInvalidProduct = errors.New("invalid product")
@@ -97,6 +122,29 @@ var ErrInvalidProduct = errors.New("invalid product")
 func (p *Product) Validate() error {
 	if strings.TrimSpace(p.Name) == "" {
 		return fmt.Errorf("%w: name is required", ErrInvalidProduct)
+	}
+
+	// Intégrité référentielle des spécifications/tests — même contrôle que
+	// l'ancien validateCollections (project.go/validate.go) avant leur
+	// déplacement ici : un parent de spécification doit exister parmi les
+	// spécifications du MÊME produit, un scénario de test doit référencer
+	// une spécification existante. Contrairement à ProductKpi.ParentID
+	// ci-dessous, pas de détection de cycle sur Specification.ParentID :
+	// angle mort déjà présent avant ce déplacement (non corrigé ici, hors
+	// périmètre de ce changement).
+	specIDs := make(map[string]bool, len(p.Specifications))
+	for _, s := range p.Specifications {
+		specIDs[s.ID] = true
+	}
+	for _, s := range p.Specifications {
+		if s.ParentID != "" && !specIDs[s.ParentID] {
+			return fmt.Errorf("%w: specification %q references unknown parent %q", ErrInvalidProduct, s.ID, s.ParentID)
+		}
+	}
+	for _, ts := range p.TestScenarios {
+		if !specIDs[ts.SpecificationID] {
+			return fmt.Errorf("%w: test scenario %q references unknown specification %q", ErrInvalidProduct, ts.ID, ts.SpecificationID)
+		}
 	}
 
 	kpiIDs := make(map[string]bool, len(p.Kpis))

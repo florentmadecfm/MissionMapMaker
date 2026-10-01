@@ -12,7 +12,7 @@ package domain
 // et avant sauvegarde (Save), pour que ni un ancien fichier ni une requête
 // PUT incomplète ne puisse réintroduire un nil.
 func (p *Project) Normalize() {
-	normalizeCollections(&p.Actors, &p.Phases, &p.Activities, &p.Interactions, &p.Specifications, &p.TestScenarios)
+	normalizeCollections(&p.Actors, &p.Phases, &p.Activities, &p.Interactions)
 	if p.Target != nil {
 		p.Target.normalize()
 	}
@@ -22,15 +22,16 @@ func (p *Project) Normalize() {
 // (ProjectVariant) — copie indépendante complète, donc sujette aux mêmes
 // champs nil qu'un projet chargé depuis le disque.
 func (v *ProjectVariant) normalize() {
-	normalizeCollections(&v.Actors, &v.Phases, &v.Activities, &v.Interactions, &v.Specifications, &v.TestScenarios)
+	normalizeCollections(&v.Actors, &v.Phases, &v.Activities, &v.Interactions)
 }
 
-// normalizeCollections factorise la normalisation des 6 collections
+// normalizeCollections factorise la normalisation des 4 collections
 // partagées par Project et ProjectVariant (même règle nil -> slice vide,
-// y compris pour les sous-listes imbriquées).
+// y compris pour les sous-listes imbriquées). Specifications/TestScenarios
+// ne sont plus de la partie (voir Product.Normalize, product.go) :
+// déplacées sur Product, qui normalise les siennes indépendamment.
 func normalizeCollections(
-	actors *[]Actor, phases *[]Phase, activities *[]Activity,
-	interactions *[]Interaction, specifications *[]Specification, testScenarios *[]TestScenario,
+	actors *[]Actor, phases *[]Phase, activities *[]Activity, interactions *[]Interaction,
 ) {
 	if *actors == nil {
 		*actors = []Actor{}
@@ -43,12 +44,6 @@ func normalizeCollections(
 	}
 	if *interactions == nil {
 		*interactions = []Interaction{}
-	}
-	if *specifications == nil {
-		*specifications = []Specification{}
-	}
-	if *testScenarios == nil {
-		*testScenarios = []TestScenario{}
 	}
 	for i := range *actors {
 		if (*actors)[i].Goals == nil {
@@ -75,11 +70,6 @@ func normalizeCollections(
 		}
 		if (*activities)[i].KpiLinks == nil {
 			(*activities)[i].KpiLinks = []string{}
-		}
-	}
-	for i := range *testScenarios {
-		if (*testScenarios)[i].Steps == nil {
-			(*testScenarios)[i].Steps = []TestStep{}
 		}
 	}
 }
