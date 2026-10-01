@@ -156,6 +156,15 @@ export function ProductSpecVVPanel({
   // d'analyse d'impact ci-dessous. Résolu par nom via `linkedMissions`
   // (pas missionProjects, pas encore forcément chargé).
   const pendingImpactMissions = linkedMissions.filter((m) => product.pendingImpactReviewMissionIds.includes(m.id))
+  // Missions liées dont la variante Cible n'existe pas encore (jamais
+  // créée, voir VariantToggle.tsx côté mission) — la cause la plus
+  // fréquente d'un bouton "Proposer les SSS…"/"Analyser l'impact" grisé
+  // juste après avoir lié une mission toute neuve : activityRows reste
+  // VIDE pour elle (seule la Cible participe à la traçabilité, voir le
+  // commentaire ci-dessus), donc rien à envoyer au LLM tant qu'elle n'a
+  // pas de Cible — signalement explicite ci-dessous plutôt qu'un bouton
+  // désactivé sans explication (signalement utilisateur).
+  const missionsWithoutTarget = missionProjects.filter((mp) => !mp.target)
 
   async function saveMissionProject(updated: Project) {
     const saved = await api.saveProject(updated)
@@ -393,6 +402,21 @@ export function ProductSpecVVPanel({
       )}
       {missionsError && <p className="error">{missionsError}</p>}
       {mutationError && <p className="error">{mutationError}</p>}
+      {/* Explique pourquoi "Proposer les SSS…"/"Analyser l'impact" sont
+          grisés quand il n'y a tout simplement RIEN à envoyer au LLM (zéro
+          activité Cible parmi les missions liées) — placé ici (avant les
+          sous-onglets, pas dans celui "Spécifications" seulement) pour
+          rester visible même si l'utilisateur est sur "Tests V&V" ou
+          "Matrice de traçabilité" quand il clique sur le bandeau
+          ci-dessus. Signalement utilisateur : le bouton restait grisé
+          sans aucune explication juste après avoir lié une mission. */}
+      {!loadingMissions && !missionsError && linkedMissions.length > 0 && activityRows.length === 0 && (
+        <p className="placeholder">
+          {missionsWithoutTarget.length > 0
+            ? `Aucune activité Cible disponible pour l'instant : ${missionsWithoutTarget.map((m) => m.name).join(', ')} n'${missionsWithoutTarget.length > 1 ? 'ont' : 'a'} pas encore de variante Cible — ouvrez la mission et cliquez sur « + Créer la cible » pour pouvoir générer des spécifications.`
+            : "Les missions liées n'ont pas encore d'activité dans leur variante Cible."}
+        </p>
+      )}
 
       <nav className="tabs subtabs">
         <button type="button" className={subTab === 'specifications' ? 'active' : ''} onClick={() => setSubTab('specifications')}>
