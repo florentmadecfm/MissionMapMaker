@@ -17,7 +17,15 @@ import (
 // pas la notion de personnalisation.
 type Generator interface {
 	GenerateProcess(ctx context.Context, text, systemPrompt string) (*DraftProcess, error)
-	GenerateSpecifications(ctx context.Context, activities []ActivityRef, systemPrompt string) ([]DraftSpecification, error)
+	// existingSpecifications fournit au modèle les spécifications déjà
+	// rédigées du produit (code + texte) — en plus de proposer de nouvelles
+	// SSS pour les activités fournies, le modèle peut réviser l'une
+	// d'elles (DraftSpecification.RevisesCode) quand une activité révèle un
+	// besoin qui la recoupe mais que sa formulation actuelle ne couvre pas
+	// encore (ex. impact d'une mission nouvellement rattachée au produit).
+	// Peut être vide (aucune spécification existante, ou impact non
+	// demandé) — un Generator ne doit alors proposer que des créations.
+	GenerateSpecifications(ctx context.Context, activities []ActivityRef, existingSpecifications []SpecRef, systemPrompt string) ([]DraftSpecification, error)
 	GenerateTestScenarios(ctx context.Context, specifications []SpecRef, systemPrompt string) ([]DraftTestScenario, error)
 	// GeneratePainPointSolutions/GeneratePainPointResolution (ADR-066)
 	// soutiennent le flux en 2 temps résolution d'un point de friction :

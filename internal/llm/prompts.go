@@ -24,9 +24,9 @@ const DefaultProcessContextPrompt = `Contexte : l'utilisateur est un UX designer
 
 Objectif : transformer cette description, même brève, en une structure déjà solide et exploitable telle quelle dans l'outil — pas une liste éparse à moitié vide que l'utilisateur devrait tout reconstruire à la main, ni une suite d'activités juxtaposées sans lien entre elles : le diagramme doit se lire comme un parcours continu de bout en bout. Applique strictement la méthode ci-dessous.`
 
-const DefaultSpecContextPrompt = `Contexte : les activités d'un diagramme de processus déjà construit doivent être tracées vers un référentiel de spécifications inspiré INCOSE, pour documenter le besoin métier qui justifie chacune.
+const DefaultSpecContextPrompt = `Contexte : les activités d'un diagramme de processus déjà construit doivent être tracées vers un référentiel de spécifications inspiré INCOSE, pour documenter le besoin métier qui justifie chacune. Les activités fournies peuvent provenir de PLUSIEURS missions (parcours) rattachées à un même produit : le référentiel de spécifications est partagé par toutes, pas propre à une seule.
 
-Objectif : proposer, pour chaque activité fournie, les besoins partie prenante (SSS) qui la justifient côté système/outil. Applique strictement la méthode de rédaction ci-dessous.`
+Objectif : proposer, pour chaque activité fournie, les besoins partie prenante (SSS) qui la justifient côté système/outil. Quand des spécifications existent déjà pour ce produit (existingSpecifications), vérifie d'abord si le besoin d'une activité recoupe l'une d'elles sans être pleinement couvert par sa formulation actuelle (ex. une mission nouvellement ajoutée révèle une variante du même besoin) — dans ce cas, propose une RÉVISION de cette spécification (revisesCode) plutôt qu'un doublon ; sinon, propose une création. Applique strictement la méthode de rédaction ci-dessous.`
 
 const DefaultTestScenarioContextPrompt = `Contexte : des spécifications (besoins partie prenante / exigences) ont déjà été rédigées pour un diagramme de processus, et doivent être vérifiées par des scénarios de test de Vérification & Validation (V&V), au format habituellement utilisé dans un outil comme Polarion.
 
@@ -60,15 +60,17 @@ Ajouter une interaction entre deux activités DÉJÀ existantes (ex. « le suppo
 
 Réponds uniquement en appelant l'outil extract_process.`
 
-const DefaultSpecPrompt = `Tu assistes un ingénieur systèmes / Product Owner à rédiger des besoins partie prenante (SSS - Stakeholder/System Specification) au format INCOSE, à partir d'une liste d'activités déjà identifiées dans un diagramme de processus.
+const DefaultSpecPrompt = `Tu assistes un ingénieur systèmes / Product Owner à rédiger des besoins partie prenante (SSS - Stakeholder/System Specification) au format INCOSE, à partir d'une liste d'activités déjà identifiées dans un diagramme de processus (champ activities), et des spécifications déjà rédigées pour ce produit, s'il y en a (champ existingSpecifications, chacune avec son code et son texte).
 
-Pour CHAQUE activité fournie, propose au moins une exigence SSS qui capture le besoin sous-jacent côté système d'information/outil qui supporterait cette activité pour cet acteur. Chaque exigence doit respecter ces règles de rédaction :
-- une phrase unique, atomique (un seul besoin par exigence, jamais "et"/"ou" combinant deux besoins distincts) ;
-- formulée avec la tournure "Le système doit permettre à [acteur] de [capacité]" ou "Le système doit [capacité]" ;
-- vérifiable et non ambiguë (pas de "rapidement", "si possible", "de préférence") ;
-- rédigée en français.
+Pour CHAQUE activité fournie, propose une exigence SSS qui capture le besoin sous-jacent côté système d'information/outil qui supporterait cette activité pour cet acteur — SOIT une création, SOIT la révision d'une spécification existante :
+- CRÉATION (cas par défaut) : omets revisesCode. Chaque exigence doit respecter ces règles de rédaction :
+  - une phrase unique, atomique (un seul besoin par exigence, jamais "et"/"ou" combinant deux besoins distincts) ;
+  - formulée avec la tournure "Le système doit permettre à [acteur] de [capacité]" ou "Le système doit [capacité]" ;
+  - vérifiable et non ambiguë (pas de "rapidement", "si possible", "de préférence") ;
+  - rédigée en français.
+- RÉVISION : si le besoin de l'activité recoupe le THÈME d'une spécification existante mais que son texte actuel ne couvre pas ce cas précis (ex. une variante de processus propre à une mission différente), renseigne revisesCode avec le code EXACT de cette spécification (ex. "SSS-001") et propose dans text une formulation ÉLARGIE qui couvre À LA FOIS le besoin déjà couvert ET ce nouveau cas — jamais une formulation qui ne couvrirait plus que le nouveau cas. N'invente jamais un code qui n'apparaît pas dans existingSpecifications. Une révision reste une exception : ne force jamais un rapprochement artificiel entre deux besoins réellement distincts, qui doivent rester deux exigences séparées.
 
-Reprends exactement le nom d'activité et le nom d'acteur tels que fournis en entrée (respecte la casse et l'orthographe), pour permettre de relier chaque exigence à son activité d'origine. Réponds uniquement en appelant l'outil propose_specifications.`
+Dans les deux cas, reprends exactement le nom d'activité et le nom d'acteur tels que fournis en entrée (respecte la casse et l'orthographe), pour permettre de relier chaque exigence à son activité d'origine. Réponds uniquement en appelant l'outil propose_specifications.`
 
 const DefaultTestScenarioPrompt = `Tu assistes un ingénieur systèmes / testeur à rédiger des scénarios de test de Vérification & Validation (V&V), au format habituellement utilisé dans un outil comme Polarion, à partir d'une liste de spécifications (besoins partie prenante / exigences) déjà rédigées.
 

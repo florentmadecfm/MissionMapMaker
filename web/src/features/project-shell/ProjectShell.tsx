@@ -12,7 +12,6 @@ import { ProcessDiagram } from '../process-diagram/ProcessDiagram'
 import { WelcomeTour } from '../onboarding/WelcomeTour'
 import { TOUR_DEMO_PRODUCT, TOUR_DEMO_PROJECT } from '../onboarding/tourDemoProject'
 import { TOUR_STEPS } from '../onboarding/tourSteps'
-import type { ProductTab } from '../products/ProductsScreen'
 import { ProductsScreen } from '../products/ProductsScreen'
 import { SettingsModal } from '../settings/SettingsModal'
 import {
@@ -29,7 +28,7 @@ import { VariantComparisonScreen } from './VariantComparisonScreen'
 import { VariantToggle } from './VariantToggle'
 import { VersionHistoryModal } from './VersionHistoryModal'
 
-export type Tab = 'generer' | 'edition' | 'diagramme' | 'specifications' | 'acteur'
+export type Tab = 'generer' | 'edition' | 'diagramme' | 'acteur'
 // Vue de la zone principale, indépendante des onglets d'un projet ouvert :
 // 'project' est le fonctionnement habituel (onglets ci-dessus) ; 'actors'
 // est l'écran transverse "Acteurs" (ActorMissionsScreen), qui ne nécessite
@@ -90,13 +89,6 @@ export function ProjectShell() {
   // Acteur à présélectionner dans ActorView quand on y arrive depuis
   // "Ouvrir cette mission" de l'écran Acteurs (voir handleOpenFromActorMissions).
   const [initialActorId, setInitialActorId] = useState<string | undefined>(undefined)
-  // Produit/onglet à présélectionner dans ProductsScreen quand on y arrive
-  // depuis le renvoi de l'onglet "Spécifications" d'une mission (voir le
-  // rendu de cet onglet plus bas) — undefined en navigation normale
-  // (bouton "Produits" de la sidebar), où ProductsScreen garde son propre
-  // état de sélection.
-  const [initialProductId, setInitialProductId] = useState<string | undefined>(undefined)
-  const [initialProductTab, setInitialProductTab] = useState<ProductTab | undefined>(undefined)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -311,8 +303,8 @@ export function ProjectShell() {
     }
   }
 
-  // Après toute sauvegarde d'un projet (Édition, Diagramme,
-  // Spécifications) : la liste de projets ET l'index d'acteurs peuvent
+  // Après toute sauvegarde d'un projet (Édition, Diagramme, Vue par
+  // persona) : la liste de projets ET l'index d'acteurs peuvent
   // tous deux avoir changé (nom de projet, acteurs ajoutés/renommés...) —
   // un projet peut aussi avoir changé de productId (sélecteur "Produit
   // associé"), d'où le rafraîchissement de la liste de projets ici, dont
@@ -750,8 +742,7 @@ export function ProjectShell() {
             missions={summaries}
             onOpenMission={handleOpen}
             onMissionsChanged={refreshList}
-            initialProductId={initialProductId}
-            initialTab={tourOpen ? TOUR_STEPS[tourStep].productTab : initialProductTab}
+            initialTab={tourOpen ? TOUR_STEPS[tourStep].productTab : undefined}
             initialSpecSubTab={tourOpen ? TOUR_STEPS[tourStep].specSubTab : undefined}
             demoMissionProjects={tourOpen ? [TOUR_DEMO_PROJECT] : undefined}
           />
@@ -773,13 +764,6 @@ export function ProjectShell() {
                   onClick={() => setTab('diagramme')}
                 >
                   Diagramme de processus
-                </button>
-                <button
-                  type="button"
-                  className={tab === 'specifications' ? 'active' : ''}
-                  onClick={() => setTab('specifications')}
-                >
-                  Spécifications
                 </button>
                 <button type="button" className={tab === 'acteur' ? 'active' : ''} onClick={() => setTab('acteur')}>
                   Vue par persona
@@ -859,41 +843,6 @@ export function ProjectShell() {
                   onProductChange={handleProductChange}
                 />
               </DiagramErrorBoundary>
-            )}
-            {tab === 'specifications' && (
-              <div className="editor specifications-moved-notice">
-                <header className="editor-header">
-                  <h2 className="panel-title">Spécifications</h2>
-                </header>
-                <p className="placeholder">
-                  Les spécifications, les tests V&amp;V et la matrice de traçabilité se gèrent désormais depuis la
-                  fiche du <strong>produit</strong> (onglet « Spécification et VV »), pour couvrir d'un coup toutes
-                  les missions qui lui sont rattachées.
-                </p>
-                {project.productId ? (
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => {
-                      setInitialProductId(project.productId)
-                      setInitialProductTab('specs')
-                      setView('products')
-                    }}
-                  >
-                    Ouvrir dans Produits
-                  </button>
-                ) : (
-                  <>
-                    <p className="nl-warning">
-                      Cette mission n'est rattachée à aucun produit — rattachez-la depuis l'écran Produits (section «
-                      Missions rattachées ») pour y gérer ses spécifications.
-                    </p>
-                    <button type="button" className="btn-primary" onClick={() => setView('products')}>
-                      Ouvrir Produits
-                    </button>
-                  </>
-                )}
-              </div>
             )}
             {tab === 'acteur' && (
               <ActorView

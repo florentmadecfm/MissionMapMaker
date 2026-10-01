@@ -79,6 +79,7 @@ export const TOUR_DEMO_PRODUCT: Product = {
       status: 'approved',
     },
   ],
+  pendingImpactReviewMissionIds: [],
 }
 
 export const TOUR_DEMO_PROJECT: Project = {

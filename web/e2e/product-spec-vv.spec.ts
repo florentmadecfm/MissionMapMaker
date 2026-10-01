@@ -15,9 +15,8 @@ import {
 // matrice de traçabilité doit être déplacée dans la partie Produit", avec
 // un onglet "Stratégie" (contenu historique) et un onglet "Spécification
 // et VV" (nouveau, mêmes éléments qu'avant mais agrégés sur toutes les
-// missions rattachées) — et l'onglet "Spécifications" d'une mission
-// renvoie désormais vers Produits plutôt que d'éditer quoi que ce soit
-// lui-même.
+// missions rattachées) — l'onglet "Spécifications" d'une mission a été
+// entièrement retiré, ce contenu ne vit plus que côté Produits.
 test('spécifications/tests/traçabilité se gèrent depuis Produits, agrégés sur plusieurs missions', async ({ page }) => {
   const productName = uniqueName('e2e-produit-specvv')
   const mission1Name = uniqueName('e2e-mission-specvv-1')
@@ -92,18 +91,10 @@ test('spécifications/tests/traçabilité se gèrent depuis Produits, agrégés 
     expect(updated2.target.activities[0].traceLinks.length).toBe(1)
     expect(updated1.target.activities[0].traceLinks[0]).toBe(updated2.target.activities[0].traceLinks[0])
 
-    // L'onglet "Spécifications" de la mission 1 renvoie vers Produits,
-    // sans plus rien éditer lui-même.
+    // La mission n'a plus aucun onglet "Spécifications" : ce contenu ne
+    // vit plus que côté Produits.
     await openMission(page, mission1Name)
-    await page.getByRole('button', { name: 'Spécifications' }).click()
-    await expect(page.locator('.specifications-moved-notice')).toContainText('se gèrent désormais depuis')
-    await expect(page.locator('.spec-card')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Ouvrir dans Produits' }).click()
-
-    await expect(page.locator('.tabs button', { hasText: 'Spécification et VV' })).toHaveClass(/active/)
-    await expect(page.locator('.spec-card .spec-text').first()).toHaveValue(
-      'Le système doit confirmer la commande en moins de 5 secondes.',
-    )
+    await expect(page.locator('.tabs-bar .tabs button', { hasText: 'Spécifications' })).toHaveCount(0)
   } finally {
     await apiDeleteProject(mission1.id)
     await apiDeleteProject(mission2.id)

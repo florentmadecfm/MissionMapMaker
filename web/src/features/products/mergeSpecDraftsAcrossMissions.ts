@@ -29,10 +29,21 @@ export interface MergeSpecAcrossMissionsResult {
   specifications: Specification[]
   // Mêmes lignes qu'en entrée, dans le même ordre — seule `activity.
   // traceLinks` change, pour les lignes effectivement reliées à une
-  // nouvelle spécification. L'appelant regroupe par missionId pour savoir
-  // quelles missions resauvegarder (voir ProductSpecVVPanel.tsx).
+  // nouvelle spécification (ou nouvellement reliées à une spécification
+  // révisée, voir revisedSpecIds ci-dessous). L'appelant regroupe par
+  // missionId pour savoir quelles missions resauvegarder (voir
+  // ProductSpecVVPanel.tsx).
   activityRows: ActivityRow[]
   addedCount: number
+  // Nombre de propositions appliquées comme RÉVISION d'une spécification
+  // déjà existante (draft.revisesCode) plutôt que comme création — voir
+  // revisedSpecIds pour les ids concernés.
+  revisedCount: number
+  // Ids des spécifications EXISTANTES dont le texte vient d'être révisé —
+  // l'appelant (ProductSpecVVPanel.handleGenerateSss) s'en sert pour
+  // repasser en brouillon les scénarios de test V&V qui les vérifiaient
+  // déjà (leur contenu peut ne plus correspondre au texte révisé).
+  revisedSpecIds: string[]
   unmatchedActivities: string[]
 }
 
@@ -54,16 +65,45 @@ export function mergeSpecDraftsAcrossMissions(
   activityRows: ActivityRow[],
   drafts: DraftSpecification[],
 ): MergeSpecAcrossMissionsResult {
-  const nextSpecifications: Specification[] = [...specifications]
+  // Copie superficielle de CHAQUE spécification (pas seulement du tableau) :
+  // une révision (ci-dessous) mute l'objet en place (text/rationale/status),
+  // ce qui toucherait par erreur l'état React d'origine (`specifications`,
+  // passé par référence par l'appelant) si on gardait les mêmes objets.
+  const nextSpecifications: Specification[] = specifications.map((s) => ({ ...s }))
   const nextRows = activityRows.map((r) => ({ ...r, activity: { ...r.activity, traceLinks: [...r.activity.traceLinks] } }))
   const unmatchedActivities: string[] = []
+  const revisedSpecIds: string[] = []
   let addedCount = 0
+  let revisedCount = 0
 
   for (const draft of drafts) {
     const row = nextRows.find((r) => sameName(r.activity.name, draft.activityName) && sameName(r.actorName, draft.actorName))
     if (!row) {
       unmatchedActivities.push(`${draft.activityName} (${draft.actorName})`)
       continue
+    }
+
+    if (draft.revisesCode) {
+      const existing = nextSpecifications.find((s) => s.code === draft.revisesCode)
+      if (existing) {
+        const previousText = existing.text
+        existing.text = draft.text
+        existing.rationale = draft.rationale
+          ? `${draft.rationale} (texte précédent : « ${previousText} »)`
+          : `Révisée automatiquement — texte précédent : « ${previousText} »`
+        // Repasse en brouillon même si déjà approuvée : le texte a changé,
+        // la relecture/validation humaine doit reprendre (jamais une
+        // révision silencieusement approuvée).
+        existing.status = 'draft'
+        revisedCount++
+        revisedSpecIds.push(existing.id)
+        if (!row.activity.traceLinks.includes(existing.id)) {
+          row.activity.traceLinks.push(existing.id)
+        }
+        continue
+      }
+      // Code inconnu (ex. spécification supprimée entre-temps) : repli
+      // silencieux sur la création, comme si revisesCode était absent.
     }
 
     const alreadyLinked = row.activity.traceLinks
@@ -85,5 +125,5 @@ export function mergeSpecDraftsAcrossMissions(
     row.activity.traceLinks.push(spec.id)
   }
 
-  return { specifications: nextSpecifications, activityRows: nextRows, addedCount, unmatchedActivities }
+  return { specifications: nextSpecifications, activityRows: nextRows, addedCount, revisedCount, revisedSpecIds, unmatchedActivities }
 }

@@ -300,14 +300,15 @@ func (h *Handler) generateProcess(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) generateSpecifications(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Activities []llm.ActivityRef `json:"activities"`
+		Activities             []llm.ActivityRef `json:"activities"`
+		ExistingSpecifications []llm.SpecRef      `json:"existingSpecifications"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	drafts, err := h.generate.GenerateSpecifications(r.Context(), body.Activities)
+	drafts, err := h.generate.GenerateSpecifications(r.Context(), body.Activities, body.ExistingSpecifications)
 	if err != nil {
 		writeGenerateError(w, err)
 		return

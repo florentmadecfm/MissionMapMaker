@@ -113,6 +113,17 @@ type ActivityRef struct {
 	ActorName string `json:"actorName"`
 }
 
+// specificationsRequest est le message utilisateur envoyé au LLM par
+// GenerateSpecifications (anthropic.go/mistral.go) — les activités à
+// couvrir, et les spécifications déjà rédigées du produit (pour que le
+// modèle puisse proposer une révision plutôt qu'un doublon, voir
+// DraftSpecification.RevisesCode). ExistingSpecifications omis (pas vide)
+// quand aucune n'existe encore, pour ne pas alourdir le prompt sans raison.
+type specificationsRequest struct {
+	Activities             []ActivityRef `json:"activities"`
+	ExistingSpecifications []SpecRef     `json:"existingSpecifications,omitempty"`
+}
+
 // DraftSpecification est un besoin partie prenante (SSS) proposé pour une
 // activité donnée, au format d'exigence habituel (une phrase atomique,
 // vérifiable, "le système doit ..."). Comme DraftProcess, c'est une
@@ -122,6 +133,16 @@ type DraftSpecification struct {
 	ActorName    string `json:"actorName"`
 	Text         string `json:"text"`
 	Rationale    string `json:"rationale,omitempty"`
+	// RevisesCode, quand non vide, signale que cette proposition RÉVISE une
+	// spécification déjà existante (son code, ex. "SSS-001", fourni en
+	// entrée via existingSpecifications) plutôt que d'en créer une
+	// nouvelle — l'impact d'une activité qui recoupe un besoin déjà
+	// couvert, mais dont la formulation actuelle ne l'englobe pas encore
+	// (ex. nouvelle mission liée au produit). Le frontend
+	// (mergeSpecDraftsAcrossMissions.ts) applique alors la révision en
+	// conservant l'id existant — jamais une suppression/recréation — et
+	// repasse son statut en brouillon pour re-validation.
+	RevisesCode string `json:"revisesCode,omitempty"`
 }
 
 // SpecRef identifie une spécification par son code (ex. "SSS-001"), tel

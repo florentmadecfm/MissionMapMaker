@@ -346,6 +346,12 @@ export interface Product {
   // produit vise l'état futur du processus.
   specifications: Specification[]
   testScenarios: TestScenario[]
+  // Missions récemment liées à ce produit (ProductsScreen.handleLinkMission)
+  // dont l'impact sur les spécifications/tests existants n'a pas encore été
+  // évalué — fait apparaître un bandeau dans ProductSpecVVPanel.tsx invitant
+  // à relancer la génération SSS/VV en tenant compte de ces missions. Vidé
+  // dès que l'analyse est lancée (ou explicitement ignorée).
+  pendingImpactReviewMissionIds: string[]
 }
 
 export interface ProductKpi {
@@ -536,6 +542,11 @@ export interface DraftSpecification {
   actorName: string
   text: string
   rationale?: string
+  // Non vide : cette proposition RÉVISE la spécification existante portant
+  // ce code (ex. "SSS-001") plutôt que d'en créer une nouvelle — voir
+  // mergeSpecDraftsAcrossMissions.ts, qui applique la révision en
+  // conservant l'id existant et repasse son statut en brouillon.
+  revisesCode?: string
 }
 
 export interface SpecRef {
