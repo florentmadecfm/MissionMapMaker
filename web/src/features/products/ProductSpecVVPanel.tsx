@@ -150,6 +150,12 @@ export function ProductSpecVVPanel({
     }))
   })
   const unspecifiedCount = activityRows.filter((r) => r.activity.traceLinks.length === 0).length
+  // Missions dont le lien au produit est trop récent pour avoir déjà été
+  // pris en compte dans les SSS/VV (product.pendingImpactReviewMissionIds,
+  // ProductsScreen.handleLinkMission) — fait apparaître le bandeau
+  // d'analyse d'impact ci-dessous. Résolu par nom via `linkedMissions`
+  // (pas missionProjects, pas encore forcément chargé).
+  const pendingImpactMissions = linkedMissions.filter((m) => product.pendingImpactReviewMissionIds.includes(m.id))
 
   async function saveMissionProject(updated: Project) {
     const saved = await api.saveProject(updated)
@@ -183,9 +189,21 @@ export function ProductSpecVVPanel({
       // au produit").
       const unspecifiedRows = activityRows.filter((r) => r.activity.traceLinks.length === 0)
       const activityRefs = unspecifiedRows.map((r) => ({ name: r.activity.name, actorName: r.actorName }))
-      const drafts = await api.generateSpecifications(activityRefs)
+      // Les spécifications déjà rédigées sont transmises comme contexte
+      // (existingSpecifications) : le LLM peut alors proposer la RÉVISION
+      // de l'une d'elles (revisesCode) plutôt qu'un doublon, quand une
+      // activité encore non tracée (souvent celles d'une mission qui vient
+      // d'être liée au produit) révèle une variante d'un besoin déjà
+      // couvert — voir mergeSpecDraftsAcrossMissions.ts.
+      const existingSpecRefs = product.specifications.map((s) => ({ code: s.code, text: s.text }))
+      const drafts = await api.generateSpecifications(activityRefs, existingSpecRefs)
       const result = mergeSpecDraftsAcrossMissions(product.specifications, activityRows, drafts)
       const parts = [`${result.addedCount} SSS proposée${result.addedCount > 1 ? 's' : ''}`]
+      if (result.revisedCount > 0) {
+        parts.push(
+          `${result.revisedCount} SSS existante${result.revisedCount > 1 ? 's' : ''} révisée${result.revisedCount > 1 ? 's' : ''} (repassée${result.revisedCount > 1 ? 's' : ''} en brouillon, à revalider)`,
+        )
+      }
       if (result.unmatchedActivities.length > 0) {
         parts.push(`${result.unmatchedActivities.length} activité(s) non reconnue(s) : ${result.unmatchedActivities.join(', ')}`)
       }
@@ -207,17 +225,31 @@ export function ProductSpecVVPanel({
         await saveMissionProject({ ...mp, target: { ...mp.target, activities: updatedActivities } })
       }
 
+      // Les scénarios de test qui vérifiaient une SSS venant d'être révisée
+      // repassent eux aussi en brouillon : leur contenu (étapes écrites
+      // pour l'ancien texte) peut ne plus correspondre exactement au texte
+      // révisé — signalement visible dans l'onglet "Tests V&V" (le statut
+      // "approuvé" y est déjà affiché/éditable), sans tenter de regénérer
+      // leur contenu automatiquement (un scénario de test reste un contenu
+      // édité à la main, jamais réécrit sans que l'utilisateur ne le
+      // demande explicitement).
+      let nextTestScenarios: typeof product.testScenarios =
+        result.revisedSpecIds.length > 0
+          ? product.testScenarios.map((t) =>
+              result.revisedSpecIds.includes(t.specificationId) ? { ...t, status: 'draft' } : t,
+            )
+          : product.testScenarios
+
       // Génère aussi, dans la foulée, les scénarios de test V&V des SSS
       // qui viennent d'être proposées — inutile d'attendre un second clic
       // dans le sous-onglet "Tests V&V" (même enchaînement que l'ancien
       // SpecificationsPanel.handleGenerateSss, mission-local).
       const newlyAddedSpecs = result.specifications.slice(product.specifications.length)
-      let nextTestScenarios = product.testScenarios
       if (newlyAddedSpecs.length > 0) {
         try {
           const specRefs = newlyAddedSpecs.map((s) => ({ code: s.code, text: s.text }))
           const testDrafts = await api.generateTestScenarios(specRefs)
-          const testResult = mergeTestScenarioDrafts(result.specifications, product.testScenarios, testDrafts)
+          const testResult = mergeTestScenarioDrafts(result.specifications, nextTestScenarios, testDrafts)
           nextTestScenarios = testResult.testScenarios
           parts.push(`${testResult.addedCount} scénario${testResult.addedCount > 1 ? 's' : ''} de test proposé${testResult.addedCount > 1 ? 's' : ''}`)
         } catch (testErr) {
@@ -225,7 +257,17 @@ export function ProductSpecVVPanel({
         }
       }
 
-      onChange({ ...product, specifications: result.specifications, testScenarios: nextTestScenarios })
+      // Toute (re)génération — déclenchée depuis le bandeau d'impact ou
+      // depuis le bouton habituel — vaut analyse faite : la liste des
+      // missions en attente de revue est vidée, qu'une révision ait
+      // effectivement été proposée ou non (l'absence de proposition est
+      // aussi une réponse : rien à changer).
+      onChange({
+        ...product,
+        specifications: result.specifications,
+        testScenarios: nextTestScenarios,
+        pendingImpactReviewMissionIds: [],
+      })
       setGenerateInfo(parts.join(' — '))
     } catch (e) {
       switch (classifyGenerationError(e)) {
@@ -284,6 +326,13 @@ export function ProductSpecVVPanel({
     }
   }
 
+  // "Ignorer" du bandeau d'impact (pendingImpactReviewMissionIds) : vide la
+  // liste sans lancer d'appel IA — l'utilisateur juge l'analyse inutile
+  // pour cette mission (ex. elle ne touche aucune activité déjà spécifiée).
+  function dismissImpactReview() {
+    onChange({ ...product, pendingImpactReviewMissionIds: [] })
+  }
+
   // Mise à jour OPTIMISTE de missionProjects avant même l'envoi (plutôt que
   // d'attendre la réponse de saveMissionProject, voir son commentaire) :
   // la case cochée/décochée est une action ponctuelle d'un clic, pas une
@@ -323,6 +372,24 @@ export function ProductSpecVVPanel({
           Aucune mission rattachée à ce produit pour l'instant — rattachez-en au moins une (section « Missions
           rattachées », onglet Stratégie) pour générer des spécifications ou utiliser la matrice de traçabilité.
         </p>
+      )}
+      {pendingImpactMissions.length > 0 && (
+        <div className="impact-review-banner">
+          <p>
+            {pendingImpactMissions.length === 1
+              ? `La mission « ${pendingImpactMissions[0].name} » vient d'être liée à ce produit`
+              : `${pendingImpactMissions.length} missions viennent d'être liées à ce produit (${pendingImpactMissions.map((m) => m.name).join(', ')})`}{' '}
+            — son impact sur les spécifications et tests V&amp;V déjà existants n'a pas encore été évalué.
+          </p>
+          <div className="impact-review-banner-actions">
+            <button type="button" className="btn-primary" onClick={handleGenerateSss} disabled={generating || unspecifiedCount === 0}>
+              {generating ? 'Analyse…' : "Analyser l'impact"}
+            </button>
+            <button type="button" onClick={dismissImpactReview} disabled={generating}>
+              Ignorer
+            </button>
+          </div>
+        </div>
       )}
       {missionsError && <p className="error">{missionsError}</p>}
       {mutationError && <p className="error">{mutationError}</p>}

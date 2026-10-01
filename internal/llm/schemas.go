@@ -96,13 +96,14 @@ func proposeSpecificationsToolSpec() ToolSpec {
 			"actorName":    stringProp,
 			"text":         stringProp,
 			"rationale":    stringProp,
+			"revisesCode":  stringProp,
 		},
 		"required": []string{"activityName", "actorName", "text"},
 	}
 
 	return ToolSpec{
 		Name:        "propose_specifications",
-		Description: "Enregistre les besoins partie prenante (SSS) proposés pour chaque activité.",
+		Description: "Enregistre les besoins partie prenante (SSS) proposés pour chaque activité — une création, ou la révision d'une spécification existante (revisesCode) quand son champ existingSpecifications le justifie.",
 		Properties: map[string]any{
 			"specifications": map[string]any{"type": "array", "items": specSchema},
 		},

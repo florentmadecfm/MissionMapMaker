@@ -52,6 +52,21 @@ type Product struct {
 	// une seule liste, partagée par toutes les missions du produit.
 	Specifications []Specification `json:"specifications"`
 	TestScenarios  []TestScenario  `json:"testScenarios"`
+
+	// PendingImpactReviewMissionIDs liste les missions récemment liées à ce
+	// produit (ProductsScreen.handleLinkMission, frontend) dont l'impact sur
+	// les spécifications/tests déjà existants n'a pas encore été évalué —
+	// un bandeau dans l'onglet "Spécification et VV" (ProductSpecVVPanel.tsx)
+	// invite alors à relancer la génération SSS/VV en tenant compte de CES
+	// missions (voir GenerateSpecifications, existingSpecifications).
+	// Vidé dès que l'analyse est lancée (ou explicitement ignorée) — jamais
+	// revalidé après coup (un identifiant de mission supprimée/déliée y
+	// reste jusqu'à la prochaine analyse ou liaison, sans conséquence :
+	// seul le libellé affiché au frontend exploite cette liste, aucune
+	// logique serveur n'en dépend). Référence des Project.id, jamais
+	// contrôlée ici (même précédent que Activity.TraceLinks/KpiLinks :
+	// structurellement inatteignable depuis ce package, voir project.go).
+	PendingImpactReviewMissionIDs []string `json:"pendingImpactReviewMissionIds"`
 }
 
 // ProductKpi est un indicateur cible du produit — rattaché ou non à un
@@ -98,6 +113,9 @@ func (p *Product) Normalize() {
 	}
 	if p.TestScenarios == nil {
 		p.TestScenarios = []TestScenario{}
+	}
+	if p.PendingImpactReviewMissionIDs == nil {
+		p.PendingImpactReviewMissionIDs = []string{}
 	}
 	for i := range p.TestScenarios {
 		if p.TestScenarios[i].Steps == nil {

@@ -254,8 +254,8 @@ func (c *mistralClient) GenerateProcess(ctx context.Context, text, systemPrompt 
 	return &draft, nil
 }
 
-func (c *mistralClient) GenerateSpecifications(ctx context.Context, activities []ActivityRef, systemPrompt string) ([]DraftSpecification, error) {
-	input, err := json.Marshal(activities)
+func (c *mistralClient) GenerateSpecifications(ctx context.Context, activities []ActivityRef, existingSpecifications []SpecRef, systemPrompt string) ([]DraftSpecification, error) {
+	input, err := json.Marshal(specificationsRequest{Activities: activities, ExistingSpecifications: existingSpecifications})
 	if err != nil {
 		return nil, fmt.Errorf("sérialisation des activités : %w", err)
 	}

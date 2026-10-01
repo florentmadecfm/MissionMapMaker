@@ -385,6 +385,14 @@ export function ProductsScreen({
   // utilisateur : hors de propos à cet endroit). Pas d'endpoint PATCH
   // dédié : même aller-retour complet get/save que le reste de cet écran
   // (autosave, runSave ci-dessus), aucune nouvelle route API.
+  //
+  // Marque aussi le produit : cette mission entre dans
+  // pendingImpactReviewMissionIds (fait apparaître le bandeau "impact non
+  // évalué" dans ProductSpecVVPanel.tsx) — son impact sur les SSS/VV déjà
+  // rédigées n'a pas encore été examiné. Sauvegarde explicite du produit
+  // (pas setDraftDirty+autosave) : un geste ponctuel déclenché par un
+  // clic, comme le reste de cette fonction, pas une frappe continue à
+  // déboucher.
   async function handleLinkMission() {
     if (!linkTargetId || !draft) return
     setLinking(true)
@@ -392,8 +400,13 @@ export function ProductsScreen({
     try {
       const project = await api.getProject(linkTargetId)
       await api.saveProject({ ...project, productId: draft.id })
+      await api.saveProduct({
+        ...draft,
+        pendingImpactReviewMissionIds: [...new Set([...draft.pendingImpactReviewMissionIds, linkTargetId])],
+      })
       setLinkTargetId('')
       onMissionsChanged()
+      onProductsChanged()
     } catch (e) {
       setLinkError(String(e))
     } finally {
@@ -406,14 +419,25 @@ export function ProductsScreen({
   // qu'omis : un champ absent du JSON envoyé laisse le pointeur Go à son
   // zéro `nil` côté serveur, donc bien effacé et pas seulement ignoré).
   // Ne supprime ni la mission ni ses données, seulement le rattachement :
-  // pas de confirmation nécessaire, contrairement à handleDelete.
+  // pas de confirmation nécessaire, contrairement à handleDelete. Retire
+  // aussi cette mission de pendingImpactReviewMissionIds si elle y
+  // figurait (liée puis déliée avant d'avoir été analysée) — évite un
+  // bandeau d'impact fantôme référençant une mission qui n'est déjà plus
+  // rattachée.
   async function handleUnlinkMission(missionId: string) {
     setUnlinkingId(missionId)
     setLinkError(null)
     try {
       const project = await api.getProject(missionId)
       await api.saveProject({ ...project, productId: undefined })
+      if (draft?.pendingImpactReviewMissionIds.includes(missionId)) {
+        await api.saveProduct({
+          ...draft,
+          pendingImpactReviewMissionIds: draft.pendingImpactReviewMissionIds.filter((id) => id !== missionId),
+        })
+      }
       onMissionsChanged()
+      onProductsChanged()
     } catch (e) {
       setLinkError(String(e))
     } finally {

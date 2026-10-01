@@ -44,6 +44,7 @@ function baseProduct(): Product {
     kpis: [{ id: 'kpi1', name: "Temps d'attente réduit", baseline: '12', target: '5', unit: 'min' }],
     specifications: [],
     testScenarios: [],
+    pendingImpactReviewMissionIds: [],
   }
 }
 

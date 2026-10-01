@@ -108,8 +108,8 @@ func (c *anthropicClient) GenerateProcess(ctx context.Context, text, systemPromp
 	return nil, fmt.Errorf("Claude n'a pas appelé l'outil %s (stop_reason=%s)", spec.Name, resp.StopReason)
 }
 
-func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities []ActivityRef, systemPrompt string) ([]DraftSpecification, error) {
-	input, err := json.Marshal(activities)
+func (c *anthropicClient) GenerateSpecifications(ctx context.Context, activities []ActivityRef, existingSpecifications []SpecRef, systemPrompt string) ([]DraftSpecification, error) {
+	input, err := json.Marshal(specificationsRequest{Activities: activities, ExistingSpecifications: existingSpecifications})
 	if err != nil {
 		return nil, fmt.Errorf("sérialisation des activités : %w", err)
 	}

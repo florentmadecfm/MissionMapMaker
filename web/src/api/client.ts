@@ -77,6 +77,7 @@ function normalizeProduct(product: Product): Product {
     kpis: product.kpis ?? [],
     specifications: product.specifications ?? [],
     testScenarios: (product.testScenarios ?? []).map((t) => ({ ...t, steps: t.steps ?? [] })),
+    pendingImpactReviewMissionIds: product.pendingImpactReviewMissionIds ?? [],
   }
 }
 
@@ -103,10 +104,15 @@ export const api = {
     request<Project>(`/projects/${id}/versions/${versionId}/restore`, { method: 'POST' }).then(normalizeProject),
   generateFromText: (text: string) =>
     request<DraftProcess>('/generate', { method: 'POST', body: JSON.stringify({ text }) }),
-  generateSpecifications: (activities: ActivityRef[]) =>
+  // existingSpecifications (défaut []) : les spécifications déjà rédigées
+  // du produit, pour que le LLM puisse proposer une révision de l'une
+  // d'elles (DraftSpecification.revisesCode) plutôt qu'un doublon quand une
+  // activité recoupe un besoin déjà couvert — voir
+  // mergeSpecDraftsAcrossMissions.ts.
+  generateSpecifications: (activities: ActivityRef[], existingSpecifications: SpecRef[] = []) =>
     request<DraftSpecification[]>('/generate-specifications', {
       method: 'POST',
-      body: JSON.stringify({ activities }),
+      body: JSON.stringify({ activities, existingSpecifications }),
     }),
   generateTestScenarios: (specifications: SpecRef[]) =>
     request<DraftTestScenario[]>('/generate-test-scenarios', {

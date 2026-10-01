@@ -258,12 +258,15 @@ func (s *GenerateService) Generate(ctx context.Context, text string) (*llm.Draft
 	return generator.GenerateProcess(ctx, text, effectiveSystemPrompt(prompts.ProcessContext, prompts.Process))
 }
 
-func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef) ([]llm.DraftSpecification, error) {
+func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef, existingSpecifications []llm.SpecRef) ([]llm.DraftSpecification, error) {
 	if len(activities) == 0 {
 		return nil, errNoActivities
 	}
 	if len(activities) > maxActivityRefs {
 		return nil, errTooManyActivities
+	}
+	if len(existingSpecifications) > maxSpecRefs {
+		return nil, errTooManySpecifications
 	}
 	generator := s.currentGenerator()
 	if generator == nil {
@@ -272,7 +275,7 @@ func (s *GenerateService) GenerateSpecifications(ctx context.Context, activities
 	prompts := s.Prompts()
 	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
 	defer cancel()
-	return generator.GenerateSpecifications(ctx, activities, effectiveSystemPrompt(prompts.SpecificationContext, prompts.Specification))
+	return generator.GenerateSpecifications(ctx, activities, existingSpecifications, effectiveSystemPrompt(prompts.SpecificationContext, prompts.Specification))
 }
 
 func (s *GenerateService) GenerateTestScenarios(ctx context.Context, specifications []llm.SpecRef) ([]llm.DraftTestScenario, error) {

@@ -16,7 +16,7 @@ func (stubGenerator) GenerateProcess(ctx context.Context, text, systemPrompt str
 	return &llm.DraftProcess{}, nil
 }
 
-func (stubGenerator) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef, systemPrompt string) ([]llm.DraftSpecification, error) {
+func (stubGenerator) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef, existingSpecifications []llm.SpecRef, systemPrompt string) ([]llm.DraftSpecification, error) {
 	return nil, nil
 }
 
@@ -59,7 +59,7 @@ func TestGenerate_AcceptsTextAtLimit(t *testing.T) {
 func TestGenerateSpecifications_RejectsTooManyActivities(t *testing.T) {
 	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
 	refs := make([]llm.ActivityRef, maxActivityRefs+1)
-	_, err := s.GenerateSpecifications(context.Background(), refs)
+	_, err := s.GenerateSpecifications(context.Background(), refs, nil)
 	if err != errTooManyActivities {
 		t.Fatalf("expected errTooManyActivities, got %v", err)
 	}
@@ -68,9 +68,35 @@ func TestGenerateSpecifications_RejectsTooManyActivities(t *testing.T) {
 func TestGenerateSpecifications_AcceptsCountAtLimit(t *testing.T) {
 	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
 	refs := make([]llm.ActivityRef, maxActivityRefs)
-	_, err := s.GenerateSpecifications(context.Background(), refs)
+	_, err := s.GenerateSpecifications(context.Background(), refs, nil)
 	if err != nil {
 		t.Fatalf("expected no error at the limit, got %v", err)
+	}
+}
+
+func TestGenerateSpecifications_RejectsTooManyExistingSpecifications(t *testing.T) {
+	s := NewGenerateService(stubGenerator{}, llm.ProviderMistral, "m", "")
+	refs := []llm.ActivityRef{{Name: "a", ActorName: "b"}}
+	existing := make([]llm.SpecRef, maxSpecRefs+1)
+	_, err := s.GenerateSpecifications(context.Background(), refs, existing)
+	if err != errTooManySpecifications {
+		t.Fatalf("expected errTooManySpecifications, got %v", err)
+	}
+}
+
+// Les spécifications déjà rédigées du produit (existingSpecifications)
+// doivent atteindre le Generator inchangées — c'est ce contexte qui lui
+// permet de proposer une révision (DraftSpecification.RevisesCode) plutôt
+// qu'un doublon pour une activité qui en recoupe une déjà écrite.
+func TestGenerateSpecifications_ForwardsExistingSpecifications(t *testing.T) {
+	gen := &recordingGenerator{}
+	s := NewGenerateService(gen, llm.ProviderMistral, "m", "")
+	existing := []llm.SpecRef{{Code: "SSS-001", Text: "Texte existant."}}
+	if _, err := s.GenerateSpecifications(context.Background(), []llm.ActivityRef{{Name: "a", ActorName: "b"}}, existing); err != nil {
+		t.Fatalf("GenerateSpecifications: %v", err)
+	}
+	if len(gen.lastExistingSpecifications) != 1 || gen.lastExistingSpecifications[0] != existing[0] {
+		t.Fatalf("expected existingSpecifications %v to reach the generator unchanged, got %v", existing, gen.lastExistingSpecifications)
 	}
 }
 
@@ -112,9 +138,10 @@ func TestGenerateTestScenarios_AcceptsCountAtLimit(t *testing.T) {
 // GenerateService, pour vérifier la composition prompt (contexte) + skill
 // (méthode) sans dépendre d'un fournisseur réel.
 type recordingGenerator struct {
-	lastProcessPrompt       string
-	lastSpecificationPrompt string
-	lastTestScenarioPrompt  string
+	lastProcessPrompt          string
+	lastSpecificationPrompt    string
+	lastTestScenarioPrompt     string
+	lastExistingSpecifications []llm.SpecRef
 }
 
 func (g *recordingGenerator) GenerateProcess(ctx context.Context, text, systemPrompt string) (*llm.DraftProcess, error) {
@@ -122,8 +149,9 @@ func (g *recordingGenerator) GenerateProcess(ctx context.Context, text, systemPr
 	return &llm.DraftProcess{}, nil
 }
 
-func (g *recordingGenerator) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef, systemPrompt string) ([]llm.DraftSpecification, error) {
+func (g *recordingGenerator) GenerateSpecifications(ctx context.Context, activities []llm.ActivityRef, existingSpecifications []llm.SpecRef, systemPrompt string) ([]llm.DraftSpecification, error) {
 	g.lastSpecificationPrompt = systemPrompt
+	g.lastExistingSpecifications = existingSpecifications
 	return nil, nil
 }
 
@@ -165,7 +193,7 @@ func TestGenerate_ComposesContextAndSkillPrompts(t *testing.T) {
 	}
 
 	s.SetPrompts(PromptOverrides{Specification: "Skill personnalisé."})
-	if _, err := s.GenerateSpecifications(context.Background(), []llm.ActivityRef{{Name: "a", ActorName: "b"}}); err != nil {
+	if _, err := s.GenerateSpecifications(context.Background(), []llm.ActivityRef{{Name: "a", ActorName: "b"}}, nil); err != nil {
 		t.Fatalf("GenerateSpecifications: %v", err)
 	}
 	want = llm.DefaultSpecContextPrompt + "\n\nSkill personnalisé."
