@@ -64,6 +64,13 @@ interface Props {
   // en usage normal, où subTab reste piloté uniquement par les clics
   // ci-dessous. Même patron que l'ancien SpecificationsPanel.tsx.
   forcedSubTab?: SubTab
+  // Missions à afficher directement, sans passer par l'API (visite guidée
+  // uniquement, ProjectShell.tsx) — TOUR_DEMO_PROJECT n'est jamais
+  // persisté, donc `api.getProject(TOUR_DEMO_PROJECT_ID)` échouerait
+  // (404) si on le laissait suivre le chemin normal ci-dessous. undefined
+  // en usage normal (le comportement par défaut, basé sur `linkedMissions`,
+  // reste inchangé).
+  demoMissionProjects?: Project[]
 }
 
 // Onglet "Spécification et VV" de ProductsScreen.tsx — déplacé depuis
@@ -78,7 +85,14 @@ interface Props {
 // directement une mission dès qu'une de ses activités change (toggle de
 // la matrice, génération), jamais via l'autosave de ProductsScreen (qui ne
 // porte que sur le produit).
-export function ProductSpecVVPanel({ product, onChange, linkedMissions, onMissionsChanged, forcedSubTab }: Props) {
+export function ProductSpecVVPanel({
+  product,
+  onChange,
+  linkedMissions,
+  onMissionsChanged,
+  forcedSubTab,
+  demoMissionProjects,
+}: Props) {
   const [subTab, setSubTab] = useState<SubTab>('specifications')
   useEffect(() => {
     if (forcedSubTab) setSubTab(forcedSubTab)
@@ -104,6 +118,10 @@ export function ProductSpecVVPanel({ product, onChange, linkedMissions, onMissio
   const linkedMissionIds = [...linkedMissions.map((m) => m.id)].sort().join(',')
 
   useEffect(() => {
+    if (demoMissionProjects) {
+      setMissionProjects(demoMissionProjects)
+      return
+    }
     const ids = linkedMissions.map((m) => m.id)
     if (ids.length === 0) {
       setMissionProjects([])
@@ -116,7 +134,7 @@ export function ProductSpecVVPanel({ product, onChange, linkedMissions, onMissio
       .catch((e) => setMissionsError(String(e)))
       .finally(() => setLoadingMissions(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkedMissionIds])
+  }, [linkedMissionIds, demoMissionProjects])
 
   // Activités CIBLE de toutes les missions liées, aplaties en une seule
   // liste avec de quoi retrouver leur mission/acteur d'origine — une
@@ -300,7 +318,7 @@ export function ProductSpecVVPanel({ product, onChange, linkedMissions, onMissio
 
   return (
     <div className="editor">
-      {linkedMissions.length === 0 && (
+      {!demoMissionProjects && linkedMissions.length === 0 && (
         <p className="placeholder">
           Aucune mission rattachée à ce produit pour l'instant — rattachez-en au moins une (section « Missions
           rattachées », onglet Stratégie) pour générer des spécifications ou utiliser la matrice de traçabilité.

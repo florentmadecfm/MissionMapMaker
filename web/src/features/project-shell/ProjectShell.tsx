@@ -753,6 +753,7 @@ export function ProjectShell() {
             initialProductId={initialProductId}
             initialTab={tourOpen ? TOUR_STEPS[tourStep].productTab : initialProductTab}
             initialSpecSubTab={tourOpen ? TOUR_STEPS[tourStep].specSubTab : undefined}
+            demoMissionProjects={tourOpen ? [TOUR_DEMO_PROJECT] : undefined}
           />
         ) : view === 'compare' && project ? (
           <VariantComparisonScreen project={project} onChange={handleComparisonChange} onClose={() => setView('project')} />

@@ -38,6 +38,11 @@ interface Props {
   initialProductId?: string
   initialTab?: ProductTab
   initialSpecSubTab?: SpecVVSubTab
+  // Missions à afficher directement dans ProductSpecVVPanel sans passer
+  // par l'API (visite guidée, ProjectShell.tsx) — voir le commentaire sur
+  // ce même nom de prop dans ProductSpecVVPanel.tsx. undefined en usage
+  // normal.
+  demoMissionProjects?: Project[]
 }
 
 function newId(prefix: string) {
@@ -74,6 +79,7 @@ export function ProductsScreen({
   initialProductId,
   initialTab,
   initialSpecSubTab,
+  demoMissionProjects,
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draft, setDraft] = useState<Product | null>(null)
@@ -509,6 +515,7 @@ export function ProductsScreen({
               linkedMissions={linkedMissions}
               onMissionsChanged={onMissionsChanged}
               forcedSubTab={initialSpecSubTab}
+              demoMissionProjects={demoMissionProjects}
             />
           )}
 
