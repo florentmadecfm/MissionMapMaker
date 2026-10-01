@@ -419,21 +419,28 @@ export function ProductsScreen({
   // qu'omis : un champ absent du JSON envoyé laisse le pointeur Go à son
   // zéro `nil` côté serveur, donc bien effacé et pas seulement ignoré).
   // Ne supprime ni la mission ni ses données, seulement le rattachement :
-  // pas de confirmation nécessaire, contrairement à handleDelete. Retire
-  // aussi cette mission de pendingImpactReviewMissionIds si elle y
+  // pas de confirmation nécessaire, contrairement à handleDelete.
+  //
+  // Retire aussi cette mission de pendingImpactReviewMissionIds si elle y
   // figurait (liée puis déliée avant d'avoir été analysée) — évite un
   // bandeau d'impact fantôme référençant une mission qui n'est déjà plus
-  // rattachée.
-  async function handleUnlinkMission(missionId: string) {
+  // rattachée. À l'inverse, l'ajoute à pendingScopeReviewMissionNames (son
+  // NOM, pas son id — une fois déliée, l'id ne résout plus rien d'utile
+  // côté ProductSpecVVPanel.tsx) : le périmètre du produit vient de
+  // rétrécir, certaines spécifications n'étaient peut-être justifiées que
+  // par cette mission — signalement utilisateur, demande symétrique du
+  // bandeau d'impact à la liaison.
+  async function handleUnlinkMission(missionId: string, missionName: string) {
     setUnlinkingId(missionId)
     setLinkError(null)
     try {
       const project = await api.getProject(missionId)
       await api.saveProject({ ...project, productId: undefined })
-      if (draft?.pendingImpactReviewMissionIds.includes(missionId)) {
+      if (draft) {
         await api.saveProduct({
           ...draft,
           pendingImpactReviewMissionIds: draft.pendingImpactReviewMissionIds.filter((id) => id !== missionId),
+          pendingScopeReviewMissionNames: [...new Set([...draft.pendingScopeReviewMissionNames, missionName])],
         })
       }
       onMissionsChanged()
@@ -771,7 +778,7 @@ export function ProductsScreen({
                       <button
                         type="button"
                         className="danger"
-                        onClick={() => handleUnlinkMission(m.id)}
+                        onClick={() => handleUnlinkMission(m.id, m.name)}
                         disabled={unlinkingId === m.id}
                       >
                         {unlinkingId === m.id ? 'Déliaison…' : 'Délier'}

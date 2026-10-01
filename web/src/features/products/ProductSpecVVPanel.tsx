@@ -165,6 +165,21 @@ export function ProductSpecVVPanel({
   // pas de Cible — signalement explicite ci-dessous plutôt qu'un bouton
   // désactivé sans explication (signalement utilisateur).
   const missionsWithoutTarget = missionProjects.filter((mp) => !mp.target)
+  // Spécifications qu'AUCUNE activité Cible des missions ACTUELLEMENT
+  // liées ne référence plus — après la déliaison d'une mission
+  // (ProductsScreen.handleUnlinkMission), une spécification qui n'était
+  // justifiée QUE par ses activités tombe dans ce cas : signalement
+  // déterministe (pas un appel LLM, rien de nouveau à générer) à côté de
+  // chaque spécification concernée dans le sous-onglet "Spécifications",
+  // pour que l'utilisateur juge lui-même si elle reste pertinente.
+  const referencedSpecIds = new Set(activityRows.flatMap((r) => r.activity.traceLinks))
+  const orphanedSpecIds = new Set(product.specifications.filter((s) => !referencedSpecIds.has(s.id)).map((s) => s.id))
+  // Missions récemment DÉLIÉES de ce produit
+  // (product.pendingScopeReviewMissionNames, ProductsScreen.
+  // handleUnlinkMission) — fait apparaître le bandeau "le périmètre a
+  // changé" ci-dessous. Déjà des NOMS (pas des id, la mission n'est plus
+  // rattachée) : rien à résoudre via linkedMissions.
+  const pendingScopeReviewNames = product.pendingScopeReviewMissionNames
 
   async function saveMissionProject(updated: Project) {
     const saved = await api.saveProject(updated)
@@ -342,6 +357,21 @@ export function ProductSpecVVPanel({
     onChange({ ...product, pendingImpactReviewMissionIds: [] })
   }
 
+  // "Revoir les spécifications" du bandeau de périmètre réduit (déliaison)
+  // : ouvre le sous-onglet "Spécifications", où chaque spécification
+  // désormais orphaline (orphanedSpecIds) porte un avertissement — et vide
+  // la liste d'attente, comme pour le bandeau d'impact ci-dessus (la revue
+  // a été ouverte, inutile de la redemander tant qu'aucune autre mission
+  // n'est déliée).
+  function reviewScope() {
+    setSubTab('specifications')
+    onChange({ ...product, pendingScopeReviewMissionNames: [] })
+  }
+
+  function dismissScopeReview() {
+    onChange({ ...product, pendingScopeReviewMissionNames: [] })
+  }
+
   // Mise à jour OPTIMISTE de missionProjects avant même l'envoi (plutôt que
   // d'attendre la réponse de saveMissionProject, voir son commentaire) :
   // la case cochée/décochée est une action ponctuelle d'un clic, pas une
@@ -395,6 +425,24 @@ export function ProductSpecVVPanel({
               {generating ? 'Analyse…' : "Analyser l'impact"}
             </button>
             <button type="button" onClick={dismissImpactReview} disabled={generating}>
+              Ignorer
+            </button>
+          </div>
+        </div>
+      )}
+      {pendingScopeReviewNames.length > 0 && (
+        <div className="impact-review-banner">
+          <p>
+            {pendingScopeReviewNames.length === 1
+              ? `La mission « ${pendingScopeReviewNames[0]} » a été retirée de ce produit`
+              : `${pendingScopeReviewNames.length} missions ont été retirées de ce produit (${pendingScopeReviewNames.join(', ')})`}{' '}
+            — le périmètre a changé, certaines spécifications ne sont peut-être plus nécessaires.
+          </p>
+          <div className="impact-review-banner-actions">
+            <button type="button" className="btn-primary" onClick={reviewScope}>
+              Revoir les spécifications
+            </button>
+            <button type="button" onClick={dismissScopeReview}>
               Ignorer
             </button>
           </div>
@@ -535,6 +583,12 @@ export function ProductSpecVVPanel({
                     value={spec.rationale}
                     onChange={(e) => updateSpec(spec.id, { rationale: e.target.value })}
                   />
+                )}
+                {!loadingMissions && linkedMissions.length > 0 && orphanedSpecIds.has(spec.id) && (
+                  <p className="spec-orphan-warning">
+                    Non reliée à une activité (Cible) d'une mission actuellement rattachée — vérifiez si elle reste
+                    pertinente (une mission qui la justifiait a peut-être été déliée).
+                  </p>
                 )}
               </li>
             ))}

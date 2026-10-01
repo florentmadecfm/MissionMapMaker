@@ -80,6 +80,7 @@ export const TOUR_DEMO_PRODUCT: Product = {
     },
   ],
   pendingImpactReviewMissionIds: [],
+  pendingScopeReviewMissionNames: [],
 }
 
 export const TOUR_DEMO_PROJECT: Project = {

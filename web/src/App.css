@@ -1610,6 +1610,15 @@
   font-size: 0.8rem;
 }
 
+/* Avertissement par spécification "orpheline" (ProductSpecVVPanel.tsx,
+   orphanedSpecIds) — plus discret qu'un bandeau plein (.nl-warning) :
+   un simple rappel sous la carte concernée, pas une erreur bloquante. */
+.spec-orphan-warning {
+  color: var(--color-warning);
+  font-size: 0.78rem;
+  margin: 0;
+}
+
 /* ---------- Sous-onglets (ex. Spécifications / Tests V&V) ---------- */
 
 .subtabs {

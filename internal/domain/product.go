@@ -67,6 +67,20 @@ type Product struct {
 	// contrôlée ici (même précédent que Activity.TraceLinks/KpiLinks :
 	// structurellement inatteignable depuis ce package, voir project.go).
 	PendingImpactReviewMissionIDs []string `json:"pendingImpactReviewMissionIds"`
+
+	// PendingScopeReviewMissionNames liste les NOMS (pas des id — la
+	// mission n'est plus rattachée, son id ne résout plus rien d'utile
+	// côté frontend) des missions récemment DÉLIÉES de ce produit
+	// (ProductsScreen.handleUnlinkMission) — symétrique de
+	// PendingImpactReviewMissionIDs ci-dessus, mais pour un périmètre qui
+	// RÉTRÉCIT plutôt que s'étend : fait apparaître un bandeau invitant à
+	// revoir les spécifications existantes (certaines n'étaient peut-être
+	// justifiées que par cette mission) dans ProductSpecVVPanel.tsx — pas
+	// un nouvel appel LLM (rien de nouveau à générer), une revue humaine
+	// aidée d'un signalement déterministe des spécifications désormais
+	// sans activité qui les référence. Vidé dès que la revue est ouverte
+	// (ou explicitement ignorée).
+	PendingScopeReviewMissionNames []string `json:"pendingScopeReviewMissionNames"`
 }
 
 // ProductKpi est un indicateur cible du produit — rattaché ou non à un
@@ -116,6 +130,9 @@ func (p *Product) Normalize() {
 	}
 	if p.PendingImpactReviewMissionIDs == nil {
 		p.PendingImpactReviewMissionIDs = []string{}
+	}
+	if p.PendingScopeReviewMissionNames == nil {
+		p.PendingScopeReviewMissionNames = []string{}
 	}
 	for i := range p.TestScenarios {
 		if p.TestScenarios[i].Steps == nil {
