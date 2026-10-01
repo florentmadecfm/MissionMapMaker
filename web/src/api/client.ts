@@ -78,6 +78,7 @@ function normalizeProduct(product: Product): Product {
     specifications: product.specifications ?? [],
     testScenarios: (product.testScenarios ?? []).map((t) => ({ ...t, steps: t.steps ?? [] })),
     pendingImpactReviewMissionIds: product.pendingImpactReviewMissionIds ?? [],
+    pendingScopeReviewMissionNames: product.pendingScopeReviewMissionNames ?? [],
   }
 }
 

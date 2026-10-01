@@ -352,6 +352,14 @@ export interface Product {
   // à relancer la génération SSS/VV en tenant compte de ces missions. Vidé
   // dès que l'analyse est lancée (ou explicitement ignorée).
   pendingImpactReviewMissionIds: string[]
+  // Noms (pas des id — la mission n'est plus rattachée, inutile pour
+  // retrouver quoi que ce soit) des missions récemment DÉLIÉES de ce
+  // produit (ProductsScreen.handleUnlinkMission) — symétrique de
+  // pendingImpactReviewMissionIds ci-dessus, mais pour un périmètre qui
+  // RÉTRÉCIT : fait apparaître un bandeau invitant à revoir les
+  // spécifications existantes (certaines n'étaient peut-être justifiées
+  // que par cette mission) dans ProductSpecVVPanel.tsx.
+  pendingScopeReviewMissionNames: string[]
 }
 
 export interface ProductKpi {
