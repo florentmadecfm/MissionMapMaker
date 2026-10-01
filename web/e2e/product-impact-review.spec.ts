@@ -107,3 +107,49 @@ test('lier une nouvelle mission fait apparaître un bandeau d\'impact, "Ignorer"
     await apiDeleteProduct(product.id)
   }
 })
+
+// Signalement utilisateur : juste après avoir lié une mission, les boutons
+// "Analyser l'impact"/"Proposer les SSS…" restaient grisés SANS aucune
+// explication — cause réelle : la mission liée n'avait pas encore de
+// variante Cible (geste "+ Créer la cible" explicite côté mission, jamais
+// automatique), donc aucune activité à envoyer au LLM. Le bouton reste à
+// raison désactivé (rien à générer), mais un message doit maintenant dire
+// pourquoi et quoi faire.
+test("bouton grisé sans variante Cible : un message explique pourquoi et quoi faire", async ({ page }) => {
+  const productName = uniqueName('e2e-produit-sans-cible')
+  const missionName = uniqueName('e2e-mission-sans-cible')
+
+  const product = await apiCreateProduct(productName)
+  const mission = await apiCreateProject(missionName)
+  const base = {
+    productId: product.id,
+    actors: [{ id: 'a1', name: 'Client', color: '#4f46e5', description: '', subLanes: 0, backstage: false, about: '', bio: '', goals: [], painPoints: [] }],
+    phases: [{ id: 'p1', name: 'Commande', order: 0, subColumns: 0, icon: '', kpiLinks: [] }],
+    activities: [
+      { id: 'act1', name: 'Commander', actorId: 'a1', phaseId: 'p1', order: 0, column: 0, subRow: 0, offsetX: 0, offsetY: 0, description: '', userStories: [], traceLinks: [], painPoints: [], kpiLinks: [] },
+    ],
+    interactions: [],
+  }
+  // PAS de `target` : reproduit une mission jamais basculée en Cible.
+  await apiSaveProject({ ...mission, ...base })
+  await apiSaveProduct({ ...product, pendingImpactReviewMissionIds: [mission.id] })
+
+  try {
+    await gotoHome(page)
+    await page.locator('.sidebar-products').click()
+    await page.locator('.products-select').selectOption({ label: productName })
+    await page.locator('.tabs button', { hasText: 'Spécification et VV' }).click()
+
+    await expect(page.locator('.impact-review-banner')).toBeVisible()
+    await expect(page.getByRole('button', { name: "Analyser l'impact" })).toBeDisabled()
+    await expect(page.getByRole('button', { name: /Proposer les SSS/ })).toBeDisabled()
+
+    const explanation = page.locator('.placeholder', { hasText: 'Aucune activité Cible disponible' })
+    await expect(explanation).toBeVisible()
+    await expect(explanation).toContainText(missionName)
+    await expect(explanation).toContainText('Créer la cible')
+  } finally {
+    await apiDeleteProject(mission.id)
+    await apiDeleteProduct(product.id)
+  }
+})
