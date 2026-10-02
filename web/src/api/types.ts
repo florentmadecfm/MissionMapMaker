@@ -352,14 +352,19 @@ export interface Product {
   // à relancer la génération SSS/VV en tenant compte de ces missions. Vidé
   // dès que l'analyse est lancée (ou explicitement ignorée).
   pendingImpactReviewMissionIds: string[]
-  // Noms (pas des id — la mission n'est plus rattachée, inutile pour
-  // retrouver quoi que ce soit) des missions récemment DÉLIÉES de ce
-  // produit (ProductsScreen.handleUnlinkMission) — symétrique de
+  // Id (pas des noms — voir ci-dessous) des missions récemment DÉLIÉES de
+  // ce produit (ProductsScreen.handleUnlinkMission) — symétrique de
   // pendingImpactReviewMissionIds ci-dessus, mais pour un périmètre qui
   // RÉTRÉCIT : fait apparaître un bandeau invitant à revoir les
-  // spécifications existantes (certaines n'étaient peut-être justifiées
-  // que par cette mission) dans ProductSpecVVPanel.tsx.
-  pendingScopeReviewMissionNames: string[]
+  // spécifications existantes dans ProductSpecVVPanel.tsx. Des id plutôt
+  // que des noms : le Project de la mission déliée n'est PAS supprimé
+  // (seul son productId est retiré), le frontend le recharge par id pour
+  // calculer précisément quelles activités (acteur + phase + nom, voir
+  // activityDelta.ts) elle apportait et qui ne sont plus couvertes par
+  // aucune mission encore liée. Vide, sans jamais être peuplé, si plus
+  // aucune mission ne reste liée après le retrait : dans ce cas toutes
+  // les spécifications sont supprimées directement (rien à analyser).
+  pendingScopeReviewMissionIds: string[]
 }
 
 export interface ProductKpi {

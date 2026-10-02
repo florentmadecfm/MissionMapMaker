@@ -79,11 +79,20 @@ test('lier une nouvelle mission fait apparaître un bandeau d\'impact, "Ignorer"
     await page.getByRole('button', { name: 'Lier', exact: true }).click()
     await expect(page.locator('.add-item-row select option', { hasText: mission2Name })).toHaveCount(0)
 
-    // Le bandeau d'impact apparaît, avec le nom de la mission fraîchement liée.
+    // Le bandeau d'impact apparaît, avec le nom de la mission fraîchement
+    // liée ET le DELTA exact qu'elle apporte (acteur + phase + nom, voir
+    // activityDelta.ts) : son activité "Commander par téléphone" n'a pas
+    // d'équivalent dans la mission 1 déjà liée ("Commander depuis la
+    // table", même acteur/phase mais nom différent) — bouton "Analyser
+    // l'impact" donc activé (demande explicite : n'analyser que ce qui
+    // est réellement nouveau, jamais tout le produit).
     await page.locator('.tabs button', { hasText: 'Spécification et VV' }).click()
     const banner = page.locator('.impact-review-banner')
     await expect(banner).toBeVisible()
     await expect(banner).toContainText(mission2Name)
+    await expect(banner).toContainText('1 nouvelle activité')
+    await expect(banner).toContainText('Commander par téléphone')
+    await expect(page.getByRole('button', { name: "Analyser l'impact" })).toBeEnabled()
 
     const productAfterLink = await apiGetProduct(product.id)
     expect(productAfterLink.pendingImpactReviewMissionIds).toEqual([mission2.id])

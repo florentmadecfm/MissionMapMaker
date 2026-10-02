@@ -68,19 +68,25 @@ type Product struct {
 	// structurellement inatteignable depuis ce package, voir project.go).
 	PendingImpactReviewMissionIDs []string `json:"pendingImpactReviewMissionIds"`
 
-	// PendingScopeReviewMissionNames liste les NOMS (pas des id — la
-	// mission n'est plus rattachée, son id ne résout plus rien d'utile
-	// côté frontend) des missions récemment DÉLIÉES de ce produit
-	// (ProductsScreen.handleUnlinkMission) — symétrique de
-	// PendingImpactReviewMissionIDs ci-dessus, mais pour un périmètre qui
-	// RÉTRÉCIT plutôt que s'étend : fait apparaître un bandeau invitant à
-	// revoir les spécifications existantes (certaines n'étaient peut-être
-	// justifiées que par cette mission) dans ProductSpecVVPanel.tsx — pas
-	// un nouvel appel LLM (rien de nouveau à générer), une revue humaine
-	// aidée d'un signalement déterministe des spécifications désormais
-	// sans activité qui les référence. Vidé dès que la revue est ouverte
-	// (ou explicitement ignorée).
-	PendingScopeReviewMissionNames []string `json:"pendingScopeReviewMissionNames"`
+	// PendingScopeReviewMissionIDs liste les id des missions récemment
+	// DÉLIÉES de ce produit (ProductsScreen.handleUnlinkMission) —
+	// symétrique de PendingImpactReviewMissionIDs ci-dessus, mais pour un
+	// périmètre qui RÉTRÉCIT plutôt que s'étend. Des ID, pas des noms
+	// (contrairement à la version initiale de ce champ) : le Project de la
+	// mission n'est PAS supprimé par une déliaison (seul son productId est
+	// retiré), reste donc consultable — le frontend s'en sert pour
+	// recharger cette mission et calculer PRÉCISÉMENT quelles activités
+	// (acteur + phase + nom, voir activityDelta.ts) qu'elle apportait ne
+	// sont plus couvertes par aucune mission encore liée, affiché dans le
+	// bandeau de ProductSpecVVPanel.tsx — jamais un nouvel appel LLM (rien
+	// de nouveau à générer quand le périmètre rétrécit), une revue humaine
+	// aidée d'un signalement déterministe. Vidé dès que la revue est
+	// ouverte (ou explicitement ignorée) — ou jamais peuplé du tout si plus
+	// aucune mission ne reste liée après ce retrait : voir
+	// ProductsScreen.handleUnlinkMission, qui supprime alors directement
+	// Specifications/TestScenarios (aucune mission restante pour justifier
+	// une quelconque analyse).
+	PendingScopeReviewMissionIDs []string `json:"pendingScopeReviewMissionIds"`
 }
 
 // ProductKpi est un indicateur cible du produit — rattaché ou non à un
@@ -131,8 +137,8 @@ func (p *Product) Normalize() {
 	if p.PendingImpactReviewMissionIDs == nil {
 		p.PendingImpactReviewMissionIDs = []string{}
 	}
-	if p.PendingScopeReviewMissionNames == nil {
-		p.PendingScopeReviewMissionNames = []string{}
+	if p.PendingScopeReviewMissionIDs == nil {
+		p.PendingScopeReviewMissionIDs = []string{}
 	}
 	for i := range p.TestScenarios {
 		if p.TestScenarios[i].Steps == nil {
