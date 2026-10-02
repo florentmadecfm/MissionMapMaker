@@ -424,24 +424,46 @@ export function ProductsScreen({
   // Retire aussi cette mission de pendingImpactReviewMissionIds si elle y
   // figurait (liée puis déliée avant d'avoir été analysée) — évite un
   // bandeau d'impact fantôme référençant une mission qui n'est déjà plus
-  // rattachée. À l'inverse, l'ajoute à pendingScopeReviewMissionNames (son
-  // NOM, pas son id — une fois déliée, l'id ne résout plus rien d'utile
-  // côté ProductSpecVVPanel.tsx) : le périmètre du produit vient de
-  // rétrécir, certaines spécifications n'étaient peut-être justifiées que
-  // par cette mission — signalement utilisateur, demande symétrique du
-  // bandeau d'impact à la liaison.
-  async function handleUnlinkMission(missionId: string, missionName: string) {
+  // rattachée.
+  //
+  // Deux cas pour la suite, demande explicite :
+  // - S'il reste au moins une autre mission liée : l'ajoute à
+  //   pendingScopeReviewMissionIds (son ID, pas son nom — une fois déliée
+  //   son Project reste consultable par id, voir le commentaire du champ,
+  //   api/types.ts) — fait apparaître le bandeau de revue de périmètre
+  //   dans ProductSpecVVPanel.tsx, qui recalcule alors le delta exact
+  //   d'activités qu'elle apportait et qui ne sont plus couvertes.
+  // - Sinon (plus AUCUNE mission liée) : rien à analyser (aucune activité
+  //   Cible restante pour justifier quoi que ce soit) — les spécifications
+  //   ET les scénarios de test (toujours liés à une spécification, jamais
+  //   flottants, voir TestScenario.SpecificationID) sont supprimés
+  //   directement, sans bandeau ni possibilité d'analyse.
+  async function handleUnlinkMission(missionId: string) {
     setUnlinkingId(missionId)
     setLinkError(null)
     try {
       const project = await api.getProject(missionId)
       await api.saveProject({ ...project, productId: undefined })
       if (draft) {
-        await api.saveProduct({
-          ...draft,
-          pendingImpactReviewMissionIds: draft.pendingImpactReviewMissionIds.filter((id) => id !== missionId),
-          pendingScopeReviewMissionNames: [...new Set([...draft.pendingScopeReviewMissionNames, missionName])],
-        })
+        // `missions` n'a pas encore été rafraîchi (onMissionsChanged plus
+        // bas) : exclut explicitement `missionId` plutôt que de s'appuyer
+        // sur un productId déjà à jour pour cette mission.
+        const remainingLinked = missions.filter((m) => m.productId === draft.id && m.id !== missionId)
+        if (remainingLinked.length === 0) {
+          await api.saveProduct({
+            ...draft,
+            specifications: [],
+            testScenarios: [],
+            pendingImpactReviewMissionIds: [],
+            pendingScopeReviewMissionIds: [],
+          })
+        } else {
+          await api.saveProduct({
+            ...draft,
+            pendingImpactReviewMissionIds: draft.pendingImpactReviewMissionIds.filter((id) => id !== missionId),
+            pendingScopeReviewMissionIds: [...new Set([...draft.pendingScopeReviewMissionIds, missionId])],
+          })
+        }
       }
       onMissionsChanged()
       onProductsChanged()
@@ -778,7 +800,7 @@ export function ProductsScreen({
                       <button
                         type="button"
                         className="danger"
-                        onClick={() => handleUnlinkMission(m.id, m.name)}
+                        onClick={() => handleUnlinkMission(m.id)}
                         disabled={unlinkingId === m.id}
                       >
                         {unlinkingId === m.id ? 'Déliaison…' : 'Délier'}

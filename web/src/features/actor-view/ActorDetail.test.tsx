@@ -45,7 +45,7 @@ function baseProduct(): Product {
     specifications: [],
     testScenarios: [],
     pendingImpactReviewMissionIds: [],
-    pendingScopeReviewMissionNames: [],
+    pendingScopeReviewMissionIds: [],
   }
 }
 

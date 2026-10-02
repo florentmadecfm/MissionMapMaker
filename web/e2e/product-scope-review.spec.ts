@@ -98,14 +98,20 @@ test('délier une mission fait apparaître un bandeau de périmètre et un avert
     // la mission 2 encore présente dans l'état précédent du fetch.
     await page.waitForTimeout(1000)
 
-    // Le bandeau de périmètre apparaît, avec le nom de la mission déliée.
+    // Le bandeau de périmètre apparaît, avec le nom de la mission déliée
+    // ET le delta exact (acteur + phase + nom, voir activityDelta.ts) de
+    // ce qu'elle apportait et qui n'est plus couvert par la mission 1
+    // restée liée — demande explicite, pas seulement "le périmètre a
+    // changé" sans détail.
     await page.locator('.tabs button', { hasText: 'Spécification et VV' }).click()
     const banner = page.locator('.impact-review-banner', { hasText: 'retirée de ce produit' })
     await expect(banner).toBeVisible()
     await expect(banner).toContainText(mission2Name)
+    await expect(banner).toContainText('1 activité')
+    await expect(banner).toContainText('Commander par téléphone')
 
     const productAfterUnlink = await apiGetProduct(product.id)
-    expect(productAfterUnlink.pendingScopeReviewMissionNames).toEqual([mission2Name])
+    expect(productAfterUnlink.pendingScopeReviewMissionIds).toEqual([mission2.id])
 
     // "Revoir les spécifications" : ouvre le sous-onglet Spécifications,
     // où seule spec2 (orpheline) porte l'avertissement — jamais spec1,
@@ -126,10 +132,75 @@ test('délier une mission fait apparaître un bandeau de périmètre et un avert
     // même convention que product-impact-review.spec.ts.
     await page.waitForTimeout(1300)
     const productAfterReview = await apiGetProduct(product.id)
-    expect(productAfterReview.pendingScopeReviewMissionNames).toEqual([])
+    expect(productAfterReview.pendingScopeReviewMissionIds).toEqual([])
   } finally {
     await apiDeleteProject(mission1.id)
     await apiDeleteProject(mission2.id)
+    await apiDeleteProduct(product.id)
+  }
+})
+
+// Troisième règle de la même demande : "s'il ne reste plus de mission
+// liée au produit, on supprime toutes les specs sans la possibilité
+// d'analyse car il n'y a aucune mission reliée" — cas à une seule
+// mission : la délier fait tomber le produit à zéro mission liée, donc
+// SUPPRESSION IMMÉDIATE de toutes les spécifications (et des scénarios de
+// test, qui ne peuvent jamais être "flottants", voir
+// TestScenario.SpecificationID) — jamais de bandeau, rien à analyser
+// puisqu'aucune activité Cible ne reste pour justifier quoi que ce soit.
+test('délier la dernière mission d\'un produit supprime directement toutes les spécifications et tests', async ({ page }) => {
+  const productName = uniqueName('e2e-produit-scope-vide')
+  const missionName = uniqueName('e2e-mission-scope-seule')
+
+  const product = await apiCreateProduct(productName)
+  const savedProduct = await apiSaveProduct({
+    ...product,
+    specifications: [
+      { id: 'spec1', code: 'SSS-001', type: 'StakeholderNeed', text: 'Le système doit permettre de commander.', status: 'approved', priority: 'must' },
+    ],
+  })
+  await apiSaveProduct({
+    ...savedProduct,
+    testScenarios: [
+      { id: 'test1', code: 'TC-001', title: 'Vérifier la commande', specificationId: 'spec1', steps: [], status: 'draft' },
+    ],
+  })
+
+  const mission = await apiCreateProject(missionName)
+  const base = {
+    productId: product.id,
+    actors: [{ id: 'a1', name: 'Client', color: '#4f46e5', description: '', subLanes: 0, backstage: false, about: '', bio: '', goals: [], painPoints: [] }],
+    phases: [{ id: 'p1', name: 'Commande', order: 0, subColumns: 0, icon: '', kpiLinks: [] }],
+    activities: [
+      { id: 'act1', name: 'Commander', actorId: 'a1', phaseId: 'p1', order: 0, column: 0, subRow: 0, offsetX: 0, offsetY: 0, description: '', userStories: [], traceLinks: ['spec1'], painPoints: [], kpiLinks: [] },
+    ],
+    interactions: [],
+  }
+  await apiSaveProject({ ...mission, ...base, target: { label: 'Cible', ...base } })
+
+  try {
+    await gotoHome(page)
+    await page.locator('.sidebar-products').click()
+    await page.locator('.products-select').selectOption({ label: productName })
+    await page.locator('.tabs button', { hasText: 'Stratégie' }).click()
+
+    const missionRow = page.locator('.item-list li', { hasText: missionName })
+    await missionRow.getByRole('button', { name: 'Délier' }).click()
+    await expect(missionRow).toHaveCount(0)
+
+    await page.locator('.tabs button', { hasText: 'Spécification et VV' }).click()
+    // Aucune mission liée : pas de bandeau possible (rien à analyser),
+    // retombe directement sur le message "Aucune mission rattachée".
+    await expect(page.locator('.impact-review-banner')).toHaveCount(0)
+    await expect(page.locator('.placeholder', { hasText: 'Aucune mission rattachée' })).toBeVisible()
+
+    const productAfter = await apiGetProduct(product.id)
+    expect(productAfter.specifications).toEqual([])
+    expect(productAfter.testScenarios).toEqual([])
+    expect(productAfter.pendingScopeReviewMissionIds).toEqual([])
+    expect(productAfter.pendingImpactReviewMissionIds).toEqual([])
+  } finally {
+    await apiDeleteProject(mission.id)
     await apiDeleteProduct(product.id)
   }
 })

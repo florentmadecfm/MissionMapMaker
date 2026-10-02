@@ -6,6 +6,7 @@ import { ListFilterInput } from '../../components/ListFilterInput'
 import { Spinner } from '../../components/Spinner'
 import type { ActivityRow } from './mergeSpecDraftsAcrossMissions'
 import { mergeSpecDraftsAcrossMissions } from './mergeSpecDraftsAcrossMissions'
+import { formatActivityList, phaseNameOf, rowsNotIn } from './activityDelta'
 import { mergeTestScenarioDrafts } from './mergeTestScenarioDrafts'
 import { TestScenariosPanel } from './TestScenariosPanel'
 import { TraceabilityMatrix } from './TraceabilityMatrix'
@@ -149,6 +150,12 @@ export function ProductSpecVVPanel({
       activity,
     }))
   })
+  // Mêmes lignes, enrichies du nom de phase — nécessaire pour comparer des
+  // activités ENTRE missions (voir activityDelta.ts), jamais utile avant.
+  const activityRowsWithPhase = activityRows.map((r) => {
+    const mp = missionProjects.find((p) => p.id === r.missionId)
+    return { ...r, phaseName: mp ? phaseNameOf(mp, r.activity) : '' }
+  })
   const unspecifiedCount = activityRows.filter((r) => r.activity.traceLinks.length === 0).length
   // Missions dont le lien au produit est trop récent pour avoir déjà été
   // pris en compte dans les SSS/VV (product.pendingImpactReviewMissionIds,
@@ -156,6 +163,18 @@ export function ProductSpecVVPanel({
   // d'analyse d'impact ci-dessous. Résolu par nom via `linkedMissions`
   // (pas missionProjects, pas encore forcément chargé).
   const pendingImpactMissions = linkedMissions.filter((m) => product.pendingImpactReviewMissionIds.includes(m.id))
+  // Pour chaque mission en attente d'analyse, le DELTA réel qu'elle
+  // apporte : ses activités dont AUCUNE autre mission actuellement liée
+  // ne porte déjà l'équivalent (acteur + phase + nom, voir
+  // activityDelta.ts) — demande explicite : n'analyser/ne générer que ce
+  // qui est réellement nouveau, pas refaire tourner le LLM sur des
+  // activités déjà couvertes par une autre mission du même produit.
+  const pendingImpactDelta = pendingImpactMissions.map((m) => {
+    const ownRows = activityRowsWithPhase.filter((r) => r.missionId === m.id)
+    const otherRows = activityRowsWithPhase.filter((r) => r.missionId !== m.id)
+    return { missionId: m.id, missionName: m.name, newRows: rowsNotIn(ownRows, otherRows) }
+  })
+  const pendingImpactDeltaRows = pendingImpactDelta.flatMap((d) => d.newRows)
   // Missions liées dont la variante Cible n'existe pas encore (jamais
   // créée, voir VariantToggle.tsx côté mission) — la cause la plus
   // fréquente d'un bouton "Proposer les SSS…"/"Analyser l'impact" grisé
@@ -171,15 +190,60 @@ export function ProductSpecVVPanel({
   // justifiée QUE par ses activités tombe dans ce cas : signalement
   // déterministe (pas un appel LLM, rien de nouveau à générer) à côté de
   // chaque spécification concernée dans le sous-onglet "Spécifications",
-  // pour que l'utilisateur juge lui-même si elle reste pertinente.
+  // pour que l'utilisateur juge lui-même si elle reste pertinente. Laissé
+  // TEL QUEL (pas restreint au delta ci-dessous) : reste correct quelle
+  // que soit l'origine de l'orphelinat, toujours recalculé à chaque rendu.
   const referencedSpecIds = new Set(activityRows.flatMap((r) => r.activity.traceLinks))
   const orphanedSpecIds = new Set(product.specifications.filter((s) => !referencedSpecIds.has(s.id)).map((s) => s.id))
   // Missions récemment DÉLIÉES de ce produit
-  // (product.pendingScopeReviewMissionNames, ProductsScreen.
+  // (product.pendingScopeReviewMissionIds, ProductsScreen.
   // handleUnlinkMission) — fait apparaître le bandeau "le périmètre a
-  // changé" ci-dessous. Déjà des NOMS (pas des id, la mission n'est plus
-  // rattachée) : rien à résoudre via linkedMissions.
-  const pendingScopeReviewNames = product.pendingScopeReviewMissionNames
+  // changé" ci-dessous. Des ID (la mission n'est plus rattachée, mais son
+  // Project reste consultable, voir l'effet ci-dessous) : impossible de
+  // les résoudre via linkedMissions, qui ne contient que les missions
+  // ENCORE liées.
+  const pendingScopeReviewIds = product.pendingScopeReviewMissionIds
+  const pendingScopeReviewIdsKey = [...pendingScopeReviewIds].sort().join(',')
+
+  // Recharge le Project complet de chaque mission en attente de revue de
+  // périmètre — nécessaire pour calculer le delta exact de ce qu'elle
+  // apportait (voir pendingScopeDelta ci-dessous) : contrairement aux
+  // missions encore liées (missionProjects ci-dessus), celles-ci ne sont
+  // plus dans `linkedMissions`. Une mission dont le Project a lui aussi
+  // été supprimé depuis (suppression distincte de la déliaison) échoue en
+  // silence et disparaît simplement du delta affiché — cas limite accepté,
+  // pas critique (le bandeau reste correct pour les autres missions).
+  const [scopeReviewMissionProjects, setScopeReviewMissionProjects] = useState<Project[]>([])
+  const [loadingScopeReview, setLoadingScopeReview] = useState(false)
+  useEffect(() => {
+    if (pendingScopeReviewIds.length === 0) {
+      setScopeReviewMissionProjects([])
+      return
+    }
+    setLoadingScopeReview(true)
+    Promise.all(pendingScopeReviewIds.map((id) => api.getProject(id).catch(() => null)))
+      .then((results) => setScopeReviewMissionProjects(results.filter((p): p is Project => p !== null)))
+      .finally(() => setLoadingScopeReview(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingScopeReviewIdsKey])
+
+  const scopeReviewRows = scopeReviewMissionProjects.flatMap((mp) => {
+    if (!mp.target) return []
+    return mp.target.activities.map((activity) => ({
+      missionId: mp.id,
+      missionName: mp.name,
+      actorName: mp.target!.actors.find((a) => a.id === activity.actorId)?.name ?? '',
+      phaseName: phaseNameOf(mp, activity),
+      activity,
+    }))
+  })
+  // Pour chaque mission déliée en attente de revue, le DELTA réel qu'elle
+  // retire : ses activités dont AUCUNE mission ACTUELLEMENT liée ne porte
+  // déjà l'équivalent — symétrique de pendingImpactDelta ci-dessus.
+  const pendingScopeDelta = scopeReviewMissionProjects.map((mp) => {
+    const ownRows = scopeReviewRows.filter((r) => r.missionId === mp.id)
+    return { missionId: mp.id, missionName: mp.name, removedRows: rowsNotIn(ownRows, activityRowsWithPhase) }
+  })
 
   async function saveMissionProject(updated: Project) {
     const saved = await api.saveProject(updated)
@@ -197,8 +261,14 @@ export function ProductSpecVVPanel({
   ])
   const specSuggestions = suggestionsFor(product.specifications, (s) => [s.code, specTypeLabel(s.type)])
 
-  async function handleGenerateSss() {
-    if (unspecifiedCount === 0) return
+  // Partagé par les deux déclencheurs de génération de ce panneau :
+  // `handleGenerateSss` (bouton général, TOUTES les activités sans
+  // spécification, quelle que soit leur origine) et `handleAnalyzeImpact`
+  // (bandeau d'impact, SEULEMENT le delta des missions en attente — voir
+  // pendingImpactDelta) — même logique de fusion/sauvegarde, seule la
+  // liste d'activités envoyée au LLM change.
+  async function generateSss(rows: ActivityRow[]) {
+    if (rows.length === 0) return
     setGenerating(true)
     setGenerateError(null)
     setGenerateNotConfigured(false)
@@ -206,13 +276,7 @@ export function ProductSpecVVPanel({
     setGenerateInfo(null)
     setMutationError(null)
     try {
-      // On ne redemande une proposition IA que pour les activités qui n'ont
-      // pas déjà de spécification liée, PARMI TOUTES LES MISSIONS liées au
-      // produit (pas une seule mission, voir le signalement "générer des
-      // spec et tests doit prendre en compte l'ensemble des missions liées
-      // au produit").
-      const unspecifiedRows = activityRows.filter((r) => r.activity.traceLinks.length === 0)
-      const activityRefs = unspecifiedRows.map((r) => ({ name: r.activity.name, actorName: r.actorName }))
+      const activityRefs = rows.map((r) => ({ name: r.activity.name, actorName: r.actorName }))
       // Les spécifications déjà rédigées sont transmises comme contexte
       // (existingSpecifications) : le LLM peut alors proposer la RÉVISION
       // de l'une d'elles (revisesCode) plutôt qu'un doublon, quand une
@@ -221,7 +285,7 @@ export function ProductSpecVVPanel({
       // couvert — voir mergeSpecDraftsAcrossMissions.ts.
       const existingSpecRefs = product.specifications.map((s) => ({ code: s.code, text: s.text }))
       const drafts = await api.generateSpecifications(activityRefs, existingSpecRefs)
-      const result = mergeSpecDraftsAcrossMissions(product.specifications, activityRows, drafts)
+      const result = mergeSpecDraftsAcrossMissions(product.specifications, rows, drafts)
       const parts = [`${result.addedCount} SSS proposée${result.addedCount > 1 ? 's' : ''}`]
       if (result.revisedCount > 0) {
         parts.push(
@@ -234,10 +298,13 @@ export function ProductSpecVVPanel({
 
       // Persiste chaque mission dont au moins une activité a reçu un
       // nouveau lien — comparaison de longueur suffisante : traceLinks
-      // n'est jamais que complété ici, jamais retiré.
+      // n'est jamais que complété ici, jamais retiré. Comparé à `rows`
+      // (ce qui a été envoyé), pas à `activityRows` (toutes les missions) :
+      // les deux coïncident pour le bouton général, pas pour le bandeau
+      // d'impact (delta restreint).
       const changedMissionIds = new Set<string>()
       result.activityRows.forEach((row, i) => {
-        if (row.activity.traceLinks.length !== activityRows[i].activity.traceLinks.length) changedMissionIds.add(row.missionId)
+        if (row.activity.traceLinks.length !== rows[i].activity.traceLinks.length) changedMissionIds.add(row.missionId)
       })
       for (const missionId of changedMissionIds) {
         const mp = missionProjects.find((p) => p.id === missionId)
@@ -309,6 +376,22 @@ export function ProductSpecVVPanel({
     }
   }
 
+  // Bouton général "Proposer les SSS…" : TOUTES les activités sans
+  // spécification, parmi TOUTES les missions liées au produit — inchangé
+  // par rapport à avant ce lot, reste le filet de sécurité qui couvre
+  // aussi les trous non liés à une liaison/déliaison récente.
+  async function handleGenerateSss() {
+    await generateSss(activityRows.filter((r) => r.activity.traceLinks.length === 0))
+  }
+
+  // Bandeau d'impact (mission(s) récemment liée(s)) : seulement le DELTA
+  // réellement nouveau par rapport aux autres missions déjà liées (voir
+  // pendingImpactDelta) — demande explicite, pas le même ensemble que le
+  // bouton général ci-dessus.
+  async function handleAnalyzeImpact() {
+    await generateSss(pendingImpactDeltaRows)
+  }
+
   function addSpec() {
     const spec: Specification = {
       id: newId('spec'),
@@ -365,11 +448,11 @@ export function ProductSpecVVPanel({
   // n'est déliée).
   function reviewScope() {
     setSubTab('specifications')
-    onChange({ ...product, pendingScopeReviewMissionNames: [] })
+    onChange({ ...product, pendingScopeReviewMissionIds: [] })
   }
 
   function dismissScopeReview() {
-    onChange({ ...product, pendingScopeReviewMissionNames: [] })
+    onChange({ ...product, pendingScopeReviewMissionIds: [] })
   }
 
   // Mise à jour OPTIMISTE de missionProjects avant même l'envoi (plutôt que
@@ -418,10 +501,25 @@ export function ProductSpecVVPanel({
             {pendingImpactMissions.length === 1
               ? `La mission « ${pendingImpactMissions[0].name} » vient d'être liée à ce produit`
               : `${pendingImpactMissions.length} missions viennent d'être liées à ce produit (${pendingImpactMissions.map((m) => m.name).join(', ')})`}{' '}
-            — son impact sur les spécifications et tests V&amp;V déjà existants n'a pas encore été évalué.
+            —{' '}
+            {loadingMissions ? (
+              'calcul du delta d’activités en cours…'
+            ) : pendingImpactDeltaRows.length === 0 ? (
+              "aucune nouvelle activité par rapport aux missions déjà liées, rien à analyser."
+            ) : (
+              <>
+                {pendingImpactDeltaRows.length} nouvelle{pendingImpactDeltaRows.length > 1 ? 's' : ''} activité
+                {pendingImpactDeltaRows.length > 1 ? 's' : ''} à analyser : {formatActivityList(pendingImpactDeltaRows)}.
+              </>
+            )}
           </p>
           <div className="impact-review-banner-actions">
-            <button type="button" className="btn-primary" onClick={handleGenerateSss} disabled={generating || unspecifiedCount === 0}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleAnalyzeImpact}
+              disabled={generating || loadingMissions || pendingImpactDeltaRows.length === 0}
+            >
               {generating ? 'Analyse…' : "Analyser l'impact"}
             </button>
             <button type="button" onClick={dismissImpactReview} disabled={generating}>
@@ -430,13 +528,27 @@ export function ProductSpecVVPanel({
           </div>
         </div>
       )}
-      {pendingScopeReviewNames.length > 0 && (
+      {pendingScopeReviewIds.length > 0 && (
         <div className="impact-review-banner">
           <p>
-            {pendingScopeReviewNames.length === 1
-              ? `La mission « ${pendingScopeReviewNames[0]} » a été retirée de ce produit`
-              : `${pendingScopeReviewNames.length} missions ont été retirées de ce produit (${pendingScopeReviewNames.join(', ')})`}{' '}
-            — le périmètre a changé, certaines spécifications ne sont peut-être plus nécessaires.
+            {/* Le COMPTE vient de pendingScopeReviewIds (connu immédiatement,
+                voir product.pendingScopeReviewMissionIds) — les NOMS de
+                pendingScopeDelta (dérivés d'un fetch par id, voir
+                scopeReviewMissionProjects) ne sont ajoutés qu'une fois
+                disponibles, pour ne jamais afficher un compte erroné
+                pendant le chargement. */}
+            {pendingScopeReviewIds.length === 1
+              ? `La mission${pendingScopeDelta[0] ? ` « ${pendingScopeDelta[0].missionName} »` : ''} a été retirée de ce produit`
+              : `${pendingScopeReviewIds.length} missions ont été retirées de ce produit${pendingScopeDelta.length > 0 ? ` (${pendingScopeDelta.map((d) => d.missionName).join(', ')})` : ''}`}{' '}
+            —{' '}
+            {loadingScopeReview ? (
+              'calcul du delta d’activités en cours…'
+            ) : (() => {
+              const removedRows = pendingScopeDelta.flatMap((d) => d.removedRows)
+              return removedRows.length === 0
+                ? 'toutes ses activités restent couvertes par les missions restantes, rien à revoir.'
+                : `${removedRows.length} activité${removedRows.length > 1 ? 's' : ''} ne ${removedRows.length > 1 ? 'sont' : 'est'} plus couverte${removedRows.length > 1 ? 's' : ''} : ${formatActivityList(removedRows)}.`
+            })()}
           </p>
           <div className="impact-review-banner-actions">
             <button type="button" className="btn-primary" onClick={reviewScope}>
