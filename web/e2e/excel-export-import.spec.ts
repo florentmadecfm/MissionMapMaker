@@ -107,3 +107,61 @@ test('export puis import Excel restaure les liens KPI', async ({ page }) => {
     await apiDeleteProduct(product.id)
   }
 })
+
+// Vérification demandée après l'ajout du réordonnancement des personas
+// (moveActor, ProjectEditor.tsx) : son ordre d'affichage n'est qu'une
+// position dans `project.actors` (pas de champ `order` dédié, contrairement
+// aux phases) — s'assure que ni l'export (exportExcel.ts, feuille
+// "Acteurs" écrite dans l'ordre du tableau, sans tri ni colonne "Ordre")
+// ni l'import (importExcel.ts, lignes relues dans leur ordre d'apparition)
+// ne perdent cet ordre en cours de route.
+test("l'ordre des personas (réordonnés) survit à un aller-retour export/import Excel", async ({ page }) => {
+  const missionSourceName = uniqueName('e2e-mission-ordre-source')
+  const missionCibleName = uniqueName('e2e-mission-ordre-cible')
+
+  const source = await apiCreateProject(missionSourceName)
+  await apiSaveProject({
+    ...source,
+    // Ordre délibérément "non alphabétique" (pas l'ordre de création le
+    // plus naturel) : un bug qui re-trierait silencieusement les acteurs
+    // quelque part dans la chaîne resterait invisible sur un ordre déjà
+    // trié par hasard.
+    actors: [
+      { id: 'a1', name: 'Cuisinier', color: '#d97706', description: '', subLanes: 0, backstage: false, about: '', bio: '', goals: [], painPoints: [] },
+      { id: 'a2', name: 'Client', color: '#4f46e5', description: '', subLanes: 0, backstage: false, about: '', bio: '', goals: [], painPoints: [] },
+      { id: 'a3', name: 'Serveur', color: '#059669', description: '', subLanes: 0, backstage: false, about: '', bio: '', goals: [], painPoints: [] },
+    ],
+    phases: [{ id: 'ph1', name: 'Commande', order: 0, subColumns: 0, icon: '', kpiLinks: [] }],
+  })
+
+  const cible = await apiCreateProject(missionCibleName)
+
+  try {
+    await openMission(page, missionSourceName)
+    await page.locator('.export-import-menu .header-menu-trigger').click()
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Exporter en Excel' }).click()
+    const download = await downloadPromise
+    const filePath = await download.path()
+    if (!filePath) throw new Error('téléchargement introuvable')
+
+    await openMission(page, missionCibleName)
+    page.once('dialog', (dialog) => dialog.accept())
+    await page.locator('.export-import-menu input[type=file]').setInputFiles(filePath)
+    await page.waitForTimeout(1500)
+
+    const updated = await apiGetProject(cible.id)
+    expect(updated.actors.map((a: { name: string }) => a.name)).toEqual(['Cuisinier', 'Client', 'Serveur'])
+
+    // Le diagramme (Diagramme de processus) reflète le même ordre (lane-
+    // node actor-header, layout.ts — tri stable par backstage, ici tous
+    // front-stage) : pas seulement l'API, ce que l'utilisateur voit
+    // réellement après l'import.
+    await page.getByRole('button', { name: 'Diagramme de processus' }).click()
+    await page.waitForSelector('.react-flow', { timeout: 10000 })
+    await expect(page.locator('.actor-header')).toContainText(['Cuisinier', 'Client', 'Serveur'])
+  } finally {
+    await apiDeleteProject(source.id)
+    await apiDeleteProject(cible.id)
+  }
+})
