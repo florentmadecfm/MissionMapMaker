@@ -1213,6 +1213,41 @@
   color: var(--color-text-muted);
 }
 
+/* Onglet Édition (ProjectEditor.tsx) : en-tête de colonnes toujours
+   visible en haut de .shell-main (le conteneur qui scrolle, voir
+   ProjectShell.tsx) pendant qu'on parcourt une longue liste (Personas/
+   Phases/Activités/Interactions) — signalement utilisateur, le contexte
+   des colonnes se perdait sur une grande liste. `position: sticky` se
+   colle au bord supérieur de .shell-main tant que la <section> parente
+   (qui le contient, voir App.css ci-dessus ".editor section") reste à
+   l'écran, puis se décolle naturellement une fois celle-ci scrollée
+   entièrement (bouton "+ Ajouter..." inclus) : l'en-tête de la section
+   SUIVANTE prend alors sa place en haut — aucun JS nécessaire, ce
+   comportement « relais » entre en-têtes empilés est natif à `sticky`.
+   Fond et z-index nécessaires pour ne pas laisser les lignes en dessous
+   transparaître une fois l'en-tête réellement collé.
+
+   `top: 0` collerait l'en-tête juste APRÈS le padding-top de .shell-main
+   (1.75rem, voir sa règle ci-dessus) plutôt qu'au tout bord visible du
+   conteneur qui scrolle — cette bande de 1.75rem restait alors un trou
+   non couvert par le fond de l'en-tête, où la ligne précédente (ex. le
+   bas de la carte d'un persona juste au-dessus) continuait de défiler et
+   de transparaître par-dessous, un effet de bord relevé à la vérification
+   (retour utilisateur : "il ne faut pas qu'on puisse voir le tableau
+   défiler au-dessus du header"). `top` négatif, de la valeur exacte de ce
+   padding-top : une fois collé, l'en-tête vient recouvrir cette bande
+   jusqu'au tout bord du conteneur, sans laisser aucun interstice — ne
+   change rien à sa position NON collée (seul le seuil de déclenchement du
+   collage change, pas le flux normal). Couplé à .shell-main.padding-top
+   ci-dessus : à ajuster ensemble si cette valeur change un jour. */
+.editor .col-headers {
+  position: sticky;
+  top: -1.75rem;
+  z-index: 1;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .col-headers span {
   min-width: 0;
 }
