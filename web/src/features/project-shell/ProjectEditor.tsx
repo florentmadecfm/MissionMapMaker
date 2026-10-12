@@ -68,6 +68,23 @@ export function ProjectEditor({ project, onChange }: Props) {
     })
   }
 
+  // Réordonnancement des personas, demande symétrique du réordonnancement
+  // du backbone ci-dessous (movePhase, ADR-069) — mais plus simple : Actor
+  // ne porte pas de champ `order` propre (contrairement à Phase), l'ordre
+  // d'affichage (ici comme dans le diagramme, layout.ts : tri STABLE par
+  // backstage qui conserve l'ordre relatif au sein de chaque groupe) est
+  // directement celui du tableau `project.actors` — échange donc la
+  // position des deux personas dans ce tableau plutôt que la valeur d'un
+  // champ `order`.
+  function moveActor(id: string, direction: -1 | 1) {
+    const index = project.actors.findIndex((a) => a.id === id)
+    const swapIndex = index + direction
+    if (index === -1 || swapIndex < 0 || swapIndex >= project.actors.length) return
+    const actors = [...project.actors]
+    ;[actors[index], actors[swapIndex]] = [actors[swapIndex], actors[index]]
+    onChange({ ...project, actors })
+  }
+
   // Confirmation requise : supprime aussi, en cascade, toutes les
   // activités de ce persona — même garde-fou que removePhase/
   // removeActivity/removeInteraction ci-dessous.
@@ -286,12 +303,25 @@ export function ProjectEditor({ project, onChange }: Props) {
         <div className="col-headers">
           <span className="col-color">Couleur</span>
           <span className="col-name">Nom</span>
+          {/* Voir le commentaire équivalent dans la section Phases
+              ci-dessous : même étiquette de colonne pour le groupe de
+              boutons ‹/›, largeur figée à celle du groupe réel. */}
+          <span className="col-reorder">Ordre</span>
+          {/* Fantôme (masqué, inerte) du bouton de suppression — même
+              correction d'alignement que la section Phases ci-dessous :
+              sans lui, "Nom" (seule colonne flex: 1 de cet en-tête)
+              grandirait plus que son homologue dans les lignes en dessous. */}
+          <button type="button" className="danger col-headers-ghost" aria-hidden="true" tabIndex={-1}>
+            supprimer
+          </button>
         </div>
         <ul>
           {filteredActors.length === 0 && actorFilter.trim() && (
             <li className="empty">Aucun persona ne correspond à « {actorFilter} ».</li>
           )}
-          {filteredActors.map((a) => (
+          {filteredActors.map((a) => {
+            const index = project.actors.findIndex((x) => x.id === a.id)
+            return (
             <li key={a.id}>
               <input type="color" value={a.color} onChange={(e) => updateActor(a.id, { color: e.target.value })} />
               <input value={a.name} onChange={(e) => updateActor(a.id, { name: e.target.value })} />
@@ -309,11 +339,38 @@ export function ProjectEditor({ project, onChange }: Props) {
                 />
                 back-stage
               </label>
+              {/* Réordonnancement des personas — contrôle l'ordre
+                  d'affichage dans le diagramme (au sein de son groupe
+                  front-/back-stage, voir moveActor ci-dessus) exactement
+                  comme pour les phases ci-dessous. */}
+              <span className="reorder-buttons">
+                <button
+                  type="button"
+                  className="reorder-btn"
+                  onClick={() => moveActor(a.id, -1)}
+                  disabled={index === 0}
+                  title="Déplacer plus haut dans la liste"
+                  aria-label={`Déplacer le persona « ${a.name} » plus haut`}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="reorder-btn"
+                  onClick={() => moveActor(a.id, 1)}
+                  disabled={index === project.actors.length - 1}
+                  title="Déplacer plus bas dans la liste"
+                  aria-label={`Déplacer le persona « ${a.name} » plus bas`}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </span>
               <button type="button" className="danger" onClick={() => removeActor(a.id, a.name)}>
                 supprimer
               </button>
             </li>
-          ))}
+            )
+          })}
         </ul>
         <button type="button" onClick={addActor}>
           + Ajouter un persona
